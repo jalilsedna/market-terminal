@@ -12,6 +12,7 @@ from __future__ import annotations
 TTL_SECONDS = {
     "intraday": 60,
     "quote": 60,
+    "news": 15 * 60,
     "eod": 24 * 60 * 60,
     "cot": 7 * 24 * 60 * 60,
     "macro": 24 * 60 * 60,
