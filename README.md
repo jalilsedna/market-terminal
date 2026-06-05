@@ -45,9 +45,18 @@ pip install -r requirements.txt
 copy .env.example .env
 #    then open .env and fill in any provider keys you need
 
-# 6. Run the API (auto-reload for development)
-uvicorn app.main:app --reload
+# 6. Run the API
+uvicorn app.main:app
 ```
+
+> **Auto-reload note.** Use plain `uvicorn app.main:app` for normal use. Do **not**
+> point `--reload` at the whole folder: OpenBB rebuilds its static package inside
+> `.venv/` the first time the installed extension set changes, and the default
+> reloader watches `.venv/`, so it would reload mid-rebuild in a loop. For dev
+> auto-reload, scope it to our source only:
+> ```powershell
+> uvicorn app.main:app --reload --reload-dir app --reload-dir services --reload-dir obb_layer
+> ```
 
 The API is then available at <http://127.0.0.1:8000>. Check it is alive:
 
