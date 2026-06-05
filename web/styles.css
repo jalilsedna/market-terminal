@@ -55,7 +55,7 @@ main { padding: 16px; max-width: 1400px; margin: 0 auto; }
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .panel h3 { margin: 0; padding: 9px 12px; font-size: 12px; letter-spacing: .5px; color: var(--muted); background: var(--panel-2); border-bottom: 1px solid var(--border); text-transform: uppercase; }
-.panel .body { padding: 12px; }
+.panel .body { padding: 12px; overflow-x: auto; }
 .panel.bad h3 { color: var(--red); }
 
 /* Tiles */

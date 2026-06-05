@@ -53,7 +53,7 @@ function renderMacro(env) {
   const fx = d.dollar_fx || {};
   if (fx.ok) {
     const row = (lbl, o) => o ? `<tr><td>${lbl}</td><td>${num(o.value, 4)}</td><td>${pct(o.change_1d_pct)}</td><td>${pct(o.change_1w_pct)}</td><td>${pct(o.change_1m_pct)}</td></tr>` : "";
-    out.push(panel("Dollar &amp; FX", `
+    out.push(panel("Dollar & FX", `
       <table><thead><tr><th></th><th>Last</th><th>1d</th><th>1w</th><th>1m</th></tr></thead><tbody>
       ${row("Broad USD", fx.dollar_index)}${row("EUR/USD", fx.eurusd)}${row("GBP/USD", fx.gbpusd)}
       </tbody></table>`));
