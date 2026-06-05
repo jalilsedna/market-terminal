@@ -19,10 +19,14 @@ openbb==4.4.1
 # openbb-benzinga     # paid key — low-latency news
 
 # --- Web framework ---
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+# These versions are pinned to match what `openbb==4.4.1` resolves to. OpenBB
+# carries its own ranges for fastapi/uvicorn/pydantic/python-dotenv; pinning
+# OLDER versions here makes pip backtrack until it OOM-kills itself. When you
+# bump openbb, re-align these to its resolved versions (and re-run the probe).
+fastapi==0.128.8
+uvicorn[standard]==0.40.0
 
 # --- Config / env ---
-pydantic==2.10.4
-pydantic-settings==2.7.1
-python-dotenv==1.0.1
+pydantic==2.13.4
+pydantic-settings==2.14.1
+python-dotenv==1.2.2
