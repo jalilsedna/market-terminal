@@ -20,14 +20,12 @@ _FRESHNESS = "near-real-time headlines (cached ~15m) — research context, not a
 @router.get("", response_model=Envelope)
 def news_feed(
     limit: int = Query(50, ge=1, le=200, description="Max headlines to return"),
-    relevant_only: bool = Query(True, description="Keep only headlines tagged to watchlist/macro"),
     instrument: str | None = Query(None, description="Filter to one instrument, e.g. 'GC'"),
-    provider: str = Query("fmp", description="News provider (needs a key): fmp/benzinga/tiingo"),
+    provider: str = Query("yfinance", description="News provider (yfinance is free)"),
 ) -> Envelope:
-    """Merged, tagged, deduped news feed."""
+    """Merged, instrument-tagged, deduped news feed across the watchlist."""
     try:
-        data = news.feed(limit=limit, relevant_only=relevant_only,
-                         instrument=instrument, provider=provider)
+        data = news.feed(limit=limit, instrument=instrument, provider=provider)
     except ValueError as exc:  # unknown instrument → client error
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 — provider failure → degraded envelope
