@@ -11,11 +11,32 @@ Run locally:
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from config import get_settings
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Warm OpenBB on the main thread at startup.
+
+    OpenBB rebuilds its static package whenever the installed extension set
+    changes, and that rebuild installs a SIGTERM handler via signal.signal(),
+    which only works on the main thread. If the first OpenBB import happened
+    lazily inside a request (FastAPI runs sync endpoints in a worker thread), it
+    raises "signal only works in main thread of the main interpreter" on every
+    call. Triggering it here, during startup on the main thread, performs any
+    one-time rebuild safely; request-time calls then reuse the built package.
+    """
+    from obb_layer.client import get_obb
+
+    get_obb()
+    yield
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -24,6 +45,7 @@ app = FastAPI(
         "Research and analytics only — no execution. See SPEC.md."
     ),
     version="0.0.1",
+    lifespan=lifespan,
 )
 
 

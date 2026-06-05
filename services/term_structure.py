@@ -21,7 +21,7 @@ CURVE_SPECS: dict[str, tuple[str, str, str]] = {
     "GC": ("Gold (GC=F)", "GC=F", "yfinance"),
     "CL": ("WTI Crude (CL=F)", "CL=F", "yfinance"),
     "NG": ("Natural Gas (NG=F)", "NG=F", "yfinance"),
-    "VIX": ("VIX (fear gauge)", "VIX", "cboe"),
+    "VIX": ("VIX (fear gauge)", "VX_EOD", "cboe"),  # cboe accepts VX_EOD / VX_AM
 }
 
 
