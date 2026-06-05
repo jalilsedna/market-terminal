@@ -1,0 +1,28 @@
+# Multi-Asset Research Terminal — Python 3.12
+#
+# Pin OpenBB and provider extensions explicitly; OpenBB's surface moves fast
+# and endpoints are deprecated/renamed across minor releases. Re-run the
+# Phase-0 probe script after any bump (see SPEC.md §6).
+
+# --- OpenBB Platform (consumed as a library; never forked) ---
+openbb==4.4.1
+
+# Provider extensions — start on free providers (see SPEC.md §3).
+# These ship with the `openbb` meta-package by default; listed here for clarity
+# and so the lockfile records intent. Uncomment/add paid providers as needed.
+# openbb-yfinance
+# openbb-fred
+# openbb-cftc
+# openbb-econdb
+# openbb-federal-reserve
+# openbb-fmp          # paid key — better calendar + fundamentals
+# openbb-benzinga     # paid key — low-latency news
+
+# --- Web framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Config / env ---
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
