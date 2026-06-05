@@ -19,7 +19,7 @@ from obb_layer.normalize import to_records
 def etf_history(symbol: str) -> list[dict]:
     """Daily OHLCV for an ETF (e.g. 'XLK'). Provider: yfinance."""
     obb = get_obb()
-    return to_records(obb.etf.price.historical(symbol=symbol, provider="yfinance"))
+    return to_records(obb.etf.historical(symbol=symbol, provider="yfinance"))
 
 
 @cached("eod")
