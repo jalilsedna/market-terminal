@@ -1,0 +1,39 @@
+"""OpenBB data functions for V2 — Watchlist (SPEC.md §4 V2).
+
+Thin fetch→normalize→cache wrappers for the watchlist's daily OHLCV: the futures
+series itself and its spot/cash proxy. All routes/params are Phase-0
+probe-confirmed (yfinance daily OHLCV for futures, currency, and indices).
+
+Proxy dispatch keeps the one explicit symbol map (obb_layer/symbols.py) as the
+source of truth: '^...' → index router, '...=X' → currency router.
+"""
+
+from __future__ import annotations
+
+from cache.store import cached
+from obb_layer.client import get_obb
+from obb_layer.normalize import to_records
+
+
+@cached("eod")
+def futures_history(symbol: str) -> list[dict]:
+    """Daily OHLCV for a futures continuation symbol (e.g. 'GC=F'). Provider: yfinance."""
+    obb = get_obb()
+    return to_records(obb.derivatives.futures.historical(symbol=symbol, provider="yfinance"))
+
+
+@cached("eod")
+def proxy_history(proxy_symbol: str) -> list[dict]:
+    """Daily OHLCV for a spot/cash proxy, routed by symbol shape.
+
+    '^NDX'/'^DJI' → index router; 'EURUSD=X'/'XAUUSD=X' → currency router
+    (the '=X' is a yfinance suffix; the currency endpoint takes the bare pair).
+    """
+    obb = get_obb()
+    if proxy_symbol.startswith("^"):
+        return to_records(obb.index.price.historical(symbol=proxy_symbol, provider="yfinance"))
+    if proxy_symbol.endswith("=X"):
+        pair = proxy_symbol[:-2]
+        return to_records(obb.currency.price.historical(symbol=pair, provider="yfinance"))
+    # Fallback: try the index router (covers raw cash-index tickers).
+    return to_records(obb.index.price.historical(symbol=proxy_symbol, provider="yfinance"))
