@@ -32,10 +32,15 @@ async def lifespan(_app: FastAPI):
     call. Triggering it here, during startup on the main thread, performs any
     one-time rebuild safely; request-time calls then reuse the built package.
     """
+    from app.precache import start as start_precache
     from obb_layer.client import get_obb
 
     get_obb()
-    yield
+    stop_precache = start_precache(settings.precache_interval_min)
+    try:
+        yield
+    finally:
+        stop_precache()
 
 
 app = FastAPI(
@@ -56,6 +61,7 @@ def health() -> dict:
         "status": "ok",
         "app": settings.app_name,
         "providers_configured": settings.configured_providers(),
+        "precache_interval_min": settings.precache_interval_min,
     }
 
 

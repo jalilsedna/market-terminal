@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
 
+    # --- Pre-cache scheduler (Phase 3) ---
+    # Minutes between background cache-warming cycles; 0 disables the scheduler.
+    precache_interval_min: int = 30
+
     # --- Provider API keys (optional; free providers need none) ---
     fmp_api_key: str | None = None
     fred_api_key: str | None = None
