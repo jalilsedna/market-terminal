@@ -20,6 +20,15 @@ from typing import Callable
 from services import cot, macro, news, screener, term_structure, watchlist
 
 logger = logging.getLogger("precache")
+# Make our INFO lines visible in the uvicorn console: uvicorn only configures its
+# own loggers, and the root logger defaults to WARNING, so without this the
+# "started"/"warmed" messages would be swallowed. Self-contained handler.
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+    logger.addHandler(_handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
 # (label, warmer) — calling each populates the caches its view depends on.
 WARMERS: list[tuple[str, Callable[[], object]]] = [
