@@ -38,11 +38,11 @@ def health() -> dict:
 
 
 # Routers (one per view) are registered here as they ship — see SPEC.md §4/§5.
-# Phase 1: V1 Macro Dashboard (shipped), V4 COT/Positioning, V2 Watchlist.
-from app.routers import macro
+# Phase 1: V1 Macro Dashboard (shipped), V4 COT/Positioning (shipped), V2 Watchlist.
+from app.routers import cot, macro
 
 app.include_router(macro.router)
+app.include_router(cot.router)
 
-# from app.routers import cot, watchlist
-# app.include_router(cot.router)
+# from app.routers import watchlist
 # app.include_router(watchlist.router)
