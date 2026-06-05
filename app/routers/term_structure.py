@@ -1,11 +1,8 @@
 """V5 — Futures Term Structure router (SPEC.md §4 V5).
 
-Contango/backwardation for GC + energy curves. Value-add over OpenBB's raw
-curve endpoint: it classifies the structure and computes the front/back spread.
-
-Note: the VIX term structure (SPEC's fear gauge) needs the `cboe` provider,
-which is not installed in the current environment. Adding `openbb-cboe` to
-requirements would enable it.
+Contango/backwardation for GC + energy curves, plus the VIX fear gauge (cboe).
+Value-add over OpenBB's raw curve endpoint: it classifies the structure,
+computes the front/back spread, and reads the VIX curve as risk-on/off.
 """
 
 from __future__ import annotations
@@ -28,7 +25,7 @@ def term_structure_all() -> Envelope:
 
 @router.get("/{code}", response_model=Envelope)
 def term_structure_one(code: str) -> Envelope:
-    """Term structure for one curve root (e.g. 'GC', 'CL', 'NG')."""
+    """Term structure for one curve root (e.g. 'GC', 'CL', 'NG', 'VIX')."""
     try:
         data = term_structure.curve(code)
     except ValueError as exc:  # unknown curve → client error
