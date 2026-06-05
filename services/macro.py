@@ -81,13 +81,20 @@ def _panel(builder: Callable[[], dict], freshness: str) -> dict:
 # --- Panel builders ----------------------------------------------------------
 
 def _rates_panel() -> dict:
+    # federal_reserve returns rates as decimals (0.0449 = 4.49%). Normalize to
+    # percent so the curve matches the FRED-sourced yield tile, and so 2s10s is
+    # a correct basis-point spread. Field names carry the unit to avoid ambiguity.
     curve = macro.yield_curve()
     points = [
-        {"maturity": r.get("maturity"), "years": r.get("maturity_years"), "rate": r.get("rate")}
+        {
+            "maturity": r.get("maturity"),
+            "years": r.get("maturity_years"),
+            "rate_pct": round(float(r["rate"]) * 100, 3),
+        }
         for r in curve
         if r.get("rate") is not None
     ]
-    by_years = {round(float(p["years"]), 2): p["rate"] for p in points if p.get("years") is not None}
+    by_years = {round(float(p["years"]), 2): p["rate_pct"] for p in points if p.get("years") is not None}
 
     def nearest(target: float) -> float | None:
         if not by_years:
@@ -96,11 +103,12 @@ def _rates_panel() -> dict:
         return by_years[yr] if abs(yr - target) <= 0.5 else None
 
     two, ten = nearest(2.0), nearest(10.0)
+    # Both are in percent; (ten - two) is in percentage points × 100 -> basis points.
     spread = round((ten - two) * 100, 1) if (two is not None and ten is not None) else None
     return {
         "curve": points,
-        "two_year": two,
-        "ten_year": ten,
+        "two_year_pct": two,
+        "ten_year_pct": ten,
         "spread_2s10s_bps": spread,
         "curve_date": str(curve[-1].get("date"))[:10] if curve else None,
     }
