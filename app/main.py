@@ -70,3 +70,14 @@ app.include_router(watchlist.router)
 app.include_router(news.router)
 app.include_router(term_structure.router)
 app.include_router(screener.router)
+
+
+# Serve the single-page dashboard (web/) at the root. Mounted LAST so all API
+# routes above take precedence; the static mount only catches '/', '/app.js',
+# '/styles.css', etc. (Phase 3 — SPEC.md §5 step 11.)
+from pathlib import Path
+
+from fastapi.staticfiles import StaticFiles
+
+_WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+app.mount("/", StaticFiles(directory=str(_WEB_DIR), html=True), name="web")
