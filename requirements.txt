@@ -7,6 +7,10 @@
 # --- OpenBB Platform (consumed as a library; never forked) ---
 openbb==4.4.1
 
+# Provider extension for the VIX term structure (V5). Ships with the openbb
+# meta-package; pinned explicitly because we import it directly.
+openbb-cboe==1.6.1
+
 # Provider extensions — start on free providers (see SPEC.md §3).
 # These ship with the `openbb` meta-package by default; listed here for clarity
 # and so the lockfile records intent. Uncomment/add paid providers as needed.
