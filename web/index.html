@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Market Terminal — Research</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">▌</span>
+      <span>MARKET&nbsp;TERMINAL</span>
+      <span class="tag">research only — not a trade signal</span>
+    </div>
+    <div class="controls">
+      <span id="clock" class="clock"></span>
+      <button id="refresh" class="btn">↻ Refresh</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-view="macro">Macro</button>
+    <button class="tab" data-view="watchlist">Watchlist</button>
+    <button class="tab" data-view="cot">COT</button>
+    <button class="tab" data-view="term">Term Structure</button>
+    <button class="tab" data-view="sectors">Sectors</button>
+    <button class="tab" data-view="news">News</button>
+  </nav>
+
+  <main id="views">
+    <section class="view active" id="view-macro"><div class="loading">Loading macro…</div></section>
+    <section class="view" id="view-watchlist"><div class="loading">Loading watchlist…</div></section>
+    <section class="view" id="view-cot"><div class="loading">Loading COT…</div></section>
+    <section class="view" id="view-term"><div class="loading">Loading term structure…</div></section>
+    <section class="view" id="view-sectors"><div class="loading">Loading sectors…</div></section>
+    <section class="view" id="view-news"><div class="loading">Loading news…</div></section>
+  </main>
+
+  <footer class="statusbar">
+    <span id="status">ready</span>
+    <span id="freshness"></span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

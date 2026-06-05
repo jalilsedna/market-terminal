@@ -1,0 +1,102 @@
+/* Market Terminal — dark research UI. Vanilla CSS, no build step. */
+:root {
+  --bg: #0b0e14;
+  --panel: #131722;
+  --panel-2: #1a1f2e;
+  --border: #232938;
+  --text: #d4d9e3;
+  --muted: #7a8294;
+  --green: #26a69a;
+  --red: #ef5350;
+  --amber: #ffb300;
+  --accent: #4c8dff;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 13px/1.45 var(--mono);
+}
+
+/* Top bar */
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 1px; }
+.logo { color: var(--accent); }
+.tag { font-weight: 400; color: var(--muted); font-size: 11px; letter-spacing: 0; }
+.controls { display: flex; align-items: center; gap: 14px; }
+.clock { color: var(--muted); }
+.btn {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  padding: 5px 12px; border-radius: 4px; cursor: pointer; font: inherit;
+}
+.btn:hover { border-color: var(--accent); color: #fff; }
+
+/* Tabs */
+.tabs { display: flex; gap: 2px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab {
+  background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted);
+  padding: 9px 14px; cursor: pointer; font: inherit; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: #fff; border-bottom-color: var(--accent); }
+
+/* Views */
+main { padding: 16px; max-width: 1400px; margin: 0 auto; }
+.view { display: none; }
+.view.active { display: block; }
+.loading { color: var(--muted); padding: 40px; text-align: center; }
+
+/* Grid + panels */
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.panel h3 { margin: 0; padding: 9px 12px; font-size: 12px; letter-spacing: .5px; color: var(--muted); background: var(--panel-2); border-bottom: 1px solid var(--border); text-transform: uppercase; }
+.panel .body { padding: 12px; }
+.panel.bad h3 { color: var(--red); }
+
+/* Tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+.tile .label { color: var(--muted); font-size: 11px; }
+.tile .value { font-size: 20px; font-weight: 700; margin-top: 4px; }
+.tile .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:hover { background: var(--panel-2); }
+
+/* Color helpers */
+.up { color: var(--green); }
+.down { color: var(--red); }
+.dim { color: var(--muted); }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; border: 1px solid var(--border); }
+.pill.green { color: var(--green); border-color: var(--green); }
+.pill.red { color: var(--red); border-color: var(--red); }
+.pill.amber { color: var(--amber); border-color: var(--amber); }
+
+/* Range bar (COT extremes) */
+.bar { height: 8px; background: var(--panel-2); border-radius: 4px; position: relative; margin-top: 6px; }
+.bar > span { position: absolute; top: -2px; width: 4px; height: 12px; background: var(--accent); border-radius: 2px; }
+
+/* Sector rotation bars */
+.rot { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+.rot .name { width: 180px; color: var(--text); }
+.rot .track { flex: 1; height: 16px; background: var(--panel-2); border-radius: 3px; position: relative; }
+.rot .fill { position: absolute; top: 0; height: 100%; border-radius: 3px; }
+.rot .pct { width: 70px; text-align: right; }
+
+/* News */
+.news-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.news-item a { color: var(--text); text-decoration: none; }
+.news-item a:hover { color: var(--accent); }
+.news-meta { color: var(--muted); font-size: 11px; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.err { color: var(--red); font-size: 12px; padding: 8px 0; }
+.statusbar { display: flex; justify-content: space-between; padding: 6px 16px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); background: var(--panel); }
