@@ -97,13 +97,18 @@ def instrument_summary(code: str) -> dict:
         proxy = {"symbol": inst.proxy_symbol, "name": inst.proxy_name,
                  "ok": False, "error": f"{type(exc).__name__}"}
 
+    # ATR as a % of price = atr / close * 100 (a ratio, not a period-over-period
+    # change). A typical daily reading is low single digits.
+    close = fut.get("close")
+    atr_pct = round(atr / close * 100, 3) if (atr is not None and close) else None
+
     return {
         "code": inst.code,
         "name": inst.name,
         "future_symbol": inst.yf_symbol,
         "future": fut,
         "atr_14": atr,
-        "atr_14_pct": _pct(atr, fut.get("close")) if (atr is not None) else None,
+        "atr_14_pct": atr_pct,
         "proxy": proxy,
     }
 
