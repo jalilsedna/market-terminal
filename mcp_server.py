@@ -120,6 +120,15 @@ def analysis_regime() -> dict:
     return _safe(analysis_svc.regime)
 
 
+@mcp.tool()
+def analysis_brief(instrument: str) -> dict:
+    """"What's moving this contract" — a per-instrument synthesis (code like 'GC',
+    '6E', 'NQ') of the macro regime, COT positioning read, price/momentum, term
+    structure (where it exists), and tagged news, plus a one-line factual read.
+    Research context, not a recommendation."""
+    return _safe(analysis_svc.brief, instrument)
+
+
 def main() -> None:
     """Run the MCP server.
 

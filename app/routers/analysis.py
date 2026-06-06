@@ -9,7 +9,7 @@ futures/macro domain.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas import Envelope
 from services import analysis
@@ -29,3 +29,14 @@ def cot_signals() -> Envelope:
 def regime() -> Envelope:
     """Risk-on / risk-off macro regime read (VIX, sector breadth, dollar, index)."""
     return Envelope(data=analysis.regime(), provider="derived (mixed)", freshness=_FRESHNESS)
+
+
+@router.get("/brief", response_model=Envelope)
+def brief(instrument: str = Query(..., description="Watchlist code, e.g. 'GC', '6E'")) -> Envelope:
+    """"What's moving this contract" — per-instrument synthesis of regime,
+    positioning, price/momentum, term structure, and tagged news."""
+    try:
+        data = analysis.brief(instrument)
+    except ValueError as exc:  # unknown instrument
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Envelope(data=data, provider="derived (mixed)", freshness=_FRESHNESS)
