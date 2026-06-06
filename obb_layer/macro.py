@@ -13,11 +13,13 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from cache.store import cached
+from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
 
 
 @cached("eod")
+@guarded()
 def fx_history(pair: str) -> list[dict]:
     """Daily OHLCV for a spot FX pair (e.g. 'EURUSD'). Provider: yfinance."""
     obb = get_obb()
@@ -25,6 +27,7 @@ def fx_history(pair: str) -> list[dict]:
 
 
 @cached("eod")
+@guarded()
 def index_history(symbol: str) -> list[dict]:
     """Daily OHLCV for a cash index (e.g. '^NDX', '^DJI'). Provider: yfinance."""
     obb = get_obb()
@@ -32,6 +35,7 @@ def index_history(symbol: str) -> list[dict]:
 
 
 @cached("macro")
+@guarded()
 def fred_series(series_id: str) -> list[dict]:
     """A FRED economic series (e.g. 'DGS10', 'UNRATE'). Provider: fred."""
     obb = get_obb()
@@ -39,12 +43,14 @@ def fred_series(series_id: str) -> list[dict]:
 
 
 @cached("macro")
+@guarded()
 def yield_curve() -> list[dict]:
     """Latest US Treasury yield curve (maturity, rate). Provider: federal_reserve."""
     obb = get_obb()
     return to_records(obb.fixedincome.government.yield_curve(provider="federal_reserve"))
 
 
+@guarded()
 def economic_calendar(days_ahead: int = 7) -> list[dict]:
     """Upcoming economic calendar for the next `days_ahead` days.
 

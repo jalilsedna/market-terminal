@@ -11,11 +11,13 @@ source of truth: '^...' → index router, '...=X' → currency router.
 from __future__ import annotations
 
 from cache.store import cached
+from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
 
 
 @cached("eod")
+@guarded()
 def futures_history(symbol: str) -> list[dict]:
     """Daily OHLCV for a futures continuation symbol (e.g. 'GC=F'). Provider: yfinance."""
     obb = get_obb()
@@ -23,6 +25,7 @@ def futures_history(symbol: str) -> list[dict]:
 
 
 @cached("eod")
+@guarded()
 def proxy_history(proxy_symbol: str) -> list[dict]:
     """Daily OHLCV for a spot/cash proxy, routed by symbol shape.
 

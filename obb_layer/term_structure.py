@@ -9,11 +9,13 @@ which covers GC and the liquid energy curves (CL/NG). The VIX term structure
 from __future__ import annotations
 
 from cache.store import cached
+from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
 
 
 @cached("eod")
+@guarded()
 def futures_curve(symbol: str, provider: str = "yfinance") -> list[dict]:
     """Forward price curve across expirations for a futures root.
 
