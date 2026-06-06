@@ -19,6 +19,7 @@ from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
+from services import analysis as analysis_svc
 from services import cot as cot_svc
 from services import macro as macro_svc
 from services import news as news_svc
@@ -101,6 +102,22 @@ def market_news(instrument: str | None = None, limit: int = 40) -> dict:
     themes (newest first). Pass an instrument code to filter to one; `limit`
     caps the number of headlines."""
     return _safe(news_svc.feed, instrument=instrument, limit=limit)
+
+
+@mcp.tool()
+def analysis_cot() -> dict:
+    """Interpreted COT positioning read across the watchlist: large-spec net vs
+    its 1y/3y percentile → crowded long (≥85th) / crowded short (≤15th), weekly
+    shift, and a contrarian-at-extremes bias. Research context, not a signal."""
+    return _safe(analysis_svc.cot_signals)
+
+
+@mcp.tool()
+def analysis_regime() -> dict:
+    """Interpreted risk-on / risk-off macro regime read, voted from the VIX
+    curve, sector-leadership breadth, the dollar (1w), and the S&P (1w), with the
+    contributing signals and rationale. Research context, not a signal."""
+    return _safe(analysis_svc.regime)
 
 
 def main() -> None:
