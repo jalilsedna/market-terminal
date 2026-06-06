@@ -197,10 +197,58 @@ async function loadExecution() {
       <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>. Some apps block embedding — use the "Open Alice ↗" button.</div>`;
 }
 
+// Analysis tab: interpreted signals (regime + COT positioning). Fetches both
+// /analysis endpoints and renders the read — research context, not a signal.
+function _regimeCls(label) {
+  if (!label) return "dim";
+  if (label.startsWith("risk-on")) return "up";
+  if (label.startsWith("risk-off")) return "down";
+  return "dim";
+}
+async function loadAnalysis() {
+  const sec = $("#view-analysis");
+  let regime = {}, cot = {};
+  try { regime = (await fetchJSON("/analysis/regime")).data || {}; } catch (e) { /* degrade */ }
+  try { cot = (await fetchJSON("/analysis/cot")).data || {}; } catch (e) { /* degrade */ }
+
+  const rsig = (regime.signals || []).map((s) =>
+    `<tr><td>${esc(s.name)}</td><td>${esc(s.reading)}</td><td class="${_regimeCls(s.leans)}">${esc(s.leans)}</td></tr>`).join("");
+  const regimePanel = panel("Macro Regime", `
+    <div class="tiles"><div class="tile"><div class="label">Regime</div>
+      <div class="value ${_regimeCls(regime.regime)}">${esc(regime.regime || "—")}</div>
+      <div class="sub">score ${num(regime.score, 0)}</div></div></div>
+    <table style="margin-top:10px"><thead><tr><th>Signal</th><th>Reading</th><th>Leans</th></tr></thead><tbody>${rsig}</tbody></table>
+    <div class="exec-help dim">${esc(regime.method || "")}</div>`);
+
+  const rows = Object.entries(cot.signals || {}).map(([code, s]) => {
+    if (!s.ok) return `<tr><td>${esc(code)}</td><td colspan="5" class="err">${esc(s.error || "n/a")}</td></tr>`;
+    const posCls = s.positioning === "crowded long" ? "down" : s.positioning === "crowded short" ? "up" : "dim";
+    return `<tr><td>${esc(code)} <span class="dim">${esc(s.name || "")}</span></td>
+      <td>${num(s.non_commercial_net, 0)}</td><td>${num(s.percentile_1y, 0)}%</td>
+      <td><span class="pill ${posCls === "down" ? "red" : posCls === "up" ? "green" : ""}">${esc(s.positioning)}</span></td>
+      <td style="text-align:left">${esc(s.weekly_shift)}</td>
+      <td style="text-align:left">${esc(s.bias)}</td></tr>`;
+  }).join("");
+  const extremes = (cot.extremes || []).length
+    ? `<div class="sub" style="margin-bottom:8px">Extremes: <b class="amber">${(cot.extremes).map(esc).join(", ")}</b></div>` : "";
+  const cotPanel = panel("COT Positioning Signals", extremes +
+    `<table><thead><tr><th>Instrument</th><th>NC net</th><th>1y %ile</th><th>Positioning</th><th>Weekly shift</th><th>Bias</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="exec-help dim">${esc(cot.method || "")}</div>`);
+
+  sec.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${regimePanel}${cotPanel}</div>
+    <div class="exec-help dim" style="margin-top:8px">${esc(regime.disclaimer || cot.disclaimer || "")}</div>`;
+}
+
 // Lazy loading: only fetch the visible tab; fetch others when first opened (by
 // then the background pre-cache has usually warmed them, so they appear fast).
 const loaded = new Set();
 let active = "macro";
+
+function _loadFor(view) {
+  if (view === "execution") return loadExecution();
+  if (view === "analysis") return loadAnalysis();
+  return loadView(view);
+}
 
 async function showView(view) {
   active = view;
@@ -209,14 +257,14 @@ async function showView(view) {
   if (!loaded.has(view)) {
     loaded.add(view);
     $("#status").textContent = `loading ${view}…`;
-    await (view === "execution" ? loadExecution() : loadView(view));
+    await _loadFor(view);
     $("#status").textContent = "updated " + new Date().toLocaleTimeString();
   }
 }
 
 async function refreshActive() {
   $("#status").textContent = "refreshing…";
-  await (active === "execution" ? loadExecution() : loadView(active));
+  await _loadFor(active);
   loaded.add(active);
   $("#status").textContent = "updated " + new Date().toLocaleTimeString();
 }
@@ -231,4 +279,4 @@ initTabs();
 $("#refresh").addEventListener("click", refreshActive);
 setInterval(tick, 1000); tick();
 showView("macro"); // initial load = visible tab only
-setInterval(() => loaded.forEach(loadView), 10 * 60 * 1000); // refresh opened tabs every 10 min
+setInterval(() => loaded.forEach(_loadFor), 10 * 60 * 1000); // refresh opened tabs every 10 min
