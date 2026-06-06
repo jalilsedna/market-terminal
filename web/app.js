@@ -180,6 +180,23 @@ async function loadView(view) {
   }
 }
 
+// Execution tab: frames the SEPARATE OpenAlice app (the execution "hand"). The
+// terminal stays research-only — it just hosts a window to Alice; no order logic
+// lives here. The URL comes from the backend (/health → alice_url).
+async function loadExecution() {
+  const sec = $("#view-execution");
+  let url = "http://localhost:5173";
+  try { url = (await fetchJSON("/health")).alice_url || url; } catch (e) { /* keep default */ }
+  sec.innerHTML = `
+    <div class="exec-bar">
+      <span>Execution runs in <b>OpenAlice</b> — a separate app. Research flows out via MCP; orders stay there.</span>
+      <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open Alice ↗</a>
+    </div>
+    <iframe class="exec-frame" src="${esc(url)}" title="OpenAlice"></iframe>
+    <div class="exec-help dim">Not loading? Make sure OpenAlice is running (<code>pnpm dev</code>) and reachable at
+      <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>. Some apps block embedding — use the "Open Alice ↗" button.</div>`;
+}
+
 // Lazy loading: only fetch the visible tab; fetch others when first opened (by
 // then the background pre-cache has usually warmed them, so they appear fast).
 const loaded = new Set();
@@ -192,14 +209,14 @@ async function showView(view) {
   if (!loaded.has(view)) {
     loaded.add(view);
     $("#status").textContent = `loading ${view}…`;
-    await loadView(view);
+    await (view === "execution" ? loadExecution() : loadView(view));
     $("#status").textContent = "updated " + new Date().toLocaleTimeString();
   }
 }
 
 async function refreshActive() {
   $("#status").textContent = "refreshing…";
-  await loadView(active);
+  await (active === "execution" ? loadExecution() : loadView(active));
   loaded.add(active);
   $("#status").textContent = "updated " + new Date().toLocaleTimeString();
 }
