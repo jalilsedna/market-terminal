@@ -277,3 +277,82 @@ def brief(instrument: str) -> dict:
     out["read"] = f"{inst.name}: " + "; ".join(bits) + "." if bits else f"{inst.name}: insufficient data."
 
     return out
+
+
+# --- Term-structure signal (flip / steepening) -------------------------------
+
+def _ts_compare(now: dict, prior: dict) -> tuple[str | None, str | None]:
+    """Return (flip, trend) between two curve readings of the same root."""
+    ns, ps = now.get("structure"), prior.get("structure")
+    flip = f"{ps} → {ns}" if (ns and ps and ns != ps) else None
+    nsp, psp = _num(now.get("front_back_spread_pct")), _num(prior.get("front_back_spread_pct"))
+    trend = None
+    if nsp is not None and psp is not None and ns == ps:
+        if ns == "contango":
+            trend = "contango steepening" if nsp > psp else "contango flattening" if nsp < psp else "stable"
+        elif ns == "backwardation":
+            trend = "backwardation deepening" if nsp < psp else "backwardation easing" if nsp > psp else "stable"
+    return flip, trend
+
+
+def _ts_interpret(code: str, now: dict, flip: str | None, trend: str | None) -> str:
+    """Plain-language read of a curve's move (VIX inverted vs commodities)."""
+    s = now.get("structure")
+    if code == "VIX":
+        if flip and flip.endswith("backwardation"):
+            return "VIX flipped into backwardation — stress spike / risk-off building"
+        if flip and flip.endswith("contango"):
+            return "VIX flipped back to contango — stress resolving"
+        return {
+            "contango steepening": "VIX contango steepening — complacency",
+            "contango flattening": "VIX contango flattening — stress building at the front",
+            "backwardation deepening": "VIX backwardation deepening — stress intensifying",
+            "backwardation easing": "VIX backwardation easing — stress receding",
+        }.get(trend or "", f"VIX {s} — stable")
+    # Commodities: backwardation = tight supply / convenience yield; contango = carry.
+    if flip and flip.endswith("backwardation"):
+        return f"{code} flipped into backwardation — tightening / supportive"
+    if flip and flip.endswith("contango"):
+        return f"{code} flipped into contango — easing / carry"
+    return {
+        "backwardation deepening": f"{code} backwardation deepening — tightening",
+        "backwardation easing": f"{code} backwardation easing",
+        "contango steepening": f"{code} contango steepening — looser",
+        "contango flattening": f"{code} contango flattening",
+    }.get(trend or "", f"{code} {s} — stable")
+
+
+def term_structure_signal(lookback_days: int = 7) -> dict:
+    """Detect contango↔backwardation flips and steepening across the tracked
+    curves (now vs ~`lookback_days` ago). VIX is the reliable read; the yfinance
+    commodity curves degrade where unavailable.
+    """
+    from datetime import date as _date, timedelta
+
+    prior_date = (_date.today() - timedelta(days=lookback_days)).isoformat()
+    signals: dict[str, dict] = {}
+    for code in getattr(ts_svc, "CURVE_SPECS", {}):
+        try:
+            now = ts_svc.curve(code)
+            prior = ts_svc.curve(code, date=prior_date)
+            flip, trend = _ts_compare(now, prior)
+            signals[code] = {
+                "ok": True,
+                "structure_now": now.get("structure"),
+                "spread_pct_now": now.get("front_back_spread_pct"),
+                "structure_prior": prior.get("structure"),
+                "spread_pct_prior": prior.get("front_back_spread_pct"),
+                "prior_date": prior_date,
+                "flip": flip,
+                "trend": trend,
+                "read": _ts_interpret(code, now, flip, trend),
+            }
+        except Exception as exc:  # noqa: BLE001 — degrade unavailable curves
+            signals[code] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"[:160]}
+    return {
+        "method": f"Curve structure now vs ~{lookback_days}d ago. Flip = contango↔backwardation "
+                  "change; steepening/deepening from the front-back spread. VIX inverted: "
+                  "backwardation = stress.",
+        "signals": signals,
+        "disclaimer": DISCLAIMER,
+    }

@@ -129,6 +129,14 @@ def analysis_brief(instrument: str) -> dict:
     return _safe(analysis_svc.brief, instrument)
 
 
+@mcp.tool()
+def analysis_term_structure(lookback_days: int = 7) -> dict:
+    """Term-structure dynamics: detects contango↔backwardation **flips** and
+    steepening/deepening across the tracked curves (now vs ~`lookback_days` ago).
+    VIX is the reliable read (backwardation = stress). Research context."""
+    return _safe(analysis_svc.term_structure_signal, lookback_days)
+
+
 def main() -> None:
     """Run the MCP server.
 
