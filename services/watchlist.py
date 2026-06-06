@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from concurrency import parallel_map
 from obb_layer import market
 from obb_layer.symbols import WATCHLIST
 
@@ -113,13 +114,15 @@ def instrument_summary(code: str) -> dict:
     }
 
 
+def _one(item) -> tuple[str, dict]:
+    key, inst = item
+    try:
+        return key, {"ok": True, **instrument_summary(key)}
+    except Exception as exc:  # noqa: BLE001 — one instrument must not sink the view
+        return key, {"ok": False, "code": inst.code, "name": inst.name,
+                     "error": f"{type(exc).__name__}: {exc}"[:200]}
+
+
 def watchlist() -> dict:
-    """V2 across the whole watchlist; each instrument fault-tolerant."""
-    out: dict[str, dict] = {}
-    for key, inst in WATCHLIST.items():
-        try:
-            out[key] = {"ok": True, **instrument_summary(key)}
-        except Exception as exc:  # noqa: BLE001 — one instrument must not sink the view
-            out[key] = {"ok": False, "code": inst.code, "name": inst.name,
-                        "error": f"{type(exc).__name__}: {exc}"[:200]}
-    return out
+    """V2 across the whole watchlist; each instrument fetched concurrently."""
+    return dict(parallel_map(_one, WATCHLIST.items()))

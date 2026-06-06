@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from concurrency import parallel_map
 from obb_layer import cot
 from obb_layer.symbols import WATCHLIST
 
@@ -116,16 +117,21 @@ def positioning(*, instrument: str | None = None, code: str | None = None) -> di
     return summary
 
 
+def _one(item) -> tuple[str, dict]:
+    key, inst = item
+    try:
+        return key, {"ok": True, "name": inst.name, **positioning(instrument=key)}
+    except Exception as exc:  # noqa: BLE001 — one contract must not sink the view
+        return key, {"ok": False, "name": inst.name, "cot_code": inst.cot_code,
+                     "error": f"{type(exc).__name__}: {exc}"[:200]}
+
+
 def dashboard() -> dict:
-    """COT positioning across the whole watchlist; each contract fault-tolerant."""
-    out: dict[str, dict] = {}
-    for key, inst in WATCHLIST.items():
-        try:
-            out[key] = {"ok": True, "name": inst.name, **positioning(instrument=key)}
-        except Exception as exc:  # noqa: BLE001 — one contract must not sink the view
-            out[key] = {"ok": False, "name": inst.name, "cot_code": inst.cot_code,
-                        "error": f"{type(exc).__name__}: {exc}"[:200]}
-    return out
+    """COT positioning across the whole watchlist; each contract fault-tolerant.
+
+    Contracts are fetched concurrently — the CFTC calls are independent.
+    """
+    return dict(parallel_map(_one, WATCHLIST.items()))
 
 
 def search(query: str) -> list[dict]:
