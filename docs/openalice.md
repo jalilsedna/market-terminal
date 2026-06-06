@@ -24,7 +24,21 @@ data source** that OpenAlice *pulls from* over MCP. Nothing flows the other way:
 connectivity, or trade/transfer/withdrawal keys ever live in market-terminal. If
 you want execution, it belongs in OpenAlice, on its side.
 
-## Option A — HTTP (recommended; OpenAlice as a separate service / container)
+## How OpenAlice consumes MCP servers
+
+OpenAlice is built on the Claude Agent SDK and wires MCP servers into each agent
+**workspace** through a **`.mcp.json`** file (workspaces live under
+`~/.openalice/workspaces/<wsId>/`). Its own servers are registered by URL
+(e.g. `http://localhost:47332/mcp`), so the terminal slots in as one more entry
+in the standard Agent-SDK `mcpServers` schema.
+
+> ⚠️ OpenAlice **generates** the per-workspace `.mcp.json`, so a hand-edit there
+> can be overwritten. The durable place to add an external server is OpenAlice's
+> own config (whatever it uses to seed `.mcp.json` for new workspaces). The entry
+> below is the standard Agent-SDK format — verify the exact field names against a
+> real `.mcp.json` in your install (`~/.openalice/workspaces/<wsId>/.mcp.json`).
+
+## Option A — HTTP (recommended; matches how OpenAlice wires its own servers)
 
 Run the terminal's MCP server over HTTP:
 
@@ -32,18 +46,33 @@ Run the terminal's MCP server over HTTP:
 python mcp_server.py --http        # serves at http://127.0.0.1:8001/mcp
 ```
 
-Point OpenAlice at that URL as a **streamable-HTTP MCP server** named
-`market-terminal`. (If OpenAlice runs in Docker and can't reach `127.0.0.1`, set
-`MCP_HOST=0.0.0.0` in `.env` and use the host's LAN address — only on a trusted
-network.)
+Add it to OpenAlice's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "market-terminal": {
+      "type": "http",
+      "url": "http://127.0.0.1:8001/mcp"
+    }
+  }
+}
+```
+
+(If OpenAlice runs in Docker and can't reach `127.0.0.1`, set `MCP_HOST=0.0.0.0`
+in `.env` and use the host's LAN address instead — only on a trusted network.)
 
 ## Option B — stdio (OpenAlice spawns it as a subprocess, same machine)
 
-Register a stdio MCP server in OpenAlice that runs:
-
-```
-command: <abs path>\.venv\Scripts\python.exe
-args:    [ <abs path>\mcp_server.py ]
+```json
+{
+  "mcpServers": {
+    "market-terminal": {
+      "command": "C:\\Users\\<you>\\market-terminal\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\<you>\\market-terminal\\mcp_server.py"]
+    }
+  }
+}
 ```
 
 ## Tools OpenAlice will see
