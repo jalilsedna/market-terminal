@@ -40,3 +40,12 @@ def brief(instrument: str = Query(..., description="Watchlist code, e.g. 'GC', '
     except ValueError as exc:  # unknown instrument
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Envelope(data=data, provider="derived (mixed)", freshness=_FRESHNESS)
+
+
+@router.get("/term-structure", response_model=Envelope)
+def term_structure_signal(
+    lookback_days: int = Query(7, ge=1, le=90, description="Days back for the comparison"),
+) -> Envelope:
+    """Contango↔backwardation flips + steepening across the curves (now vs ~Nd ago)."""
+    return Envelope(data=analysis.term_structure_signal(lookback_days),
+                    provider="derived (cboe/yfinance)", freshness=_FRESHNESS)

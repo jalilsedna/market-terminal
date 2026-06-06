@@ -106,8 +106,9 @@ claude mcp add market-terminal -- .venv\Scripts\python.exe mcp_server.py
 
 Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
 `cot_search`, `term_structure`, `sector_rotation`, `market_news`, and the
-interpreted-signal tools `analysis_cot`, `analysis_regime`. All return research
-context (EOD/delayed/weekly), never trade signals.
+interpreted-signal tools `analysis_cot`, `analysis_regime`, `analysis_brief`,
+`analysis_term_structure`. All return research context (EOD/delayed/weekly),
+never trade signals.
 
 To serve over HTTP instead (e.g. for a separate app to pull research over a URL):
 

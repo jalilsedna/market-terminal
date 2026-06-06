@@ -16,12 +16,15 @@ from obb_layer.normalize import to_records
 
 @cached("eod")
 @guarded()
-def futures_curve(symbol: str, provider: str = "yfinance") -> list[dict]:
+def futures_curve(symbol: str, provider: str = "yfinance", date: str | None = None) -> list[dict]:
     """Forward price curve across expirations for a futures root.
 
-    GC/energy use yfinance ('GC=F' etc.); the VIX curve uses cboe ('VIX').
+    GC/energy use yfinance ('GC=F' etc.); the VIX curve uses cboe. Pass `date`
+    (YYYY-MM-DD) to fetch the curve as of a prior session — cboe returns the
+    nearest available — for flip / steepening comparisons.
     """
     obb = get_obb()
-    return to_records(
-        obb.derivatives.futures.curve(symbol=symbol, provider=provider), sort_by_date=False
-    )
+    kwargs: dict = {"symbol": symbol, "provider": provider}
+    if date:
+        kwargs["date"] = date
+    return to_records(obb.derivatives.futures.curve(**kwargs), sort_by_date=False)

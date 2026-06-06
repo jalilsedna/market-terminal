@@ -32,8 +32,8 @@ def _num(value: Any) -> float | None:
         return None
 
 
-def _classify(symbol: str, provider: str, *, is_vix: bool = False) -> dict:
-    points_raw = ts.futures_curve(symbol, provider=provider)
+def _classify(symbol: str, provider: str, *, is_vix: bool = False, date: str | None = None) -> dict:
+    points_raw = ts.futures_curve(symbol, provider=provider, date=date)
     points = [
         {"expiration": str(p.get("expiration"))[:10], "price": _num(p.get("price"))}
         for p in points_raw
@@ -66,14 +66,17 @@ def _classify(symbol: str, provider: str, *, is_vix: bool = False) -> dict:
     return result
 
 
-def curve(code: str) -> dict:
-    """Term-structure classification for one curve root (e.g. 'GC', 'VIX')."""
+def curve(code: str, date: str | None = None) -> dict:
+    """Term-structure classification for one curve root (e.g. 'GC', 'VIX').
+
+    Pass `date` (YYYY-MM-DD) for the curve as of a prior session.
+    """
     key = code.upper()
     if key not in CURVE_SPECS:
         raise ValueError(f"unknown curve '{code}'; known: {', '.join(CURVE_SPECS)}")
     name, symbol, provider = CURVE_SPECS[key]
-    return {"code": key, "name": name, "provider": provider,
-            **_classify(symbol, provider, is_vix=(key == "VIX"))}
+    return {"code": key, "name": name, "provider": provider, "as_of": date,
+            **_classify(symbol, provider, is_vix=(key == "VIX"), date=date)}
 
 
 def dashboard() -> dict:
