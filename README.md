@@ -73,6 +73,41 @@ To run the Phase-0 capability probe (see `SPEC.md` §5):
 python -m obb_layer.probe
 ```
 
+## MCP server (query the views from an AI client)
+
+`mcp_server.py` exposes the same composed views (macro, watchlist, COT, term
+structure, sector rotation, news) as **Model Context Protocol** tools, so an AI
+client can pull your research directly. It talks stdio and uses your `.env`
+keys.
+
+```powershell
+python mcp_server.py     # runs the MCP server over stdio
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json` (Settings → Developer →
+Edit Config), then restart:
+
+```json
+{
+  "mcpServers": {
+    "market-terminal": {
+      "command": "C:\\Users\\<you>\\market-terminal\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\<you>\\market-terminal\\mcp_server.py"]
+    }
+  }
+}
+```
+
+**Claude Code** — from the project folder:
+
+```powershell
+claude mcp add market-terminal -- .venv\Scripts\python.exe mcp_server.py
+```
+
+Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
+`cot_search`, `term_structure`, `sector_rotation`, `market_news`. All return
+research context (EOD/delayed/weekly), never trade signals.
+
 ## Secrets
 
 All API keys live in `.env`, which is **gitignored and never committed**. Start
