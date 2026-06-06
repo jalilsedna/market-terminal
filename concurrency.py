@@ -14,7 +14,9 @@ from typing import Callable, Iterable, TypeVar
 T = TypeVar("T")
 R = TypeVar("R")
 
-MAX_WORKERS = 6
+# Conservative cap: free providers (yfinance especially) throttle bursts, so a
+# gentle degree of parallelism overlaps the I/O waits without tripping limits.
+MAX_WORKERS = 4
 
 
 def parallel_map(fn: Callable[[T], R], items: Iterable[T], workers: int = MAX_WORKERS) -> list[R]:

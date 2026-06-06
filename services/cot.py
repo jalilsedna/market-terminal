@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from concurrency import parallel_map
 from obb_layer import cot
 from obb_layer.symbols import WATCHLIST
 
@@ -129,9 +128,10 @@ def _one(item) -> tuple[str, dict]:
 def dashboard() -> dict:
     """COT positioning across the whole watchlist; each contract fault-tolerant.
 
-    Contracts are fetched concurrently — the CFTC calls are independent.
+    Fetched *sequentially*: CFTC's Socrata API rate-limits concurrent requests
+    (returns a 403 HTML block page under a burst), and it's only five calls.
     """
-    return dict(parallel_map(_one, WATCHLIST.items()))
+    return dict(_one(item) for item in WATCHLIST.items())
 
 
 def search(query: str) -> list[dict]:
