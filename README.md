@@ -108,6 +108,17 @@ Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
 `cot_search`, `term_structure`, `sector_rotation`, `market_news`. All return
 research context (EOD/delayed/weekly), never trade signals.
 
+To serve over HTTP instead (e.g. for a separate app to pull research over a URL):
+
+```powershell
+python mcp_server.py --http      # http://127.0.0.1:8001/mcp  (port via MCP_PORT)
+```
+
+**Feeding an execution agent (e.g. OpenAlice):** market-terminal stays
+research-only and acts as an MCP data source that the agent *pulls from* —
+research flows out, orders never flow in, and no broker keys ever live here. See
+[`docs/openalice.md`](./docs/openalice.md).
+
 ## Secrets
 
 All API keys live in `.env`, which is **gitignored and never committed**. Start

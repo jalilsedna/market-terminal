@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # Minutes between background cache-warming cycles; 0 disables the scheduler.
     precache_interval_min: int = 30
 
+    # --- MCP server (Phase 3; see mcp_server.py) ---
+    # Host/port used only when the MCP server runs over HTTP (streamable-http),
+    # e.g. so a separate app like OpenAlice can pull research over a URL. Port
+    # defaults to 8001 to avoid clashing with the REST API on 8000.
+    mcp_host: str = "127.0.0.1"
+    mcp_port: int = 8001
+
     # --- Provider API keys (optional; free providers need none) ---
     fmp_api_key: str | None = None
     fred_api_key: str | None = None
