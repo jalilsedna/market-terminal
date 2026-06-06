@@ -180,27 +180,38 @@ async function loadView(view) {
   }
 }
 
-async function loadAll() {
+// Lazy loading: only fetch the visible tab; fetch others when first opened (by
+// then the background pre-cache has usually warmed them, so they appear fast).
+const loaded = new Set();
+let active = "macro";
+
+async function showView(view) {
+  active = view;
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${view}`));
+  if (!loaded.has(view)) {
+    loaded.add(view);
+    $("#status").textContent = `loading ${view}…`;
+    await loadView(view);
+    $("#status").textContent = "updated " + new Date().toLocaleTimeString();
+  }
+}
+
+async function refreshActive() {
   $("#status").textContent = "refreshing…";
-  await Promise.all(Object.keys(ENDPOINTS).map(loadView));
+  await loadView(active);
+  loaded.add(active);
   $("#status").textContent = "updated " + new Date().toLocaleTimeString();
 }
 
 function initTabs() {
-  document.querySelectorAll(".tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-      document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-      tab.classList.add("active");
-      $(`#view-${tab.dataset.view}`).classList.add("active");
-    });
-  });
+  document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => showView(tab.dataset.view)));
 }
 
 function tick() { $("#clock").textContent = new Date().toUTCString().slice(17, 25) + " UTC"; }
 
 initTabs();
-$("#refresh").addEventListener("click", loadAll);
+$("#refresh").addEventListener("click", refreshActive);
 setInterval(tick, 1000); tick();
-loadAll();
-setInterval(loadAll, 10 * 60 * 1000); // auto-refresh every 10 min
+showView("macro"); // initial load = visible tab only
+setInterval(() => loaded.forEach(loadView), 10 * 60 * 1000); // refresh opened tabs every 10 min

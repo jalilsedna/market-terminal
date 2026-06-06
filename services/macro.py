@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from concurrency import parallel_map
 from obb_layer import macro
 
 # Cash-index proxies behind the index futures the user trades (SPEC §4 V1).
@@ -166,11 +167,17 @@ def _calendar_panel() -> dict:
 
 
 def build_dashboard() -> dict:
-    """Assemble the full V1 macro dashboard (all panels, each fault-tolerant)."""
-    return {
-        "rates": _panel(_rates_panel, "daily (latest session)"),
-        "dollar_fx": _panel(_dollar_fx_panel, "EOD / daily"),
-        "macro_tiles": _panel(_macro_tiles_panel, "FRED release cadence"),
-        "indices": _panel(_indices_panel, "EOD (daily)"),
-        "calendar": _panel(_calendar_panel, "upcoming 7 days"),
-    }
+    """Assemble the full V1 macro dashboard (all panels, each fault-tolerant).
+
+    The five panels are built concurrently — each makes its own independent,
+    network-bound provider calls.
+    """
+    specs = [
+        ("rates", _rates_panel, "daily (latest session)"),
+        ("dollar_fx", _dollar_fx_panel, "EOD / daily"),
+        ("macro_tiles", _macro_tiles_panel, "FRED release cadence"),
+        ("indices", _indices_panel, "EOD (daily)"),
+        ("calendar", _calendar_panel, "upcoming 7 days"),
+    ]
+    built = parallel_map(lambda s: (s[0], _panel(s[1], s[2])), specs)
+    return dict(built)

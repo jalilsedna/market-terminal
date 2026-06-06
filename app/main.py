@@ -32,10 +32,25 @@ async def lifespan(_app: FastAPI):
     call. Triggering it here, during startup on the main thread, performs any
     one-time rebuild safely; request-time calls then reuse the built package.
     """
+    import logging
+
+    # Quiet transient-failure noise from provider HTTP layers. Our services
+    # already catch these and degrade the affected panel, but OpenBB's FRED
+    # client dumps large asyncio tracebacks ("Future exception was never
+    # retrieved") and yfinance prints "possibly delisted" on any network blip /
+    # rate limit. Silence theirs; our own logs are untouched.
+    for _noisy in ("asyncio", "yfinance"):
+        logging.getLogger(_noisy).setLevel(logging.CRITICAL)
+
+    from app.precache import start as start_precache
     from obb_layer.client import get_obb
 
     get_obb()
-    yield
+    stop_precache = start_precache(settings.precache_interval_min)
+    try:
+        yield
+    finally:
+        stop_precache()
 
 
 app = FastAPI(
@@ -56,6 +71,7 @@ def health() -> dict:
         "status": "ok",
         "app": settings.app_name,
         "providers_configured": settings.configured_providers(),
+        "precache_interval_min": settings.precache_interval_min,
     }
 
 

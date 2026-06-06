@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from concurrency import parallel_map
 from obb_layer import screener
 
 # The 11 S&P sector SPDR ETFs → sector label (SPEC §4 V6 sector rotation).
@@ -62,15 +63,22 @@ def _changes(records: list[dict]) -> dict:
     }
 
 
+def _sector_one(item: tuple[str, str]) -> dict:
+    etf, sector = item
+    try:
+        return {"etf": etf, "sector": sector, **_changes(screener.etf_history(etf))}
+    except Exception as exc:  # noqa: BLE001 — one ETF must not sink the view
+        return {"etf": etf, "sector": sector, "_error": type(exc).__name__}
+
+
 def sector_rotation() -> dict:
-    """1d/1w/1m % change for the 11 sector ETFs, ranked by 1-week performance."""
-    rows: list[dict] = []
-    errors: dict[str, str] = {}
-    for etf, sector in SECTOR_ETFS.items():
-        try:
-            rows.append({"etf": etf, "sector": sector, **_changes(screener.etf_history(etf))})
-        except Exception as exc:  # noqa: BLE001 — one ETF must not sink the view
-            errors[etf] = f"{type(exc).__name__}"
+    """1d/1w/1m % change for the 11 sector ETFs, ranked by 1-week performance.
+
+    The 11 ETF fetches run concurrently — they're independent and network-bound.
+    """
+    fetched = parallel_map(_sector_one, SECTOR_ETFS.items())
+    rows = [r for r in fetched if "_error" not in r]
+    errors = {r["etf"]: r["_error"] for r in fetched if "_error" in r}
 
     if not rows and errors:
         raise RuntimeError(f"all sector fetches failed (e.g. {next(iter(errors.values()))})")

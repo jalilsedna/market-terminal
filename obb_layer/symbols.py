@@ -32,7 +32,7 @@ class Instrument:
 WATCHLIST: dict[str, Instrument] = {
     "6E": Instrument("6E", "Euro FX futures", "6E=F", "EURUSD=X", "EUR/USD spot", "099741", "FXE"),
     "6B": Instrument("6B", "British Pound futures", "6B=F", "GBPUSD=X", "GBP/USD spot", "096742", "FXB"),
-    "GC": Instrument("GC", "Gold futures", "GC=F", "XAUUSD=X", "Gold spot", "088691", "GLD"),
+    "GC": Instrument("GC", "Gold futures", "GC=F", "GLD", "Gold (GLD ETF)", "088691", "GLD"),
     "NQ": Instrument("NQ", "E-mini Nasdaq-100", "NQ=F", "^NDX", "Nasdaq-100 cash", "209742", "QQQ"),
     "YM": Instrument("YM", "E-mini Dow", "YM=F", "^DJI", "Dow Jones cash", "124603", "DIA"),
 }

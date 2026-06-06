@@ -12,11 +12,13 @@ No domain logic here; net positioning / trend / extremes are computed in
 from __future__ import annotations
 
 from cache.store import cached
+from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
 
 
 @cached("cot")
+@guarded()
 def cot_history(code: str, futures_only: bool = True) -> list[dict]:
     """Full weekly COT history for a CFTC contract `code` (e.g. '088691').
 
@@ -29,6 +31,7 @@ def cot_history(code: str, futures_only: bool = True) -> list[dict]:
 
 
 @cached("cot")
+@guarded()
 def cot_search(query: str) -> list[dict]:
     """Search CFTC contracts by name → returns code/name/category rows.
 

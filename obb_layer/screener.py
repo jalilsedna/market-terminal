@@ -11,11 +11,13 @@ from __future__ import annotations
 from typing import Any
 
 from cache.store import cached
+from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
 
 
 @cached("eod")
+@guarded()
 def etf_history(symbol: str) -> list[dict]:
     """Daily OHLCV for an ETF (e.g. 'XLK'). Provider: yfinance."""
     obb = get_obb()
@@ -23,6 +25,7 @@ def etf_history(symbol: str) -> list[dict]:
 
 
 @cached("eod")
+@guarded()
 def screen(**criteria: Any) -> list[dict]:
     """Run the yfinance equity screener with the given filter criteria."""
     obb = get_obb()

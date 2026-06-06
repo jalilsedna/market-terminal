@@ -12,6 +12,7 @@ Services never import OpenBB directly — they call `obb_layer/`.
 
 from __future__ import annotations
 
+from concurrency import parallel_map
 from obb_layer import news
 from obb_layer.symbols import WATCHLIST
 
@@ -57,11 +58,18 @@ def feed(*, limit: int = 50, instrument: str | None = None, provider: str = "yfi
     headlines: list[dict] = []
     errors: dict[str, str] = {}
 
-    for code, inst in targets.items():
+    # Fetch each instrument's news concurrently; dedupe/merge below stays
+    # sequential (cheap, order-sensitive).
+    def _fetch(item):
+        code, inst = item
         try:
-            raw = news.company_news(inst.news_symbol, provider=provider, limit=per_instrument)
+            return code, news.company_news(inst.news_symbol, provider=provider, limit=per_instrument), None
         except Exception as exc:  # noqa: BLE001 — one ticker must not sink the feed
-            errors[code] = f"{type(exc).__name__}"
+            return code, [], type(exc).__name__
+
+    for code, raw, err in parallel_map(_fetch, targets.items()):
+        if err:
+            errors[code] = err
             continue
         for item in raw:
             h = _headline(item, code)

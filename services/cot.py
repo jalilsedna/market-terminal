@@ -116,16 +116,22 @@ def positioning(*, instrument: str | None = None, code: str | None = None) -> di
     return summary
 
 
+def _one(item) -> tuple[str, dict]:
+    key, inst = item
+    try:
+        return key, {"ok": True, "name": inst.name, **positioning(instrument=key)}
+    except Exception as exc:  # noqa: BLE001 — one contract must not sink the view
+        return key, {"ok": False, "name": inst.name, "cot_code": inst.cot_code,
+                     "error": f"{type(exc).__name__}: {exc}"[:200]}
+
+
 def dashboard() -> dict:
-    """COT positioning across the whole watchlist; each contract fault-tolerant."""
-    out: dict[str, dict] = {}
-    for key, inst in WATCHLIST.items():
-        try:
-            out[key] = {"ok": True, "name": inst.name, **positioning(instrument=key)}
-        except Exception as exc:  # noqa: BLE001 — one contract must not sink the view
-            out[key] = {"ok": False, "name": inst.name, "cot_code": inst.cot_code,
-                        "error": f"{type(exc).__name__}: {exc}"[:200]}
-    return out
+    """COT positioning across the whole watchlist; each contract fault-tolerant.
+
+    Fetched *sequentially*: CFTC's Socrata API rate-limits concurrent requests
+    (returns a 403 HTML block page under a burst), and it's only five calls.
+    """
+    return dict(_one(item) for item in WATCHLIST.items())
 
 
 def search(query: str) -> list[dict]:
