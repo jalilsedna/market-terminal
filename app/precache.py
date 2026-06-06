@@ -17,7 +17,6 @@ import threading
 import time
 from typing import Callable
 
-from concurrency import parallel_map
 from services import cot, macro, news, screener, term_structure, watchlist
 
 logger = logging.getLogger("precache")
@@ -53,10 +52,16 @@ def _warm_one(item: tuple[str, Callable[[], object]]) -> bool:
 
 
 def warm_all() -> None:
-    """Run one warming cycle over every view, concurrently (fault-tolerant)."""
+    """Run one warming cycle over every view (fault-tolerant).
+
+    Views are warmed *sequentially* — each view already fans out its own
+    provider calls in parallel. Warming all six at once would multiply into
+    ~30+ simultaneous yfinance calls and trip Yahoo's rate limiting (seen as
+    news returning EmptyDataError for every ticker); one view at a time keeps
+    the burst bounded while staying fast.
+    """
     started = time.monotonic()
-    results = parallel_map(_warm_one, WARMERS, workers=len(WARMERS))
-    ok = sum(1 for r in results if r)
+    ok = sum(1 for item in WARMERS if _warm_one(item))
     logger.info("precache: warmed %d/%d views in %.1fs", ok, len(WARMERS), time.monotonic() - started)
 
 
