@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     mcp_host: str = "127.0.0.1"
     mcp_port: int = 8001
 
+    # --- Execution app (OpenAlice) ---
+    # URL of the SEPARATE execution app, framed in the terminal's Execution tab.
+    # Default is OpenAlice's dev UI. Execution lives there, never in this repo.
+    alice_url: str = "http://localhost:5173"
+
     # --- Provider API keys (optional; free providers need none) ---
     fmp_api_key: str | None = None
     fred_api_key: str | None = None

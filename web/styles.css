@@ -44,6 +44,18 @@ body {
 }
 .tab:hover { color: var(--text); }
 .tab.active { color: #fff; border-bottom-color: var(--accent); }
+/* Execution tab sits to the right, visually set apart (it's the separate app). */
+.tab-exec { margin-left: auto; color: var(--amber); }
+.tab-exec.active { color: #fff; border-bottom-color: var(--amber); }
+
+/* Execution view: framed OpenAlice */
+.exec-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 12px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted); font-size: 12px; }
+.exec-frame { width: 100%; height: calc(100vh - 220px); min-height: 420px; margin-top: 10px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.exec-help { margin-top: 8px; font-size: 11px; }
+.exec-help code { color: var(--text); }
 
 /* Views */
 main { padding: 16px; max-width: 1400px; margin: 0 auto; }

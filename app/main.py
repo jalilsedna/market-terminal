@@ -72,6 +72,7 @@ def health() -> dict:
         "app": settings.app_name,
         "providers_configured": settings.configured_providers(),
         "precache_interval_min": settings.precache_interval_min,
+        "alice_url": settings.alice_url,
     }
 
 
