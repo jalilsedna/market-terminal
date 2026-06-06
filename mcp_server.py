@@ -104,18 +104,36 @@ def market_news(instrument: str | None = None, limit: int = 40) -> dict:
 
 
 def main() -> None:
-    # Warm OpenBB on the main thread before serving: FastMCP runs sync tools in a
-    # worker thread, and OpenBB's one-time static-package rebuild installs a
-    # signal handler that only works on the main thread (see app/main.py).
+    """Run the MCP server.
+
+    Default transport is stdio (for Claude Desktop / Claude Code, which spawn
+    this as a subprocess). Pass `--http` to serve over streamable-HTTP instead,
+    so a separate app (e.g. OpenAlice) can pull research over a URL without
+    spawning Python. Host/port come from config (default 127.0.0.1:8001, kept
+    off the REST API's 8000).
+    """
     import logging
+    import sys
 
     for _noisy in ("asyncio", "yfinance"):
         logging.getLogger(_noisy).setLevel(logging.CRITICAL)
 
+    # Warm OpenBB on the main thread before serving: FastMCP runs sync tools in a
+    # worker thread, and OpenBB's one-time static-package rebuild installs a
+    # signal handler that only works on the main thread (see app/main.py).
     from obb_layer.client import get_obb
 
     get_obb()
-    mcp.run(transport="stdio")
+
+    if "--http" in sys.argv:
+        from config import get_settings
+
+        settings = get_settings()
+        mcp.settings.host = settings.mcp_host
+        mcp.settings.port = settings.mcp_port
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
