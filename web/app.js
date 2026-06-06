@@ -205,6 +205,39 @@ function _regimeCls(label) {
   if (label.startsWith("risk-off")) return "down";
   return "dim";
 }
+function _renderBrief(d) {
+  if (!d || d.code === undefined) return '<div class="err">no data</div>';
+  const p = d.price || {}, c = d.cot || {}, t = d.term_structure, r = d.regime || {};
+  const posCls = c.positioning === "crowded long" ? "red" : c.positioning === "crowded short" ? "green" : "";
+  const news = (d.news || []).map((h) =>
+    `<div class="news-item"><a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(h.title)}</a>
+     <div class="news-meta"><span>${esc((h.date || "").slice(0, 16))}</span><span>${esc(h.source || "")}</span></div></div>`).join("");
+  return `
+    <div style="font-size:14px;margin-bottom:10px"><b>${esc(d.read || "")}</b></div>
+    <div class="tiles">
+      <div class="tile"><div class="label">Regime</div><div class="value ${_regimeCls(r.regime)}">${esc(r.regime || "—")}</div></div>
+      <div class="tile"><div class="label">Close</div><div class="value">${num(p.close, 4)}</div><div class="sub">1w ${pct(p.change_1w_pct)}</div></div>
+      <div class="tile"><div class="label">ATR(14)</div><div class="value">${num(p.atr_14_pct, 2)}%</div></div>
+      ${c.positioning && c.positioning !== "n/a" ? `<div class="tile"><div class="label">COT</div><div class="value"><span class="pill ${posCls}">${esc(c.positioning)}</span></div><div class="sub">${num(c.percentile_1y, 0)}th pct 1y</div></div>` : ""}
+      ${t && t.structure ? `<div class="tile"><div class="label">Curve</div><div class="value">${esc(t.structure)}</div><div class="sub">${pct(t.front_back_spread_pct)}</div></div>` : ""}
+    </div>
+    ${c.bias ? `<div class="sub" style="margin-top:8px">COT: ${esc(c.bias)}${c.weekly_shift && c.weekly_shift !== "n/a" ? " · " + esc(c.weekly_shift) : ""}</div>` : ""}
+    ${news ? `<div style="margin-top:10px">${news}</div>` : '<div class="dim" style="margin-top:10px">no tagged news</div>'}`;
+}
+
+async function loadBrief(code) {
+  const body = document.getElementById("brief-body");
+  if (!body) return;
+  body.innerHTML = `<div class="loading">Loading ${esc(code)} brief…</div>`;
+  try {
+    const env = await fetchJSON("/analysis/brief?instrument=" + encodeURIComponent(code));
+    if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "failed")}</div>`; return; }
+    body.innerHTML = _renderBrief(env.data || {});
+  } catch (e) {
+    body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`;
+  }
+}
+
 async function loadAnalysis() {
   const sec = $("#view-analysis");
   let regime = {}, cot = {};
@@ -235,8 +268,16 @@ async function loadAnalysis() {
     `<table><thead><tr><th>Instrument</th><th>NC net</th><th>1y %ile</th><th>Positioning</th><th>Weekly shift</th><th>Bias</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="exec-help dim">${esc(cot.method || "")}</div>`);
 
-  sec.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${regimePanel}${cotPanel}</div>
+  const briefPanel = panel("Instrument Brief — what's moving this contract", `
+    <select id="brief-pick" class="btn">${["6E", "6B", "GC", "NQ", "YM"].map((k) => `<option${k === "GC" ? " selected" : ""}>${k}</option>`).join("")}</select>
+    <div id="brief-body" style="margin-top:10px"></div>`);
+
+  sec.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${briefPanel}${regimePanel}${cotPanel}</div>
     <div class="exec-help dim" style="margin-top:8px">${esc(regime.disclaimer || cot.disclaimer || "")}</div>`;
+
+  const pick = document.getElementById("brief-pick");
+  if (pick) pick.addEventListener("change", () => loadBrief(pick.value));
+  loadBrief(pick ? pick.value : "GC");
 }
 
 // Lazy loading: only fetch the visible tab; fetch others when first opened (by
