@@ -7,8 +7,12 @@ day trading (6E, 6B, GC, NQ, YM). It aggregates macro, market-data, positioning,
 fundamentals (of futures underlyings/sectors), and news into a few focused views.
 
 **Non-goals (hard boundaries):**
-- **No execution.** Order entry, position management, and live PnL stay on
-  NinjaTrader and MetaTrader. This terminal never touches a broker.
+- **Execution is delegated, not done here.** Order entry, position management,
+  and live PnL belong to a separate executor — **OpenAlice** (which pulls this
+  terminal's research over MCP, see `docs/openalice.md`), NinjaTrader, or
+  MetaTrader. This terminal never places/routes orders, holds broker
+  connectivity, or stores trade/transfer-capable keys (read-only data keys
+  only). Research flows out to the executor; orders never flow back in.
 - **No real-time tick feed.** OpenBB is an EOD / delayed / on-demand data layer.
   Treat every number as research context, not a trade trigger.
 - **No fork of OpenBB.** We `pip install openbb` and consume it as a library.

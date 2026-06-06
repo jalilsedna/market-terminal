@@ -11,8 +11,14 @@ research and analytics. It is built **on top of OpenBB**, which we consume as a
 - **Stack:** Python 3.12 · FastAPI · OpenBB Platform
 - **Scope:** multi-asset *research* (macro, market data, positioning,
   fundamentals of futures underlyings/sectors, news).
-- **Out of scope:** execution. No order entry, no position management, no live
-  PnL, no broker connectivity. Execution stays on NinjaTrader / MetaTrader.
+- **Execution is delegated, not duplicated.** This terminal is the *research
+  brain*: it does **not** place/route/manage orders or hold broker connectivity,
+  and **no trade/transfer/withdrawal-capable keys ever live here** (only
+  read-only data keys). Execution is a separate system — OpenAlice (which pulls
+  this terminal's research over MCP — see `docs/openalice.md`), NinjaTrader, or
+  MetaTrader. The split is deliberate: research and execution have different
+  risk profiles, so orders flow there, never from here. Changing this is a
+  conscious, documented decision — not an incidental feature add.
 
 See `SPEC.md` for the full product specification.
 
