@@ -43,6 +43,21 @@ def _import_kronos():
     raise ImportError(_INSTALL_HINT)
 
 
+def _resolve_device(device: str) -> str:
+    """Fall back to CPU if 'cuda' is requested but unavailable (CPU-only torch or
+    no GPU), so `KRONOS_DEVICE=cuda` degrades gracefully instead of crashing."""
+    if device == "cuda":
+        try:
+            import torch
+
+            if not torch.cuda.is_available():
+                print("kronos: CUDA requested but unavailable — falling back to CPU")
+                return "cpu"
+        except ImportError:
+            return "cpu"
+    return device
+
+
 @lru_cache(maxsize=4)
 def get_predictor(model: str | None = None, device: str | None = None):
     """Load (once) and return a KronosPredictor for `model` on `device`.
@@ -54,7 +69,7 @@ def get_predictor(model: str | None = None, device: str | None = None):
 
     settings = get_settings()
     model = model or settings.kronos_model
-    device = device or settings.kronos_device
+    device = _resolve_device(device or settings.kronos_device)
     if model not in _MODELS:
         raise ValueError(f"unknown kronos_model {model!r}; choose from {list(_MODELS)}")
 
