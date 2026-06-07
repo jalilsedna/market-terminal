@@ -1,0 +1,28 @@
+# Keep the build context (and image) small and secret-free.
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+
+# Secrets must never enter the image — they come from Railway env vars.
+.env
+.env.*
+!.env.example
+
+# Local data / caches (regenerated at runtime).
+cache/data
+OpenBBUserData
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Docs aren't needed at runtime.
+docs
+*.md

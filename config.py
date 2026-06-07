@@ -33,6 +33,26 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
 
+    # --- Auth (Phase A8 — required before the service is public) ---
+    # The terminal is single-user research, but once it's reachable on the
+    # internet (Railway) the web UI, REST API, and mounted MCP feed must be
+    # gated, or anyone can hit it and burn the provider keys. Two credentials:
+    #   * auth_token   — Bearer token for programmatic clients (Alice / MCP / API)
+    #   * admin_*      — username/password for the browser /login page
+    # Both are OPTIONAL: with neither set, auth is DISABLED so local dev is
+    # unchanged. `auth_enabled` is true as soon as either is configured, which is
+    # mandatory on any public deploy (see docs/deploy-railway.md).
+    auth_token: str | None = None
+    admin_username: str = "admin"
+    admin_password: str | None = None
+    # Signs the browser session cookie. Keep it stable across restarts so logins
+    # survive redeploys; falls back to auth_token if unset. Generate with
+    # `openssl rand -hex 32`.
+    session_secret: str | None = None
+    # Public URL of the deployed terminal (for docs / Alice's .mcp.json), e.g.
+    # https://market-terminal.up.railway.app — informational only.
+    public_base_url: str | None = None
+
     # --- Pre-cache scheduler (Phase 3) ---
     # Minutes between background cache-warming cycles; 0 disables the scheduler.
     precache_interval_min: int = 30
@@ -56,6 +76,12 @@ class Settings(BaseSettings):
     intrinio_api_key: str | None = None
     tiingo_api_key: str | None = None
     eia_api_key: str | None = None
+
+    @property
+    def auth_enabled(self) -> bool:
+        """Whether access control is active. True as soon as a Bearer token or an
+        admin password is configured; false (open) for keyless local dev."""
+        return bool(self.auth_token or self.admin_password)
 
     def configured_providers(self) -> dict[str, bool]:
         """Map of provider -> whether a key is present. Useful for diagnostics."""

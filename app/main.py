@@ -14,10 +14,34 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from mcp.server.transport_security import TransportSecuritySettings
 
 from config import get_settings
 
 settings = get_settings()
+
+# --- Research MCP feed, mounted into this same service (Phase A8) -------------
+# The terminal exposes its research as MCP tools. Rather than run a second
+# process/port, we mount the FastMCP app into this FastAPI service at `/mcp`, so
+# one Railway deploy serves the web UI, the REST API, AND the agent feed under a
+# single domain and a single auth gate (see app/auth.py).
+#
+# Three settings make mounting clean:
+#   * stateless_http      — each request is self-contained; no long-lived session
+#     to babysit, which is ideal behind a mount and for a read-only feed.
+#   * streamable_http_path "/" — the sub-app serves at its own root; we add the
+#     "/mcp" prefix via app.mount() below (avoids a doubled "/mcp/mcp").
+#   * transport_security  — FastMCP's DNS-rebinding guard rejects unknown Host
+#     headers (e.g. *.railway.app); we disable it because our own Bearer/session
+#     auth already protects the endpoint.
+from mcp_server import mcp as research_mcp
+
+research_mcp.settings.stateless_http = True
+research_mcp.settings.streamable_http_path = "/"
+research_mcp.settings.transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=False
+)
+_mcp_app = research_mcp.streamable_http_app()  # also creates session_manager
 
 
 @asynccontextmanager
@@ -47,10 +71,14 @@ async def lifespan(_app: FastAPI):
 
     get_obb()
     stop_precache = start_precache(settings.precache_interval_min)
-    try:
-        yield
-    finally:
-        stop_precache()
+    # Run the mounted MCP feed's session manager for the app's lifetime. FastMCP
+    # requires this to be entered exactly once within a lifespan when its ASGI
+    # app is mounted into a host application.
+    async with research_mcp.session_manager.run():
+        try:
+            yield
+        finally:
+            stop_precache()
 
 
 app = FastAPI(
@@ -64,12 +92,22 @@ app = FastAPI(
 )
 
 
+# Access control. Registered before the routes so it wraps every request,
+# including the mounted MCP feed and the static SPA. No-op when auth is disabled
+# (keyless local dev); enforced as soon as a token/admin password is set.
+from app.auth import auth_middleware
+
+app.middleware("http")(auth_middleware)
+
+
 @app.get("/health", tags=["meta"])
 def health() -> dict:
-    """Liveness check + which providers have keys configured."""
+    """Liveness check + which providers have keys configured. Always reachable
+    (Railway's healthcheck hits this) — never behind auth."""
     return {
         "status": "ok",
         "app": settings.app_name,
+        "auth_enabled": settings.auth_enabled,
         "providers_configured": settings.configured_providers(),
         "precache_interval_min": settings.precache_interval_min,
         "alice_url": settings.alice_url,
@@ -90,12 +128,63 @@ app.include_router(screener.router)
 app.include_router(analysis.router)
 
 
+from pathlib import Path
+
+from fastapi import Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
+from app.auth import SESSION_COOKIE, set_session_cookie, users
+
+_WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+
+def _login_html(next_url: str = "/", error: str = "") -> str:
+    """Render the login page with the post-login redirect target and any error."""
+    html = (_WEB_DIR / "login.html").read_text(encoding="utf-8")
+    safe_next = next_url if next_url.startswith("/") else "/"
+    html = html.replace("__NEXT__", safe_next)
+    if error:
+        html = html.replace("<!--ERROR-->", f'<p class="err">{error}</p>')
+    return html
+
+
+@app.get("/login", include_in_schema=False)
+def login_page(next: str = "/") -> HTMLResponse:
+    """Serve the browser login form (open — see auth.OPEN_PATHS)."""
+    return HTMLResponse(_login_html(next))
+
+
+@app.post("/login", include_in_schema=False)
+async def login_submit(request: Request):
+    """Validate credentials, set the session cookie, and redirect on success."""
+    form = await request.form()
+    username = str(form.get("username", ""))
+    password = str(form.get("password", ""))
+    next_url = str(form.get("next", "/")) or "/"
+    if users.verify_password(username, password):
+        target = next_url if next_url.startswith("/") else "/"
+        resp = RedirectResponse(target, status_code=303)
+        set_session_cookie(resp, username, secure=request.url.scheme == "https")
+        return resp
+    return HTMLResponse(
+        _login_html(next_url, error="Invalid username or password."), status_code=401
+    )
+
+
+@app.api_route("/logout", methods=["GET", "POST"], include_in_schema=False)
+def logout() -> RedirectResponse:
+    """Clear the session cookie and return to the login page."""
+    resp = RedirectResponse("/login", status_code=303)
+    resp.delete_cookie(SESSION_COOKIE, path="/")
+    return resp
+
+
+# Mount the research MCP feed at /mcp (configured above). Registered before the
+# catch-all static mount so it takes precedence.
+app.mount("/mcp", _mcp_app, name="mcp")
+
 # Serve the single-page dashboard (web/) at the root. Mounted LAST so all API
 # routes above take precedence; the static mount only catches '/', '/app.js',
 # '/styles.css', etc. (Phase 3 — SPEC.md §5 step 11.)
-from pathlib import Path
-
-from fastapi.staticfiles import StaticFiles
-
-_WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 app.mount("/", StaticFiles(directory=str(_WEB_DIR), html=True), name="web")
