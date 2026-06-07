@@ -53,6 +53,6 @@ jobs:
       - name: Install full stack (OpenBB)
         run: pip install -r requirements.txt
       - name: Compile every module
-        run: python -m compileall -q app services obb_layer cache circuit.py concurrency.py config.py mcp_server.py
+        run: python -m compileall -q app services obb_layer cache kronos_layer scripts circuit.py concurrency.py config.py mcp_server.py
       - name: Import the app (catches OpenBB-bump breakage in any view)
         run: python -c "import app.main; import mcp_server; print('app + MCP server import OK')"
