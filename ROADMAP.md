@@ -113,6 +113,20 @@ execution boundary: one more input Alice *pulls*, never a trade trigger.
       calls (matches the multi-service Railway future), or keep it feature-flagged
       so the core stays lightweight. Decide before wiring E3 to the public deploy.
 
+## F. Accounts & multi-user (builds on the A8 auth `Users` seam)
+The A8 auth layer (`app/auth.py`) was deliberately shaped around a `Users`
+abstraction — single admin-from-env today, swappable for a real store without
+touching the middleware. These items realize that, toward a product others can
+sign into.
+- [ ] **F1 — Logout button + session UX.** The `/logout` route exists; surface
+      it in the web UI (a button + who's logged in), and handle session-expiry
+      gracefully (the SPA already redirects to `/login` on 401).
+- [ ] **F2 — User management panel.** Replace the single env admin with a
+      DB-backed user store (the `Users` seam), an admin panel to create / list /
+      disable users, and optional self-service registration. Pairs with C2
+      (persistence) for where the user table lives, and gates which API/MCP
+      scopes each user gets.
+
 ## D. Housekeeping
 - [ ] **D1 — Keep `CLAUDE.md` ↔ the Claude Project's custom instructions in
       sync** (rule #1 reframed: execution delegated, not forbidden).
