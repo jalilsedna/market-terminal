@@ -18,10 +18,18 @@ from obb_layer.normalize import to_records
 
 @cached("eod")
 @guarded()
-def futures_history(symbol: str) -> list[dict]:
-    """Daily OHLCV for a futures continuation symbol (e.g. 'GC=F'). Provider: yfinance."""
+def futures_history(symbol: str, start_date: str | None = None) -> list[dict]:
+    """Daily OHLCV for a futures continuation symbol (e.g. 'GC=F'). Provider: yfinance.
+
+    `start_date` (YYYY-MM-DD) requests deeper history; omitted, yfinance returns
+    its ~1-year default. The forecasting eval (§E) passes a multi-year start so
+    Kronos gets its full 512-bar context.
+    """
     obb = get_obb()
-    return to_records(obb.derivatives.futures.historical(symbol=symbol, provider="yfinance"))
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance"}
+    if start_date:
+        kwargs["start_date"] = start_date
+    return to_records(obb.derivatives.futures.historical(**kwargs))
 
 
 @cached("eod")

@@ -1,68 +1,148 @@
-"""E1 — evaluate Kronos-base on our daily futures (roadmap §E, gate before building).
+"""E1 — rigorous evaluation of Kronos-base on our daily futures (roadmap §E).
 
 Kronos demos on crypto-hourly; this answers whether it forecasts our *daily
-futures* usefully. It pulls real OHLCV through `obb_layer` (so it uses the same
-data the terminal does), holds out the last `--horizon` bars, forecasts them
-from the prior history, and scores the forecast against what actually happened.
+futures* with real skill. It improves on a single held-out slice in three ways:
 
-This needs the forecasting stack (torch + Kronos + a model download from
-HuggingFace) and so is meant to run on your machine, NOT in the locked-down CI
-sandbox. See docs/kronos-integration.md.
+  * deep history  — pulls multi-year OHLCV via obb_layer so the model gets its
+    full 512-bar context (yfinance's default ~1y starves it);
+  * walk-forward  — scores many non-overlapping windows, not one noisy slice;
+  * baselines     — compares against *persistence* (predict last-close-flat) on
+    error and against a coin-flip / always-up rate on direction, because a low
+    MAPE on a flat series is meaningless on its own.
+
+Needs the forecasting stack (torch + Kronos + a HF download) — run on your
+machine, not the CI sandbox. See docs/kronos-integration.md.
 
 Usage:
-    python -m scripts.eval_kronos --instrument GC --horizon 30 --samples 30
-    python -m scripts.eval_kronos --instrument NQ --context 400 --out nq.png
+    python -m scripts.eval_kronos --instrument GC --horizon 10 --windows 12
+    python -m scripts.eval_kronos --instrument NQ --context 512 --years 8
 """
 
 from __future__ import annotations
 
 import argparse
+from datetime import date, timedelta
 
-import numpy as np
 import pandas as pd
 
+from kronos_layer import metrics as M
 from kronos_layer.forecast import forecast
 from kronos_layer.types import OHLCV
 from obb_layer.market import futures_history
 from obb_layer.symbols import WATCHLIST
 
 
-def _load_ohlcv(instrument: str) -> pd.DataFrame:
-    """Daily OHLCV for a watchlist instrument, via obb_layer → tidy DataFrame."""
+def _load_ohlcv(instrument: str, years: int) -> pd.DataFrame:
     if instrument not in WATCHLIST:
         raise SystemExit(f"unknown instrument {instrument!r}; choose from {list(WATCHLIST)}")
     inst = WATCHLIST[instrument]
-    records = futures_history(inst.yf_symbol)
+    start = (date.today() - timedelta(days=365 * years + 10)).isoformat()
+    records = futures_history(inst.yf_symbol, start_date=start)
     if not records:
-        raise SystemExit(f"no OHLCV returned for {inst.yf_symbol} (provider down / throttled?)")
+        raise SystemExit(f"no OHLCV for {inst.yf_symbol} (provider down / throttled?)")
     df = pd.DataFrame(records)
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date").reset_index(drop=True)
     missing = [c for c in OHLCV if c not in df.columns]
     if missing:
-        raise SystemExit(f"OHLCV columns missing from provider data: {missing}")
+        raise SystemExit(f"OHLCV columns missing: {missing}")
     return df[["date", *OHLCV]]
 
 
-def _score(actual_close: np.ndarray, result, last_close: float) -> dict:
-    """MAE / MAPE, directional hit-rate, and p10–p90 band coverage."""
-    fc = result.close_median()
-    mae = float(np.mean(np.abs(fc - actual_close)))
-    mape = float(np.mean(np.abs((fc - actual_close) / actual_close)) * 100)
-
-    # Step-to-step direction vs the actual path (prepend the last context close).
-    fc_dir = np.sign(np.diff(np.concatenate([[last_close], fc])))
-    act_dir = np.sign(np.diff(np.concatenate([[last_close], actual_close])))
-    hit_rate = float(np.mean(fc_dir == act_dir) * 100)
-
-    q = result.close_quantiles
-    lo, hi = q.get(0.1), q.get(0.9)
-    coverage = (
-        float(np.mean((actual_close >= lo) & (actual_close <= hi)) * 100)
-        if lo is not None and hi is not None
-        else float("nan")
+def _data_health(df: pd.DataFrame) -> None:
+    """Surface the biggest 1-day move — a roll gap in a continuation series can
+    wreck a forecast and would explain a 0% band coverage."""
+    chg = df["close"].pct_change().abs()
+    i = int(chg.idxmax())
+    print(
+        f"  bars: {len(df)}  ({df['date'].iloc[0].date()} → {df['date'].iloc[-1].date()})\n"
+        f"  largest 1-day move: {chg.iloc[i] * 100:.1f}% on {df['date'].iloc[i].date()} "
+        f"(roll-gap check)"
     )
-    return {"mae": mae, "mape_pct": mape, "dir_hit_pct": hit_rate, "band_cover_pct": coverage}
+
+
+def _score_window(ctx: pd.DataFrame, actual: pd.DataFrame, horizon: int, samples: int) -> dict:
+    result = forecast(
+        df=ctx[list(OHLCV)],
+        x_timestamp=ctx["date"],
+        y_timestamp=actual["date"],
+        horizon=horizon,
+        samples=samples,
+    )
+    fc = result.close_median()
+    act = actual["close"].to_numpy(dtype=float)
+    last = float(ctx["close"].iloc[-1])
+    q = result.close_quantiles
+    return {
+        "k_dir": M.directional_hit(fc, act, last),
+        "base_up": M.majority_up_rate(act, last),
+        "k_mape": M.mape(fc, act),
+        "p_mape": M.mape(M.persistence_close(last, horizon), act),
+        "k_cover": M.band_coverage(act, q[0.1], q[0.9]),
+    }, result
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="Walk-forward eval of Kronos-base on daily futures.")
+    p.add_argument("--instrument", default="GC", help="watchlist code (GC, NQ, 6E, 6B, YM)")
+    p.add_argument("--horizon", type=int, default=10, help="bars to forecast per window")
+    p.add_argument("--context", type=int, default=512, help="context bars (Kronos-base trained @512)")
+    p.add_argument("--windows", type=int, default=12, help="walk-forward windows to score")
+    p.add_argument("--step", type=int, default=None, help="bars between windows (default: horizon)")
+    p.add_argument("--samples", type=int, default=20, help="sampled paths per forecast")
+    p.add_argument("--years", type=int, default=8, help="years of history to request")
+    p.add_argument("--out", default=None, help="plot PNG (default: kronos_<inst>.png)")
+    args = p.parse_args()
+    step = args.step or args.horizon
+
+    df = _load_ohlcv(args.instrument, args.years)
+    print(f"{args.instrument}:")
+    _data_health(df)
+
+    # Pick the most recent `windows` non-overlapping anchors that fit the context.
+    context = min(args.context, len(df) - args.horizon - 1)
+    if context < 64:
+        raise SystemExit(f"not enough history ({len(df)} bars) for a useful context")
+    anchors = list(range(context, len(df) - args.horizon + 1, step))[-args.windows :]
+    if not anchors:
+        raise SystemExit("no valid walk-forward windows — reduce --context/--horizon")
+
+    print(
+        f"  walk-forward: {len(anchors)} windows · horizon {args.horizon} · "
+        f"context {context} · {args.samples} paths/forecast (this is slow on CPU)…"
+    )
+    scores: list[dict] = []
+    last_result = last_ctx = last_actual = None
+    for n, a in enumerate(anchors, 1):
+        ctx = df.iloc[a - context : a]
+        actual = df.iloc[a : a + args.horizon].reset_index(drop=True)
+        s, result = _score_window(ctx, actual, args.horizon, args.samples)
+        scores.append(s)
+        last_result, last_ctx, last_actual = result, ctx, actual
+        print(f"    [{n}/{len(anchors)}] {ctx['date'].iloc[-1].date()}  dir={s['k_dir']:.0f}%")
+
+    agg = M.aggregate(scores)
+    print("\n── walk-forward results (mean ± std over windows) ──────────────")
+    print(f"  Directional hit : Kronos {agg['k_dir']['mean']:.1f} ± {agg['k_dir']['std']:.1f}%"
+          f"   | always-up baseline {agg['base_up']['mean']:.1f}%   (coin = 50%)")
+    print(f"  MAPE            : Kronos {agg['k_mape']['mean']:.2f}%"
+          f"   | persistence {agg['p_mape']['mean']:.2f}%  (lower wins)")
+    print(f"  p10–p90 cover   : Kronos {agg['k_cover']['mean']:.1f} ± {agg['k_cover']['std']:.1f}%"
+          f"   (target ≈ 80%)")
+    print("───────────────────────────────────────────────────────────────")
+
+    # Verdict — the three questions that decide the gate.
+    beats_dir = agg["k_dir"]["mean"] > max(50.0, agg["base_up"]["mean"])
+    beats_lvl = agg["k_mape"]["mean"] < agg["p_mape"]["mean"]
+    calibrated = abs(agg["k_cover"]["mean"] - 80.0) <= 15.0
+    print(f"  beats coin/always-up on direction : {'YES' if beats_dir else 'no'}")
+    print(f"  beats persistence on error        : {'YES' if beats_lvl else 'no'}")
+    print(f"  band roughly calibrated (~80%)     : {'YES' if calibrated else 'no'}")
+    print("  →", "promising — proceed to E2/E3" if (beats_dir and beats_lvl)
+          else "no clear edge yet — see notes")
+    print(last_result.disclaimer)
+
+    _plot(args.instrument, last_ctx, last_actual, last_result, args.out or f"kronos_{args.instrument}.png")
 
 
 def _plot(instrument, ctx, actual, result, out_path):
@@ -74,62 +154,19 @@ def _plot(instrument, ctx, actual, result, out_path):
     except ImportError:
         print("(matplotlib not installed — skipping plot)")
         return
+    tail = ctx.tail(120)
     fc = result.close_median()
+    q = result.close_quantiles
     fig, ax = plt.subplots(figsize=(11, 5))
-    ax.plot(ctx["date"], ctx["close"], color="#9aa", label="history")
+    ax.plot(tail["date"], tail["close"], color="#9aa", label="history")
     ax.plot(actual["date"], actual["close"], color="#2b2", label="actual (held-out)")
     ax.plot(actual["date"], fc, color="#36f", label="forecast median")
-    q = result.close_quantiles
-    if 0.1 in q and 0.9 in q:
-        ax.fill_between(actual["date"], q[0.1], q[0.9], color="#36f", alpha=0.15, label="p10–p90")
-    ax.set_title(f"Kronos-base forecast vs actual — {instrument}")
+    ax.fill_between(actual["date"], q[0.1], q[0.9], color="#36f", alpha=0.15, label="p10–p90")
+    ax.set_title(f"Kronos-base — {instrument} (latest walk-forward window)")
     ax.legend()
     fig.tight_layout()
     fig.savefig(out_path, dpi=120)
     print(f"plot → {out_path}")
-
-
-def main() -> None:
-    p = argparse.ArgumentParser(description="Evaluate Kronos-base on daily futures.")
-    p.add_argument("--instrument", default="GC", help="watchlist code (GC, NQ, 6E, 6B, YM)")
-    p.add_argument("--context", type=int, default=400, help="context bars fed to the model")
-    p.add_argument("--horizon", type=int, default=30, help="bars to hold out and forecast")
-    p.add_argument("--samples", type=int, default=30, help="sampled paths for the band")
-    p.add_argument("--out", default=None, help="plot PNG path (default: kronos_<inst>.png)")
-    args = p.parse_args()
-
-    df = _load_ohlcv(args.instrument)
-    need = args.context + args.horizon
-    if len(df) < need:
-        raise SystemExit(f"need ≥{need} bars, got {len(df)} for {args.instrument}")
-
-    window = df.tail(need).reset_index(drop=True)
-    ctx = window.iloc[: -args.horizon]
-    actual = window.iloc[-args.horizon :].reset_index(drop=True)
-
-    print(
-        f"{args.instrument}: {len(ctx)} context bars "
-        f"({ctx['date'].iloc[0].date()}→{ctx['date'].iloc[-1].date()}), "
-        f"forecasting {args.horizon} bars with Kronos-base ×{args.samples} paths…"
-    )
-    result = forecast(
-        df=ctx[list(OHLCV)],
-        x_timestamp=ctx["date"],
-        y_timestamp=actual["date"],
-        horizon=args.horizon,
-        samples=args.samples,
-    )
-
-    scores = _score(actual["close"].to_numpy(dtype=float), result, float(ctx["close"].iloc[-1]))
-    print("\n── scores ─────────────────────────────")
-    print(f"  MAE              : {scores['mae']:.4f}")
-    print(f"  MAPE             : {scores['mape_pct']:.2f}%")
-    print(f"  Directional hit  : {scores['dir_hit_pct']:.1f}%   (50% = coin flip)")
-    print(f"  p10–p90 coverage : {scores['band_cover_pct']:.1f}%  (target ≈ 80%)")
-    print("───────────────────────────────────────")
-    print(result.disclaimer)
-
-    _plot(args.instrument, ctx, actual, result, args.out or f"kronos_{args.instrument}.png")
 
 
 if __name__ == "__main__":
