@@ -68,8 +68,15 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       sturdier EOD provider for the whole terminal.
 
 ## C. Skeleton → product
-- [ ] **C1 — Tests + CI.** No automated tests today; wire the Phase-0 probe into
-      CI so an OpenBB bump can't silently break a view.
+- [x] **C1 — Tests + CI.** `tests/` covers the auth gate (session/token/expiry +
+      every middleware path), the settings on/off logic, and the FastMCP-into-
+      FastAPI mount (anonymous → 401, Bearer → real MCP `initialize` handshake) —
+      all lightweight (no OpenBB/network). GitHub Actions (`.github/workflows/ci.yml`)
+      runs two jobs: **lint-and-test** (ruff + pytest, fast) and **import-smoke**
+      (full OpenBB stack + `import app.main` — so an OpenBB-bump that breaks any
+      view's import fails CI). Added `pyproject.toml` (ruff + pytest config) and
+      `requirements-dev.txt`; ruff-cleaned the existing tree. (The live Phase-0
+      probe stays a manual tool — it needs provider keys + network.)
 - [ ] **C2 — Persistence.** Cache is in-memory and resets on restart; add a
       disk/SQLite layer + history.
 - [ ] **C3 — Analysis layer (the edge).** COT extremes vs 1y/3y percentiles with

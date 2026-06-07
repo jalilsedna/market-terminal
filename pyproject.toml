@@ -1,0 +1,32 @@
+# Tooling config for the research terminal. We don't package this as a
+# distributable (it's an app, run via uvicorn), so there's no [project] table —
+# just linter and test settings so CI and local dev agree.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["web"]
+
+[tool.ruff.lint]
+# High-signal rules: pyflakes (F), pycodestyle (E/W), import sorting (I),
+# bugbears (B), pyupgrade (UP), and blind-except (BLE) — the codebase already
+# annotates intentional broad excepts with `# noqa: BLE001`.
+select = ["E", "W", "F", "I", "B", "UP", "BLE"]
+ignore = [
+    "E501",            # line length — handled by the formatter
+    "UP046", "UP047",  # PEP-695 generic syntax — opinionated rewrite of working generics
+]
+
+[tool.ruff.lint.per-file-ignores]
+# app/main.py registers routers, middleware, and static mounts *after* the
+# FastAPI app is constructed — the import order is deliberate (and documented
+# inline), so module-level-import-position warnings don't apply here.
+"app/main.py" = ["E402"]
+
+[tool.pytest.ini_options]
+# Tests live in tests/ and import the app packages (config, app, mcp_server)
+# from the repo root, so put it on sys.path — otherwise a bare `pytest` (as CI
+# runs it) can't find them.
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

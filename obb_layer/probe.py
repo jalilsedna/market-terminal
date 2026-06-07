@@ -17,10 +17,11 @@ Usage:
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from obb_layer.client import get_obb
 from obb_layer.symbols import WATCHLIST
@@ -152,7 +153,7 @@ def build_probes(obb: Any) -> list[tuple[str, str, Callable[[], Any]]]:
     probes: list[tuple[str, str, Callable[[], Any]]] = []
 
     # --- Futures EOD (SPEC §3: futures price) ---
-    for code, inst in WATCHLIST.items():
+    for _code, inst in WATCHLIST.items():
         probes.append((
             f"futures.historical {inst.yf_symbol}",
             "futures price (EOD)",
