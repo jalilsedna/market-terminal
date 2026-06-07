@@ -1,0 +1,15 @@
+# Forecasting stack (roadmap §E) — for the SEPARATE forecasting host / service
+# and the E1 eval harness ONLY. Deliberately NOT in requirements.txt: the core
+# research terminal never imports torch, so this keeps the main image and CI lean.
+#
+# Kronos itself ships as a repo (exposes a `model` package), not a stable PyPI
+# package, so install it alongside these:
+#   git clone https://github.com/shiyu-coder/Kronos
+#   pip install -r Kronos/requirements.txt   # and put Kronos/ on PYTHONPATH
+# See docs/kronos-integration.md.
+
+torch
+huggingface_hub
+pandas
+numpy
+matplotlib        # only for the eval harness plot

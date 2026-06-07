@@ -69,6 +69,19 @@ class Settings(BaseSettings):
     # Default is OpenAlice's dev UI. Execution lives there, never in this repo.
     alice_url: str = "http://localhost:5173"
 
+    # --- Forecasting (Kronos — roadmap §E; see docs/kronos-integration.md) ---
+    # The terminal's core never imports torch; these settings are read only by
+    # `kronos_layer/` (the isolated wrapper) and the eval harness. By design the
+    # model runs in a SEPARATE forecasting service (kronos_service_url) so the
+    # research app stays lean — `kronos_enabled` is the master switch and is off
+    # until E1 validates Kronos-base on our daily futures.
+    kronos_enabled: bool = False
+    kronos_model: str = "base"        # mini | small | base (base = chosen for v1)
+    kronos_device: str = "cpu"        # cpu | cuda
+    kronos_service_url: str | None = None  # set when calling the separate service
+    kronos_horizon_default: int = 30  # bars to forecast
+    kronos_samples: int = 30          # sampled paths reduced to a median + band
+
     # --- Provider API keys (optional; free providers need none) ---
     fmp_api_key: str | None = None
     fred_api_key: str | None = None

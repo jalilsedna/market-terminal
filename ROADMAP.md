@@ -94,9 +94,12 @@ open-source foundation model for OHLCV candlesticks — it takes a price history
 and emits a **probabilistic forecast** of the next N bars. Framed as research
 context with a disclaimer (like the analysis layer), it fits without crossing the
 execution boundary: one more input Alice *pulls*, never a trade trigger.
-- [ ] **E1 — Evaluate.** Run Kronos-small/base on our daily futures OHLCV (from
-      `obb_layer`) and sanity-check forecast quality against the crypto-hourly
-      demo it ships with — decide if daily futures are in-distribution enough.
+- [~] **E1 — Evaluate.** Harness built (`scripts/eval_kronos.py` + the isolated
+      `kronos_layer/`): pulls daily OHLCV via `obb_layer`, holds out the last N
+      bars, forecasts with **Kronos-base**, and scores MAE/MAPE, directional
+      hit-rate, and p10–p90 band coverage (+ plot). **Awaiting a run on a host
+      with the forecasting stack** (torch + Kronos + HF download — the CI sandbox
+      can't reach HuggingFace) to decide if daily futures are in-distribution.
 - [ ] **E2 — Isolated `kronos_layer/`** (the ONLY place that imports torch —
       mirrors the `obb_layer` rule): load tokenizer+model once, cache it, expose
       `forecast(ohlcv_df, horizon) -> probabilistic paths`.
