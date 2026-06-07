@@ -18,15 +18,18 @@ from obb_layer.normalize import to_records
 
 @cached("eod")
 @guarded()
-def futures_history(symbol: str, start_date: str | None = None) -> list[dict]:
-    """Daily OHLCV for a futures continuation symbol (e.g. 'GC=F'). Provider: yfinance.
+def futures_history(
+    symbol: str, start_date: str | None = None, interval: str = "1d"
+) -> list[dict]:
+    """OHLCV for a futures continuation symbol (e.g. 'GC=F'). Provider: yfinance.
 
     `start_date` (YYYY-MM-DD) requests deeper history; omitted, yfinance returns
-    its ~1-year default. The forecasting eval (§E) passes a multi-year start so
-    Kronos gets its full 512-bar context.
+    its ~1-year default. `interval` ('1d', '1h', …) sets the bar frequency — the
+    forecasting eval (§E) uses '1h' to test Kronos at its native intraday cadence
+    (yfinance caps intraday history to ~730 days).
     """
     obb = get_obb()
-    kwargs: dict = {"symbol": symbol, "provider": "yfinance"}
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
     if start_date:
         kwargs["start_date"] = start_date
     return to_records(obb.derivatives.futures.historical(**kwargs))
@@ -34,14 +37,17 @@ def futures_history(symbol: str, start_date: str | None = None) -> list[dict]:
 
 @cached("eod")
 @guarded()
-def crypto_history(symbol: str, start_date: str | None = None) -> list[dict]:
-    """Daily OHLCV for a crypto pair (e.g. 'BTC-USD'). Provider: yfinance.
+def crypto_history(
+    symbol: str, start_date: str | None = None, interval: str = "1d"
+) -> list[dict]:
+    """OHLCV for a crypto pair (e.g. 'BTC-USD'). Provider: yfinance.
 
     Used by the forecasting eval (§E) to test Kronos on crypto — the asset class
-    it was actually trained/demoed on (BTC/USDT), unlike daily futures.
+    it was actually trained/demoed on (BTC/USDT). `interval` ('1d', '1h', …) sets
+    the bar frequency.
     """
     obb = get_obb()
-    kwargs: dict = {"symbol": symbol, "provider": "yfinance"}
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
     if start_date:
         kwargs["start_date"] = start_date
     return to_records(obb.crypto.price.historical(**kwargs))
@@ -49,10 +55,13 @@ def crypto_history(symbol: str, start_date: str | None = None) -> list[dict]:
 
 @cached("eod")
 @guarded()
-def fx_history(symbol: str, start_date: str | None = None) -> list[dict]:
-    """Daily OHLCV for an FX pair (e.g. 'EURUSD'). Provider: yfinance."""
+def fx_history(
+    symbol: str, start_date: str | None = None, interval: str = "1d"
+) -> list[dict]:
+    """OHLCV for an FX pair (e.g. 'EURUSD'). Provider: yfinance. `interval`
+    ('1d', '1h', …) sets the bar frequency."""
     obb = get_obb()
-    kwargs: dict = {"symbol": symbol, "provider": "yfinance"}
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
     if start_date:
         kwargs["start_date"] = start_date
     return to_records(obb.currency.price.historical(**kwargs))
