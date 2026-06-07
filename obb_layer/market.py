@@ -34,6 +34,32 @@ def futures_history(symbol: str, start_date: str | None = None) -> list[dict]:
 
 @cached("eod")
 @guarded()
+def crypto_history(symbol: str, start_date: str | None = None) -> list[dict]:
+    """Daily OHLCV for a crypto pair (e.g. 'BTC-USD'). Provider: yfinance.
+
+    Used by the forecasting eval (§E) to test Kronos on crypto — the asset class
+    it was actually trained/demoed on (BTC/USDT), unlike daily futures.
+    """
+    obb = get_obb()
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance"}
+    if start_date:
+        kwargs["start_date"] = start_date
+    return to_records(obb.crypto.price.historical(**kwargs))
+
+
+@cached("eod")
+@guarded()
+def fx_history(symbol: str, start_date: str | None = None) -> list[dict]:
+    """Daily OHLCV for an FX pair (e.g. 'EURUSD'). Provider: yfinance."""
+    obb = get_obb()
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance"}
+    if start_date:
+        kwargs["start_date"] = start_date
+    return to_records(obb.currency.price.historical(**kwargs))
+
+
+@cached("eod")
+@guarded()
 def proxy_history(proxy_symbol: str) -> list[dict]:
     """Daily OHLCV for a spot/cash proxy, routed by symbol shape.
 

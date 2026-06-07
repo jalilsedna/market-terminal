@@ -28,18 +28,31 @@ import pandas as pd
 from kronos_layer import metrics as M
 from kronos_layer.forecast import forecast
 from kronos_layer.types import OHLCV
-from obb_layer.market import futures_history
+from obb_layer.market import crypto_history, futures_history, fx_history
 from obb_layer.symbols import WATCHLIST
 
 
-def _load_ohlcv(instrument: str, years: int) -> pd.DataFrame:
-    if instrument not in WATCHLIST:
-        raise SystemExit(f"unknown instrument {instrument!r}; choose from {list(WATCHLIST)}")
-    inst = WATCHLIST[instrument]
+def _resolve(asset: str, instrument: str) -> tuple[str, callable]:
+    """Map (asset class, instrument) → (provider symbol, fetcher). Kronos was
+    trained/demoed on crypto, so this lets us test crypto/forex — not just the
+    daily futures it's out-of-distribution on."""
+    if asset == "futures":
+        if instrument in WATCHLIST:
+            return WATCHLIST[instrument].yf_symbol, futures_history
+        return instrument, futures_history  # raw yfinance symbol (e.g. 'CL=F')
+    if asset == "crypto":
+        return instrument, crypto_history   # e.g. 'BTC-USD', 'ETH-USD'
+    if asset == "forex":
+        return instrument, fx_history       # e.g. 'EURUSD', 'GBPUSD'
+    raise SystemExit(f"unknown asset class {asset!r}; choose futures | crypto | forex")
+
+
+def _load_ohlcv(asset: str, instrument: str, years: int) -> pd.DataFrame:
+    symbol, fetch = _resolve(asset, instrument)
     start = (date.today() - timedelta(days=365 * years + 10)).isoformat()
-    records = futures_history(inst.yf_symbol, start_date=start)
+    records = fetch(symbol, start_date=start)
     if not records:
-        raise SystemExit(f"no OHLCV for {inst.yf_symbol} (provider down / throttled?)")
+        raise SystemExit(f"no OHLCV for {symbol} (provider down / throttled / bad symbol?)")
     df = pd.DataFrame(records)
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date").reset_index(drop=True)
@@ -83,8 +96,12 @@ def _score_window(ctx: pd.DataFrame, actual: pd.DataFrame, horizon: int, samples
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Walk-forward eval of Kronos-base on daily futures.")
-    p.add_argument("--instrument", default="GC", help="watchlist code (GC, NQ, 6E, 6B, YM)")
+    p = argparse.ArgumentParser(description="Walk-forward eval of Kronos-base on daily bars.")
+    p.add_argument("--asset", default="futures", choices=["futures", "crypto", "forex"],
+                   help="asset class (crypto/forex are Kronos's native-ish domain)")
+    p.add_argument("--instrument", default="GC",
+                   help="futures: watchlist code (GC, NQ) or yf symbol (CL=F); "
+                        "crypto: BTC-USD, ETH-USD; forex: EURUSD, GBPUSD")
     p.add_argument("--horizon", type=int, default=10, help="bars to forecast per window")
     p.add_argument("--context", type=int, default=512, help="context bars (Kronos-base trained @512)")
     p.add_argument("--windows", type=int, default=12, help="walk-forward windows to score")
@@ -95,8 +112,8 @@ def main() -> None:
     args = p.parse_args()
     step = args.step or args.horizon
 
-    df = _load_ohlcv(args.instrument, args.years)
-    print(f"{args.instrument}:")
+    df = _load_ohlcv(args.asset, args.instrument, args.years)
+    print(f"{args.asset}:{args.instrument}")
     _data_health(df)
 
     # Pick the most recent `windows` non-overlapping anchors that fit the context.

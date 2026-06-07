@@ -86,6 +86,12 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       term structure + news (and later its Kronos forecast — E3) on one screen.
 - [ ] **C5 — Interactive frontend.** Editable watchlist, charts, alerts
       (e.g. COT extreme / curve flip).
+- [ ] **C6 — Dynamic multi-asset watchlist.** Today the watchlist is a fixed
+      5-instrument map hardcoded in `obb_layer/symbols.py` (futures only). Let the
+      user **add/remove arbitrary assets across classes** — futures, crypto,
+      forex, equities, ETFs — as a persisted, editable instrument list (pairs
+      with C2 persistence; builds on the new crypto/forex `obb_layer` fetchers),
+      surfaced in both the UI and the MCP feed.
 
 ## E. Forecasting / quant layer — toward a Bloomberg-style terminal
 The terminal *displays* and *interprets* data; the missing pillar is
@@ -94,12 +100,17 @@ open-source foundation model for OHLCV candlesticks — it takes a price history
 and emits a **probabilistic forecast** of the next N bars. Framed as research
 context with a disclaimer (like the analysis layer), it fits without crossing the
 execution boundary: one more input Alice *pulls*, never a trade trigger.
-- [~] **E1 — Evaluate.** Harness built (`scripts/eval_kronos.py` + the isolated
-      `kronos_layer/`): pulls daily OHLCV via `obb_layer`, holds out the last N
-      bars, forecasts with **Kronos-base**, and scores MAE/MAPE, directional
-      hit-rate, and p10–p90 band coverage (+ plot). **Awaiting a run on a host
-      with the forecasting stack** (torch + Kronos + HF download — the CI sandbox
-      can't reach HuggingFace) to decide if daily futures are in-distribution.
+- [~] **E1 — Evaluate.** Walk-forward harness (`scripts/eval_kronos.py` + the
+      isolated `kronos_layer/`) scores Kronos-base vs a persistence baseline.
+      **Daily futures: FAILED** — GC/NQ walk-forward showed no directional edge
+      (~47% hit, below coin and the always-up baseline), MAPE 4–6× *worse* than
+      persistence, and broken band coverage (4–11% vs ~80%). Kronos appears
+      trained on crypto/hourly and is out-of-distribution on daily futures.
+      **Next:** test **crypto + forex** (`--asset crypto|forex`, Kronos's native
+      domain) to see if it's salvageable there; in parallel, deep-search GitHub
+      for a futures-proven forecasting model (Chronos/TimesFM/Moirai/etc.). If
+      neither pans out, drop futures forecasting and keep it to crypto/forex (or
+      shelve E entirely).
 - [ ] **E2 — Isolated `kronos_layer/`** (the ONLY place that imports torch —
       mirrors the `obb_layer` rule): load tokenizer+model once, cache it, expose
       `forecast(ohlcv_df, horizon) -> probabilistic paths`.
