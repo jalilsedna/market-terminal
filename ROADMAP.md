@@ -16,22 +16,30 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
 ---
 
 ## A. Finish the OpenAlice integration (active thread)
-- [ ] **A1 — Research feed.** Wire market-terminal's MCP into Alice's agent via
-      the workspace `.mcp.json`. Decision pending: run market-terminal *in WSL*
-      (both apps share localhost) vs. bridge *WSL → Windows* over the network
-      (`MCP_HOST=0.0.0.0` + Windows host IP, possible firewall rule). ← next up
-- [ ] **A2 — Make the feed durable.** OpenAlice regenerates each workspace's
-      `.mcp.json`, so a one-off edit is wiped. Add `market-terminal` to the
-      template/seed so every new workspace gets it. (Update `docs/openalice.md`.)
-- [ ] **A3 — Verify end-to-end.** Confirm Alice's agent actually calls a
-      market-terminal tool (e.g. gold COT) and returns real data.
+- [x] **A1 — Research feed.** market-terminal's MCP (Windows, `:8001`) reaches
+      Alice's agent (WSL) via **WSL2 mirrored networking** (`.wslconfig`
+      `networkingMode=mirrored`); the workspace `.mcp.json` adds a
+      `market-terminal` streamable-http entry at `http://127.0.0.1:8001/mcp`.
+- [x] **A3 — Verify end-to-end.** Alice's agent listed all 11 market-terminal
+      tools and called `cot_positioning` + `analysis_regime`, returning the
+      interpreted gold-COT read and macro regime (with the disclaimer intact).
+- [ ] **A2 — Make the feed durable.** The `.mcp.json` injection is per-workspace
+      and OpenAlice regenerates that file, so it's wiped on regen / new
+      workspaces. Add `market-terminal` to the OpenAlice template/seed so every
+      workspace gets it. (Update `docs/openalice.md`.) ← next up
 - [ ] **A4 — Paper account (MockBroker).** UTA shows 0 accounts; set up a
       `type: "mock"` account so Alice can "execute" on paper (no real money).
-- [ ] **A5 — Document the OpenAlice-on-WSL setup** (WSL2 + Git-Bash-free,
-      `build-essential`, 60s UTA timeout, `claude` login) so it's reproducible.
-      Note the 60s timeout edit lives only in their OpenAlice clone.
+- [ ] **A5 — Document the OpenAlice-on-WSL setup** so it's reproducible: WSL2 +
+      Ubuntu, `build-essential` (node-pty), `claude` login, the 60s UTA timeout
+      edit (`scripts/guardian/dev.ts`, lives only in the OpenAlice clone), and
+      the mirrored-networking `.wslconfig` for the feed.
 - [ ] **A6 — Resolve Claude Code's `/doctor` "MCP" warning** in the WSL agent.
 - [ ] **A7 — Rotate the OpenAlice admin token.**
+- [ ] **A8 — Deploy market-terminal to Railway** (online access). Research-only
+      service; **never** deploy OpenAlice / broker keys publicly. Needs: a
+      container build (OpenBB), env/secrets, **auth on the MCP endpoint** before
+      it's public, and provider reachability from Railway IPs. The feed then
+      becomes "point Alice's `.mcp.json` at the Railway URL."
 
 ## B. Data / provider gaps (documented, still open)
 - [ ] **B1 — Economic calendar.** Paywalled on FMP free tier; V1's calendar
