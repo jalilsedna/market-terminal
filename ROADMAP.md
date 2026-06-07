@@ -79,22 +79,47 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       probe stays a manual tool — it needs provider keys + network.)
 - [ ] **C2 — Persistence.** Cache is in-memory and resets on restart; add a
       disk/SQLite layer + history.
-- [ ] **C3 — Analysis layer (the edge).** COT extremes vs 1y/3y percentiles with
-      signals, curve-flip detection, "what's moving my contracts today." Move
-      from *displaying* data to *interpreting* it.
+- [x] **C3 — Analysis layer (the edge).** Shipped: COT extremes vs 1y/3y
+      percentiles, regime vote, curve-flip detection, per-instrument briefs
+      (`services/analysis.py`, the `analysis_*` MCP tools, the Analysis tab).
 - [ ] **C4 — Cross-view "instrument focus."** One symbol → its COT + price +
-      term structure + news on one screen.
+      term structure + news (and later its Kronos forecast — E3) on one screen.
 - [ ] **C5 — Interactive frontend.** Editable watchlist, charts, alerts
       (e.g. COT extreme / curve flip).
+
+## E. Forecasting / quant layer — toward a Bloomberg-style terminal
+The terminal *displays* and *interprets* data; the missing pillar is
+*forecasting*. [Kronos](https://github.com/shiyu-coder/Kronos) (MIT) is an
+open-source foundation model for OHLCV candlesticks — it takes a price history
+and emits a **probabilistic forecast** of the next N bars. Framed as research
+context with a disclaimer (like the analysis layer), it fits without crossing the
+execution boundary: one more input Alice *pulls*, never a trade trigger.
+- [ ] **E1 — Evaluate.** Run Kronos-small/base on our daily futures OHLCV (from
+      `obb_layer`) and sanity-check forecast quality against the crypto-hourly
+      demo it ships with — decide if daily futures are in-distribution enough.
+- [ ] **E2 — Isolated `kronos_layer/`** (the ONLY place that imports torch —
+      mirrors the `obb_layer` rule): load tokenizer+model once, cache it, expose
+      `forecast(ohlcv_df, horizon) -> probabilistic paths`.
+- [ ] **E3 — Wire it in.** `services/forecast.py` + `/forecast/{instrument}`
+      router + a `forecast` MCP tool; fold the forecast into `analysis_brief` and
+      the C4 instrument-focus screen.
+- [ ] **E4 — Visualize.** History + forecast cone (median + quantile band) in the
+      frontend.
+- [ ] **E5 — Deployment decision.** torch + a ~100M model is heavy (image size,
+      RAM). Likely run Kronos as a **separate forecasting service** the terminal
+      calls (matches the multi-service Railway future), or keep it feature-flagged
+      so the core stays lightweight. Decide before wiring E3 to the public deploy.
 
 ## D. Housekeeping
 - [ ] **D1 — Keep `CLAUDE.md` ↔ the Claude Project's custom instructions in
       sync** (rule #1 reframed: execution delegated, not forbidden).
+- [ ] **D2 — Rotate `AUTH_TOKEN`** (it was shared in chat during setup); update
+      the Railway env and Alice's `.mcp.json` to match.
 
 ---
 
-**Suggested order:** ✅ A1 → A3 (feed) → A4 (paper account) → A2 (durable) →
-A5 (docs) all done; the research → reason → paper-execute loop is proven. Next:
-choose between **A8** (Railway deploy — needs MCP auth first), **B** (make the
-data trustworthy), and **C** (C1 tests/CI, C4 instrument-focus, C5 interactive
-frontend — the analysis edge in **C3** is already shipped).
+**Status:** Research→reason→paper-execute loop proven (A1–A5); deployed online,
+authenticated, on Railway (A8); analysis edge shipped (C3); tests + CI green (C1).
+**Next candidates:** **E1** (evaluate Kronos — the forecasting pillar), **C4**
+(instrument-focus screen), or **B** (trustworthy data — needed before forecasts
+can be trusted; Kronos is only as good as its input bars).

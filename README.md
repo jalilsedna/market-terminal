@@ -1,51 +1,55 @@
 # market-terminal
 
-A **private, single-user multi-asset research terminal** built on
-[OpenBB](https://openbb.co) (consumed as a library — never forked). Research and
-analytics only: macro, market data, positioning (COT), fundamentals of futures
-underlyings, and news. **No execution** — order entry and live PnL stay on
-NinjaTrader / MetaTrader.
+A **multi-asset research terminal** built on [OpenBB](https://openbb.co)
+(consumed as a library — never forked): macro, market data, positioning (COT),
+term structure, sector rotation, news, plus an **interpreted analysis layer**
+(positioning extremes, risk-on/off regime, per-instrument briefs). It ships a
+web dashboard, a REST API, and an **MCP server** so an AI agent can pull the
+research directly.
 
-- **Stack:** Python 3.12 · FastAPI · OpenBB Platform
-- **Spec:** see [`SPEC.md`](./SPEC.md)
-- **Working rules for contributors/AI:** see [`CLAUDE.md`](./CLAUDE.md)
+**Research and analytics only — execution is delegated, not duplicated.** No
+order entry, position management, or broker connectivity lives here; no
+trade/transfer/withdrawal keys ever do. Execution belongs to a *separate* app
+([OpenAlice](https://github.com/TraderAlice/OpenAlice)) that **pulls** research
+over MCP and decides/executes on its own side. Research flows out; orders never
+flow back in. See [`docs/openalice.md`](./docs/openalice.md).
+
+- **Stack:** Python 3.12 · FastAPI · OpenBB Platform · MCP
+- **Deploys to:** Railway, as one authenticated service (web + REST + MCP). See
+  [`docs/deploy-railway.md`](./docs/deploy-railway.md).
+- **Spec / rules:** [`SPEC.md`](./SPEC.md) · [`CLAUDE.md`](./CLAUDE.md) ·
+  backlog in [`ROADMAP.md`](./ROADMAP.md)
 
 ## Project layout
 
 ```
-app/         FastAPI app, routers, schemas
-services/    thin domain logic per view
+app/         FastAPI app, routers, schemas, auth, pre-cache
+services/    thin domain logic per view (incl. services/analysis.py)
 obb_layer/   the ONLY place that imports openbb
 cache/       response cache (per-data-type TTLs)
-web/         frontend (later phase)
+web/         single-page dashboard (vanilla JS) + login page
+tests/       pytest suite (auth, config, MCP mount) — CI-gated
+docs/        deploy + OpenAlice integration guides
+mcp_server.py  exposes the views as MCP tools (stdio or HTTP)
 config.py    loads keys/settings from .env
 ```
 
-## Setup & run (Windows)
+## Setup & run (local)
 
-Requires Python 3.12 installed and available via the `py` launcher.
+Requires Python 3.12. On Windows use the `py -3.12` launcher; on macOS/Linux use
+`python3.12`.
 
-```powershell
-# 1. Clone and enter the repo
+```bash
 git clone <your-private-repo-url> market-terminal
 cd market-terminal
 
-# 2. Create a Python 3.12 virtual environment
-py -3.12 -m venv .venv
+python3.12 -m venv .venv
+source .venv/bin/activate           # Windows: .\.venv\Scripts\Activate.ps1
 
-# 3. Activate it (PowerShell)
-.\.venv\Scripts\Activate.ps1
-#    (or, in cmd.exe:  .\.venv\Scripts\activate.bat)
-
-# 4. Upgrade pip and install dependencies
-py -3.12 -m pip install --upgrade pip
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# 5. Configure secrets — copy the template and edit (the app boots with NO keys)
-copy .env.example .env
-#    then open .env and fill in any provider keys you need
-
-# 6. Run the API
+cp .env.example .env                 # the app boots with NO keys (free providers)
 uvicorn app.main:app
 ```
 
@@ -53,76 +57,81 @@ uvicorn app.main:app
 > point `--reload` at the whole folder: OpenBB rebuilds its static package inside
 > `.venv/` the first time the installed extension set changes, and the default
 > reloader watches `.venv/`, so it would reload mid-rebuild in a loop. For dev
-> auto-reload, scope it to our source only:
-> ```powershell
+> auto-reload, scope it to our source:
+> ```bash
 > uvicorn app.main:app --reload --reload-dir app --reload-dir services --reload-dir obb_layer
 > ```
 
-The API is then available at <http://127.0.0.1:8000>. Check it is alive:
+The app is then at <http://127.0.0.1:8000> — the dashboard at `/`, interactive
+API docs at `/docs`, and a liveness check at `/health` (reports which providers
+have keys and whether auth is enabled).
 
-```powershell
-# Health check (shows which providers have keys configured)
-curl http://127.0.0.1:8000/health
-```
+Run the Phase-0 capability probe (re-run after any OpenBB bump — see `SPEC.md`):
 
-Interactive API docs: <http://127.0.0.1:8000/docs>
-
-To run the Phase-0 capability probe (see `SPEC.md` §5):
-
-```powershell
+```bash
 python -m obb_layer.probe
 ```
 
+## Authentication
+
+Locally with no credentials set, the terminal is **open** (keyless dev). It
+becomes **gated** the moment you set credentials — required on any public
+deploy:
+
+- `AUTH_TOKEN` — Bearer token for programmatic clients (the MCP feed / API).
+- `ADMIN_USERNAME` + `ADMIN_PASSWORD` — the browser `/login` page.
+- `SESSION_SECRET` — signs the session cookie (keep stable across restarts).
+
+The browser gets a session cookie; agents/scripts send `Authorization: Bearer
+<token>`. `/health` stays open and reports `auth_enabled`. See `app/auth.py` and
+[`docs/deploy-railway.md`](./docs/deploy-railway.md).
+
 ## MCP server (query the views from an AI client)
 
-`mcp_server.py` exposes the same composed views (macro, watchlist, COT, term
-structure, sector rotation, news) as **Model Context Protocol** tools, so an AI
-client can pull your research directly. It talks stdio and uses your `.env`
-keys.
+`mcp_server.py` exposes the composed views as **Model Context Protocol** tools so
+an AI client can pull your research directly.
 
-```powershell
-python mcp_server.py     # runs the MCP server over stdio
+```bash
+python mcp_server.py          # stdio (Claude Desktop / Claude Code spawn it)
+python mcp_server.py --http   # streamable-HTTP at http://127.0.0.1:8001/mcp
 ```
 
-**Claude Desktop** — add to `claude_desktop_config.json` (Settings → Developer →
-Edit Config), then restart:
-
-```json
-{
-  "mcpServers": {
-    "market-terminal": {
-      "command": "C:\\Users\\<you>\\market-terminal\\.venv\\Scripts\\python.exe",
-      "args": ["C:\\Users\\<you>\\market-terminal\\mcp_server.py"]
-    }
-  }
-}
-```
+When the app is deployed, the same feed is mounted at `https://<app>/mcp` behind
+the Bearer gate — no separate process needed.
 
 **Claude Code** — from the project folder:
 
-```powershell
-claude mcp add market-terminal -- .venv\Scripts\python.exe mcp_server.py
+```bash
+claude mcp add market-terminal -- .venv/bin/python mcp_server.py
 ```
 
 Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
 `cot_search`, `term_structure`, `sector_rotation`, `market_news`, and the
 interpreted-signal tools `analysis_cot`, `analysis_regime`, `analysis_brief`,
 `analysis_term_structure`. All return research context (EOD/delayed/weekly),
-never trade signals.
-
-To serve over HTTP instead (e.g. for a separate app to pull research over a URL):
-
-```powershell
-python mcp_server.py --http      # http://127.0.0.1:8001/mcp  (port via MCP_PORT)
-```
+with a disclaimer — never a trade trigger.
 
 **Feeding an execution agent (e.g. OpenAlice):** market-terminal stays
-research-only and acts as an MCP data source that the agent *pulls from* —
-research flows out, orders never flow in, and no broker keys ever live here. See
-[`docs/openalice.md`](./docs/openalice.md).
+research-only and acts as an MCP data source the agent *pulls from*. See
+[`docs/openalice.md`](./docs/openalice.md) and
+[`docs/openalice-wsl-setup.md`](./docs/openalice-wsl-setup.md).
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .
+pytest
+```
+
+CI (`.github/workflows/ci.yml`) runs the same lint + tests on every push/PR, plus
+an import-smoke job that installs the full OpenBB stack and imports every view —
+so an OpenBB bump can't silently break a panel.
 
 ## Secrets
 
-All API keys live in `.env`, which is **gitignored and never committed**. Start
-on free providers (yfinance, fred, cftc, …) — no keys required. Add paid keys
-(FMP, Benzinga, …) only when a view needs them. Do not depend on OpenBB Hub.
+All keys live in `.env`, which is **gitignored and never committed** (only
+read-only data-provider keys belong here). Start on free providers (yfinance,
+fred, cftc, …) — no keys required. Add paid keys (FMP, Benzinga, …) only when a
+view needs them. Do not depend on OpenBB Hub. On Railway, the same variables are
+set in the service's environment, never in the repo.
