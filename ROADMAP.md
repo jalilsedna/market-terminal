@@ -102,15 +102,15 @@ context with a disclaimer (like the analysis layer), it fits without crossing th
 execution boundary: one more input Alice *pulls*, never a trade trigger.
 - [~] **E1 — Evaluate.** Walk-forward harness (`scripts/eval_kronos.py` + the
       isolated `kronos_layer/`) scores Kronos-base vs a persistence baseline.
-      **Daily futures: FAILED** — GC/NQ walk-forward showed no directional edge
-      (~47% hit, below coin and the always-up baseline), MAPE 4–6× *worse* than
-      persistence, and broken band coverage (4–11% vs ~80%). Kronos appears
-      trained on crypto/hourly and is out-of-distribution on daily futures.
-      **Next:** test **crypto + forex** (`--asset crypto|forex`, Kronos's native
-      domain) to see if it's salvageable there; in parallel, deep-search GitHub
-      for a futures-proven forecasting model (Chronos/TimesFM/Moirai/etc.). If
-      neither pans out, drop futures forecasting and keep it to crypto/forex (or
-      shelve E entirely).
+      **Daily futures: FAILED.** **Daily crypto: weak** (BTC coin-flip, ETH
+      marginal). **Daily FX: a modest, real directional edge** (~55% avg, 4/6
+      majors beat the always-up baseline) — but no level skill and broken bands.
+      A GitHub deep-search ([Rahimikia 2511.18578](https://arxiv.org/abs/2511.18578))
+      confirms no open model beats persistence on daily price; volatility is the
+      one proven win. **Now testing Kronos zero-shot on *hourly* FX** (its native
+      cadence; harness has `--interval 1h`) before any fine-tune — fine-tuning
+      daily FX was deprioritized (too little data + evidence says it still fails).
+      Full evidence + decisions: **`docs/decisions.md`**.
 - [ ] **E2 — Isolated `kronos_layer/`** (the ONLY place that imports torch —
       mirrors the `obb_layer` rule): load tokenizer+model once, cache it, expose
       `forecast(ohlcv_df, horizon) -> probabilistic paths`.

@@ -47,10 +47,13 @@ def _resolve(asset: str, instrument: str) -> tuple[str, callable]:
     raise SystemExit(f"unknown asset class {asset!r}; choose futures | crypto | forex")
 
 
-def _load_ohlcv(asset: str, instrument: str, years: int) -> pd.DataFrame:
+def _load_ohlcv(asset: str, instrument: str, years: int, interval: str = "1d") -> pd.DataFrame:
     symbol, fetch = _resolve(asset, instrument)
-    start = (date.today() - timedelta(days=365 * years + 10)).isoformat()
-    records = fetch(symbol, start_date=start)
+    days = 365 * years + 10
+    if interval != "1d":
+        days = min(days, 729)  # yfinance caps intraday history (~730d for 1h bars)
+    start = (date.today() - timedelta(days=days)).isoformat()
+    records = fetch(symbol, start_date=start, interval=interval)
     if not records:
         raise SystemExit(f"no OHLCV for {symbol} (provider down / throttled / bad symbol?)")
     df = pd.DataFrame(records)
@@ -63,14 +66,14 @@ def _load_ohlcv(asset: str, instrument: str, years: int) -> pd.DataFrame:
 
 
 def _data_health(df: pd.DataFrame) -> None:
-    """Surface the biggest 1-day move — a roll gap in a continuation series can
+    """Surface the biggest 1-bar move — a roll gap (futures) or bad tick can
     wreck a forecast and would explain a 0% band coverage."""
     chg = df["close"].pct_change().abs()
     i = int(chg.idxmax())
     print(
         f"  bars: {len(df)}  ({df['date'].iloc[0].date()} → {df['date'].iloc[-1].date()})\n"
-        f"  largest 1-day move: {chg.iloc[i] * 100:.1f}% on {df['date'].iloc[i].date()} "
-        f"(roll-gap check)"
+        f"  largest 1-bar move: {chg.iloc[i] * 100:.1f}% on {df['date'].iloc[i]} "
+        f"(gap check)"
     )
 
 
@@ -96,24 +99,27 @@ def _score_window(ctx: pd.DataFrame, actual: pd.DataFrame, horizon: int, samples
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Walk-forward eval of Kronos-base on daily bars.")
+    p = argparse.ArgumentParser(description="Walk-forward eval of Kronos-base on daily/intraday bars.")
     p.add_argument("--asset", default="futures", choices=["futures", "crypto", "forex"],
                    help="asset class (crypto/forex are Kronos's native-ish domain)")
     p.add_argument("--instrument", default="GC",
                    help="futures: watchlist code (GC, NQ) or yf symbol (CL=F); "
                         "crypto: BTC-USD, ETH-USD; forex: EURUSD, GBPUSD")
+    p.add_argument("--interval", default="1d", choices=["1d", "1h"],
+                   help="bar frequency; 1h = Kronos's native intraday cadence "
+                        "(yfinance caps 1h history to ~730 days)")
     p.add_argument("--horizon", type=int, default=10, help="bars to forecast per window")
     p.add_argument("--context", type=int, default=512, help="context bars (Kronos-base trained @512)")
     p.add_argument("--windows", type=int, default=12, help="walk-forward windows to score")
     p.add_argument("--step", type=int, default=None, help="bars between windows (default: horizon)")
     p.add_argument("--samples", type=int, default=20, help="sampled paths per forecast")
-    p.add_argument("--years", type=int, default=8, help="years of history to request")
+    p.add_argument("--years", type=int, default=8, help="years of history to request (capped to ~2 for 1h)")
     p.add_argument("--out", default=None, help="plot PNG (default: kronos_<inst>.png)")
     args = p.parse_args()
     step = args.step or args.horizon
 
-    df = _load_ohlcv(args.asset, args.instrument, args.years)
-    print(f"{args.asset}:{args.instrument}")
+    df = _load_ohlcv(args.asset, args.instrument, args.years, args.interval)
+    print(f"{args.asset}:{args.instrument} @ {args.interval}")
     _data_health(df)
 
     # Pick the most recent `windows` non-overlapping anchors that fit the context.
