@@ -94,7 +94,7 @@ path (A), it's a small wrapper — the decision isn't one-way. For **E1
 
 ```
 kronos_enabled: bool = False          # master switch; core behaves identically when off
-kronos_model: str = "small"           # mini | small | base
+kronos_model: str = "base"            # mini | small | base  (base = chosen for v1)
 kronos_device: str = "cpu"            # cpu | cuda
 kronos_service_url: str | None = None # set when using the separate service (B)
 kronos_horizon_default: int = 30      # bars to forecast
@@ -129,7 +129,7 @@ reach HuggingFace):
 
 1. Pull ~512 daily bars of `GC=F` and `NQ=F` via `obb_layer`.
 2. **Hold out** the last 30 bars; forecast them from the prior history with
-   `Kronos-small`.
+   `Kronos-base` (the chosen v1 model).
 3. Score: directional hit-rate, MAE/MAPE vs actual, and **band coverage** (did
    actuals fall in the p10–p90 cone at the stated rate?).
 4. Plot history + median + band vs actual.
@@ -152,8 +152,9 @@ useful. Kronos demos on crypto-hourly, so this is a genuine unknown.
 1. **Deploy topology** — ✅ **separate forecasting service** the terminal calls
    over HTTP (§3.3 B). Core stays lean; degrades gracefully via the circuit
    breaker.
-2. **Model size for v1** — ✅ start with `small` (fast, cheap eval); move to
-   `base` only if E1 shows quality needs it.
+2. **Model size for v1** — ✅ **`base`** (102.3M, ctx 512) — the largest
+   open-sourced variant, for best forecast quality. (`large` is not open-sourced.)
+   Heavier RAM/inference, which the separate-service topology absorbs.
 3. **Scope** — ✅ daily futures watchlist first (GC, NQ, …), matching our data.
 4. **Expose to Alice when?** — ✅ terminal-only until E1 validates, *then* add the
    `forecast` MCP tool so Alice consumes it.
