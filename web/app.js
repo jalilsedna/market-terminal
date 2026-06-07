@@ -20,6 +20,12 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 
 async function fetchJSON(path) {
   const r = await fetch(path);
+  // Session expired / not signed in: bounce to the login page (auth is a no-op
+  // when the deploy is keyless, so this never fires locally).
+  if (r.status === 401) {
+    window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname);
+    throw new Error("unauthorized");
+  }
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }

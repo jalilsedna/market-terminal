@@ -44,11 +44,18 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       steps, and a troubleshooting table.
 - [ ] **A6 — Resolve Claude Code's `/doctor` "MCP" warning** in the WSL agent.
 - [ ] **A7 — Rotate the OpenAlice admin token.**
-- [ ] **A8 — Deploy market-terminal to Railway** (online access). Research-only
-      service; **never** deploy OpenAlice / broker keys publicly. Needs: a
-      container build (OpenBB), env/secrets, **auth on the MCP endpoint** before
-      it's public, and provider reachability from Railway IPs. The feed then
-      becomes "point Alice's `.mcp.json` at the Railway URL."
+- [~] **A8 — Deploy market-terminal to Railway** (online access). **Code +
+      infra shipped** (`docs/deploy-railway.md`): single service serving web UI +
+      REST + MCP (mounted at `/mcp`) under one domain and one **auth gate**
+      (`app/auth.py` — login-page session cookie for the browser + Bearer token
+      for Alice/MCP/API, on a `Users` abstraction ready for a future DB store +
+      registration). Added `Dockerfile`, `railway.json`, `.dockerignore`, the
+      `/login` page, and the FastMCP-into-FastAPI mount (validated end-to-end:
+      mount + bearer 401→200 + MCP handshake + DNS-rebind config). **Remaining
+      (your click-ops):** create the Railway project, set the secrets/env, expose
+      a domain, run the smoke test, then point Alice's `.mcp.json` at the public
+      `/mcp` URL with the Bearer header. Research-only — **never** deploy
+      OpenAlice / broker keys publicly.
 
 ## B. Data / provider gaps (documented, still open)
 - [ ] **B1 — Economic calendar.** Paywalled on FMP free tier; V1's calendar
