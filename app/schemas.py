@@ -7,7 +7,7 @@ data-freshness label (SPEC.md §6 — never imply tradeable intraday signals).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
@@ -27,5 +27,5 @@ class Envelope(BaseModel, Generic[T]):
         default=None,
         description="Data freshness label, e.g. 'EOD', 'delayed', 'weekly (COT)'.",
     )
-    as_of: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    as_of: datetime = Field(default_factory=lambda: datetime.now(UTC))
     error: str | None = None

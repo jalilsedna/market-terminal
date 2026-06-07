@@ -12,7 +12,7 @@ Services never import OpenBB directly; they go through `obb_layer/`.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
 
 from concurrency import parallel_map
 from obb_layer import macro

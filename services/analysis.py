@@ -327,7 +327,8 @@ def term_structure_signal(lookback_days: int = 7) -> dict:
     curves (now vs ~`lookback_days` ago). VIX is the reliable read; the yfinance
     commodity curves degrade where unavailable.
     """
-    from datetime import date as _date, timedelta
+    from datetime import date as _date
+    from datetime import timedelta
 
     prior_date = (_date.today() - timedelta(days=lookback_days)).isoformat()
     signals: dict[str, dict] = {}

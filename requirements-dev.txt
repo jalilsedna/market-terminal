@@ -1,0 +1,19 @@
+# Dev / CI tooling for the fast lint + test job.
+#
+# This is the LIGHTWEIGHT set: the auth/config/MCP-mount tests are designed to
+# run without OpenBB (see tests/conftest.py), so CI gets fast feedback here. The
+# full stack (requirements.txt, incl. OpenBB) is exercised separately by the
+# import-smoke CI job. The runtime pins below mirror requirements.txt so the two
+# jobs agree.
+
+# Lint + test runners.
+ruff==0.14.4
+pytest==8.4.2
+httpx==0.28.1
+
+# Lightweight runtime deps the tests import (subset of requirements.txt; OpenBB
+# and its providers are intentionally excluded).
+fastapi==0.128.8
+mcp==1.27.2
+pydantic==2.13.4
+pydantic-settings==2.14.1

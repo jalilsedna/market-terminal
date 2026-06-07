@@ -1,0 +1,58 @@
+# Continuous integration (ROADMAP C1).
+#
+# Two jobs, run in parallel:
+#   * lint-and-test  — ruff + the lightweight auth/config/MCP-mount tests. Fast
+#     (~1 min, no OpenBB), so it's the quick gate on every push/PR.
+#   * import-smoke   — installs the FULL stack (OpenBB + providers) and imports
+#     the whole app + every view module. This is the realistic version of "an
+#     OpenBB bump can't silently break a view": a renamed/removed endpoint that
+#     breaks an import fails here. (The live Phase-0 probe stays a manual tool —
+#     it needs provider keys and network, which would make CI flaky.)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install dev deps
+        run: pip install -r requirements-dev.txt
+      - name: Ruff (lint)
+        run: ruff check .
+      - name: Pytest (auth / config / MCP mount)
+        run: pytest
+
+  import-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install full stack (OpenBB)
+        run: pip install -r requirements.txt
+      - name: Compile every module
+        run: python -m compileall -q app services obb_layer cache circuit.py concurrency.py config.py mcp_server.py
+      - name: Import the app (catches OpenBB-bump breakage in any view)
+        run: python -c "import app.main; import mcp_server; print('app + MCP server import OK')"

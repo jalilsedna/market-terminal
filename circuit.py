@@ -22,7 +22,8 @@ from __future__ import annotations
 import functools
 import threading
 import time
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 R = TypeVar("R")
 
