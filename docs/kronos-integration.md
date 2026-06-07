@@ -82,13 +82,13 @@ already fetch.
 | Scaling | coupled | independent (GPU later, if ever) |
 | Complexity | simplest | one network hop + an internal service token |
 
-**Recommendation: B**, structured so it's cheap — build `kronos_layer/` as a
-clean **library**, then wrap it in a thin `forecast_service` (FastAPI) that
-imports it. The terminal's `services/forecast.py` calls that service through an
-HTTP client guarded by `circuit.py`. The **same `kronos_layer/` library** is
-reused regardless, so if we ever want the in-app path (A), it's a small wrapper —
-the decision isn't one-way. For **E1 (evaluate)** we use the library directly,
-no service needed.
+**DECIDED: B (separate forecasting service).** Build `kronos_layer/` as a clean
+**library**, then wrap it in a thin `forecast_service` (FastAPI) that imports it.
+The terminal's `services/forecast.py` calls that service through an HTTP client
+guarded by `circuit.py`, with an internal service token. The **same
+`kronos_layer/` library** is reused regardless, so if we ever want the in-app
+path (A), it's a small wrapper — the decision isn't one-way. For **E1
+(evaluate)** we use the library directly, no service needed.
 
 ## 4. Config additions (`config.py`)
 
@@ -147,12 +147,13 @@ useful. Kronos demos on crypto-hourly, so this is a genuine unknown.
 | **E4** | history + forecast-cone chart (in the C4 instrument view) | — |
 | **E5** | deploy topology (separate service + inter-service auth + circuit breaker) | core stays lean |
 
-## 9. Decisions to confirm before building
+## 9. Decisions (locked)
 
-1. **Deploy topology** — separate forecasting service (recommended) vs in-app
-   feature flag.
-2. **Model size for v1** — start with `small` (fast, cheap eval), move to `base`
-   only if quality needs it.
-3. **Scope** — daily futures watchlist first (matches our data), confirm.
-4. **Expose to Alice when?** — recommend terminal-only until E1 validates, *then*
-   add the `forecast` MCP tool so Alice consumes it.
+1. **Deploy topology** — ✅ **separate forecasting service** the terminal calls
+   over HTTP (§3.3 B). Core stays lean; degrades gracefully via the circuit
+   breaker.
+2. **Model size for v1** — ✅ start with `small` (fast, cheap eval); move to
+   `base` only if E1 shows quality needs it.
+3. **Scope** — ✅ daily futures watchlist first (GC, NQ, …), matching our data.
+4. **Expose to Alice when?** — ✅ terminal-only until E1 validates, *then* add the
+   `forecast` MCP tool so Alice consumes it.
