@@ -126,11 +126,15 @@ no change is needed — see `docs/openalice-wsl-setup.md`.)
 
 ## Tools OpenAlice will see
 
-All 11, all returning research context (EOD / delayed / weekly), **never** trade
+All 13, all returning research context (EOD / delayed / weekly), **never** trade
 signals. The agent interprets them; the terminal only reports.
 
 **Raw data (7):** `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
 `cot_search`, `term_structure`, `sector_rotation`, `market_news`.
+
+**Derived / operational (2):** `volatility` (realized vol + calm/normal/
+elevated/stressed regime + short-horizon forecast) and `alerts_status` (C5
+research flags over recorded history, e.g. "is any vol regime stressed now?").
 
 **Interpreted analysis layer (4):** `analysis_cot` (crowded long/short vs
 1y/3y percentile), `analysis_regime` (risk-on/off vote), `analysis_brief`
@@ -157,3 +161,40 @@ proven end-to-end loop:
 **None of this touches market-terminal.** No broker keys, no order entry, no
 position state ever live in this repo — only the read-only research feed flows
 out. See `docs/openalice-wsl-setup.md` for the full host setup.
+
+## Rotating OpenAlice's admin token (A7)
+
+OpenAlice gates its **Web UI / control API** with a single admin token — a
+256-bit secret stored only as a scrypt hash in `data/config/auth.json` (inside
+the OpenAlice checkout; `data/` is gitignored there). It's printed **once** at
+first run and never shown again. This is the higher-value secret on the
+execution side, so rotate it periodically and immediately if it may have leaked.
+
+> This is entirely OpenAlice-side. It does **not** touch market-terminal — the
+> terminal's `AUTH_TOKEN` (which Alice uses to *pull research*) is a separate
+> secret in the other direction (rotate that per `docs/deploy-railway.md`).
+
+There is no dedicated `rotate` CLI command. The supported path (the one
+`token-store.ts` documents as the operator recovery route) is **clear the auth
+file → regenerate on next boot**, which also wipes all sessions server-side:
+
+```bash
+# in the OpenAlice checkout (the data dir is ./data, not ~/.openalice)
+find ~ -name auth.json -path "*config*"          # confirm the path
+cat data/config/auth.json                         # metadata only — no plaintext
+
+# stop OpenAlice (Ctrl-C the running `pnpm dev`), then:
+cp data/config/auth.json data/config/auth.json.bak
+rm data/config/auth.json
+pnpm dev          # prints "First-run admin token (save this …): <NEW TOKEN>" once
+```
+
+Then: copy the new token into a password manager; sign into the Web UI with it
+(issues a fresh session cookie); update any saved `Authorization: Bearer` /
+`X-OpenAlice-Token` header; verify **old token → 401/403, new → 200**; then
+`rm data/config/auth.json.bak`. To abort, restore with
+`mv data/config/auth.json.bak data/config/auth.json`.
+
+(OpenAlice's own MCP server is intentionally open-posture / no admin-token gate —
+it's localhost-only for the agent. The admin token guards the control surface,
+which is what's worth rotating.)
