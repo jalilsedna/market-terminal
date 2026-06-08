@@ -1,4 +1,4 @@
-"""Custom-watchlist store — pure JSON CRUD (no OpenBB, runs in CI)."""
+"""Custom-watchlist store — SQLite-backed CRUD (no OpenBB, runs in CI)."""
 
 from __future__ import annotations
 
@@ -7,13 +7,14 @@ import pytest
 
 @pytest.fixture
 def store(tmp_path, monkeypatch):
-    monkeypatch.setenv("CUSTOM_WATCHLIST_PATH", str(tmp_path / "wl.json"))
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "terminal.db"))
     import config
 
     config.get_settings.cache_clear()
     from services import custom_store
 
     yield custom_store
+    config.get_settings.cache_clear()
     config.get_settings.cache_clear()
 
 
