@@ -49,6 +49,16 @@ def test_range_estimators_positive():
     assert np.all(series >= 0)
 
 
+def test_realized_vol_series_smooth_and_positive():
+    sigma = 0.012
+    close = _gbm_close(sigma, 300, seed=5)
+    rv = R.realized_vol_series(close, window=21)
+    assert len(rv) == len(close) - 21
+    assert np.all(rv > 0) and np.all(np.isfinite(rv))  # strictly positive, unlike per-bar
+    true = sigma * np.sqrt(252)
+    assert 0.7 * true <= float(np.mean(rv)) <= 1.3 * true
+
+
 # --- HAR-RV forecast ------------------------------------------------------ #
 def test_har_constant_series():
     v = np.full(120, 0.20)
