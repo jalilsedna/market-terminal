@@ -17,7 +17,16 @@ import threading
 import time
 from collections.abc import Callable
 
-from services import cot, macro, news, screener, term_structure, volatility, watchlist
+from services import (
+    cot,
+    custom_watchlist,
+    macro,
+    news,
+    screener,
+    term_structure,
+    volatility,
+    watchlist,
+)
 
 logger = logging.getLogger("precache")
 # Make our INFO lines visible in the uvicorn console: uvicorn only configures its
@@ -39,6 +48,7 @@ WARMERS: list[tuple[str, Callable[[], object]]] = [
     ("sectors", screener.sector_rotation),
     ("news", lambda: news.feed(limit=40)),
     ("volatility", volatility.dashboard),
+    ("custom", custom_watchlist.dashboard),
 ]
 
 

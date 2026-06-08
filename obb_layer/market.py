@@ -69,6 +69,32 @@ def fx_history(
 
 @cached("eod")
 @guarded()
+def equity_history(
+    symbol: str, start_date: str | None = None, interval: str = "1d"
+) -> list[dict]:
+    """OHLCV for an equity/index ticker (e.g. 'AAPL'). Provider: yfinance. Used by
+    the custom multi-asset watchlist (C6)."""
+    obb = get_obb()
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
+    if start_date:
+        kwargs["start_date"] = start_date
+    return to_records(obb.equity.price.historical(**kwargs))
+
+
+@cached("eod")
+@guarded()
+def etf_history(symbol: str, start_date: str | None = None, interval: str = "1d") -> list[dict]:
+    """OHLCV for an ETF (e.g. 'SPY', 'GLD'). Provider: yfinance. Used by the
+    custom multi-asset watchlist (C6)."""
+    obb = get_obb()
+    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
+    if start_date:
+        kwargs["start_date"] = start_date
+    return to_records(obb.etf.historical(**kwargs))
+
+
+@cached("eod")
+@guarded()
 def proxy_history(proxy_symbol: str) -> list[dict]:
     """Daily OHLCV for a spot/cash proxy, routed by symbol shape.
 

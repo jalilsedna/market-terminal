@@ -30,6 +30,14 @@ body {
 .tag { font-weight: 400; color: var(--muted); font-size: 11px; letter-spacing: 0; }
 .controls { display: flex; align-items: center; gap: 14px; }
 .session { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.addbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inp {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; padding: 5px 10px; font: inherit; min-width: 250px;
+}
+.inp:focus { outline: none; border-color: var(--accent); }
+.btn.rm { padding: 2px 9px; color: var(--muted); }
+.btn.rm:hover { border-color: var(--red); color: var(--red); }
 .clock { color: var(--muted); }
 .btn {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
