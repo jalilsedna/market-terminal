@@ -137,6 +137,16 @@ def _wants_html(request: Request) -> bool:
 
 # --------------------------------------------------------------------------- #
 # The middleware.                                                              #
+def current_user(request: Request) -> str | None:
+    """Who's making this request: the username from a valid session cookie, the
+    sentinel 'token' for a Bearer client, or None (anonymous / auth disabled)."""
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer ") and verify_token(auth[7:]):
+        return "token"
+    cookie = request.cookies.get(SESSION_COOKIE)
+    return verify_session(cookie) if cookie else None
+
+
 # --------------------------------------------------------------------------- #
 async def auth_middleware(request: Request, call_next):
     """Gate every request unless it carries a valid Bearer token (programmatic)

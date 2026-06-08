@@ -354,7 +354,20 @@ function initTabs() {
 
 function tick() { $("#clock").textContent = new Date().toUTCString().slice(17, 25) + " UTC"; }
 
+// Session bar (ROADMAP F1): show who's signed in + a sign-out link, but only on
+// an auth-enabled (deployed) instance — keyless local dev shows nothing.
+async function initSession() {
+  try {
+    const w = await fetchJSON("/whoami");
+    if (w && w.auth_enabled && w.user) {
+      $("#session").innerHTML =
+        `<span class="dim">signed in as ${esc(w.user)}</span> <a class="btn" href="/logout">Sign out</a>`;
+    }
+  } catch (e) { /* no session bar if unavailable */ }
+}
+
 initTabs();
+initSession();
 $("#refresh").addEventListener("click", refreshActive);
 setInterval(tick, 1000); tick();
 showView("macro"); // initial load = visible tab only
