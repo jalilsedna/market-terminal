@@ -41,13 +41,12 @@ def _closes(instrument: str):
     return inst, close, recs[-1].get("date")
 
 
-def volatility(instrument: str, horizon: int = 5) -> dict:
-    """Realized vol + regime + short-horizon forecast for one watchlist instrument."""
-    inst, close, as_of = _closes(instrument)
-    base = {"instrument": instrument, "name": inst.name, "disclaimer": DISCLAIMER}
+def _read_from_closes(name: str, instrument: str, close, as_of, horizon: int) -> dict:
+    """Compute the vol/regime/forecast read from a close-price array. Shared by the
+    futures watchlist and the custom multi-asset watchlist (C6)."""
+    base = {"instrument": instrument, "name": name, "disclaimer": DISCLAIMER}
     if close is None or len(close) < _MIN_BARS:
         return {**base, "ok": False, "error": "insufficient history (provider down / throttled?)"}
-
     try:
         rv = realized_vol_series(close, window=_VOL_WINDOW)
         current = float(rv[-1])
@@ -56,9 +55,8 @@ def volatility(instrument: str, horizon: int = 5) -> dict:
         har = float(np.mean(har_rv_forecast(rv, horizon)["forecast"]))
     except Exception as exc:  # noqa: BLE001 — degrade rather than fail the view
         return {**base, "ok": False, "error": f"{type(exc).__name__}: {exc}"[:160]}
-
     read = (
-        f"{inst.name}: realized vol {current * 100:.1f}% annualized — "
+        f"{name}: realized vol {current * 100:.1f}% annualized — "
         f"{regime['regime']} ({regime['percentile']:.0f}th pct of ~3y). "
         f"{horizon}-day forecast ~{ewma * 100:.1f}% (EWMA)."
     )
@@ -73,12 +71,48 @@ def volatility(instrument: str, horizon: int = 5) -> dict:
     }
 
 
+def volatility(instrument: str, horizon: int = 5) -> dict:
+    """Realized vol + regime + short-horizon forecast for one watchlist instrument."""
+    inst, close, as_of = _closes(instrument)
+    return _read_from_closes(inst.name, instrument, close, as_of, horizon)
+
+
+def _custom_closes(asset: str, symbol: str):
+    """~3y closes for a custom (asset, symbol) via the right obb_layer fetcher."""
+    from services.custom_watchlist import FETCHERS
+
+    fetch = FETCHERS.get(asset)
+    if fetch is None:
+        return None, None
+    start = (date.today() - timedelta(days=365 * 3 + 10)).isoformat()
+    records = fetch(symbol, start_date=start)
+    if not records:
+        return None, None
+    recs = sorted(records, key=lambda r: str(r.get("date", "")))
+    close = np.array([float(r["close"]) for r in recs if r.get("close") is not None])
+    return close, recs[-1].get("date")
+
+
 def dashboard(horizon: int = 5) -> dict:
-    """Volatility read across the whole futures watchlist."""
+    """Volatility read across the futures watchlist **and** the user's custom
+    multi-asset watchlist (C6) — vol/regime is asset-agnostic, so added crypto /
+    equities / FX appear here too."""
     out: dict = {}
     for code in WATCHLIST:
         try:
             out[code] = volatility(code, horizon)
         except Exception as exc:  # noqa: BLE001 — one instrument must not sink the dash
             out[code] = {"instrument": code, "ok": False, "error": f"{type(exc).__name__}: {exc}"[:160]}
+
+    from services.custom_store import list_items
+
+    for it in list_items():
+        try:
+            close, as_of = _custom_closes(it["asset"], it["symbol"])
+            out[it["id"]] = _read_from_closes(
+                it.get("label") or it["symbol"], it["symbol"], close, as_of, horizon
+            )
+        except Exception as exc:  # noqa: BLE001
+            out[it["id"]] = {"instrument": it.get("symbol"), "ok": False,
+                             "error": f"{type(exc).__name__}: {exc}"[:160]}
     return {"instruments": out, "disclaimer": DISCLAIMER}

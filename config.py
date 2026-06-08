@@ -69,6 +69,14 @@ class Settings(BaseSettings):
     # Default is OpenAlice's dev UI. Execution lives there, never in this repo.
     alice_url: str = "http://localhost:5173"
 
+    # --- Custom multi-asset watchlist (ROADMAP C6) ---
+    # JSON file backing the user's add/remove-able instruments (futures, crypto,
+    # forex, equity, ETF). Under gitignored cache/data/ so it's never committed.
+    # NOTE: on Railway the container filesystem is ephemeral — point this at a
+    # mounted volume (e.g. /data/custom_watchlist.json) for it to survive
+    # redeploys; otherwise it resets to empty. Ties into C2 (persistence).
+    custom_watchlist_path: str = "cache/data/custom_watchlist.json"
+
     # --- Forecasting (Kronos — roadmap §E; see docs/kronos-integration.md) ---
     # The terminal's core never imports torch; these settings are read only by
     # `kronos_layer/` (the isolated wrapper) and the eval harness. By design the

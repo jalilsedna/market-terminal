@@ -318,6 +318,66 @@ async function loadAnalysis() {
   loadBrief(pick ? pick.value : "GC");
 }
 
+// My Watchlist tab (ROADMAP C6): add/remove arbitrary instruments across asset
+// classes; each row shows price + change + the vol/regime read. Mutating calls
+// (POST/DELETE) go through apiSend.
+async function apiSend(path, method, body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  const r = await fetch(path, opts);
+  if (r.status === 401) { window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname); throw new Error("unauthorized"); }
+  if (!r.ok) { let m = `HTTP ${r.status}`; try { m = (await r.json()).detail || m; } catch (e) { /* */ } throw new Error(m); }
+  return r.json();
+}
+
+const CUSTOM_ASSETS = ["crypto", "forex", "equity", "etf", "futures"];
+
+function _customRows(insts) {
+  if (!insts.length) return `<tr><td colspan="7" class="dim">Nothing yet — add one above (e.g. crypto <b>BTC-USD</b>, equity <b>AAPL</b>, etf <b>SPY</b>, forex <b>EURUSD</b>).</td></tr>`;
+  return insts.map((v) => {
+    const body = v.ok === false
+      ? `<td colspan="5" class="err">${esc(v.error || "n/a")}</td>`
+      : `<td>${num(v.last, 4)}</td><td>${pct(v.change_1d_pct)}</td><td>${pct(v.change_1w_pct)}</td>
+         <td>${v.vol_annualized != null ? num(v.vol_annualized * 100, 1) + "%" : '<span class="dim">—</span>'}</td>
+         <td>${v.regime ? _volPill(v.regime) : '<span class="dim">—</span>'}</td>`;
+    return `<tr><td>${esc(v.label || v.symbol)} <span class="dim">${esc(v.asset)}</span></td>${body}
+      <td><button class="btn rm" data-id="${esc(v.id)}" title="remove">✕</button></td></tr>`;
+  }).join("");
+}
+
+async function loadCustom() {
+  const sec = $("#view-custom");
+  let env;
+  try { env = await fetchJSON("/custom"); }
+  catch (e) { sec.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; return; }
+  const d = env.data || {};
+  const opts = CUSTOM_ASSETS.map((a) => `<option value="${a}">${a}</option>`).join("");
+  sec.innerHTML = panel("My Watchlist — add/remove any asset", `
+    <div class="addbar">
+      <select id="c-asset" class="btn">${opts}</select>
+      <input id="c-symbol" class="inp" placeholder="symbol (BTC-USD, AAPL, EURUSD, GC=F)" />
+      <button id="c-add" class="btn">+ Add</button>
+      <span id="c-msg" class="dim"></span>
+    </div>
+    <table style="margin-top:10px"><thead><tr><th>Instrument</th><th>Last</th><th>1d</th><th>1w</th><th>Vol</th><th>Regime</th><th></th></tr></thead>
+      <tbody>${_customRows(d.instruments || [])}</tbody></table>
+    <div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")} · saved per-instance (resets on redeploy unless a volume is attached).</div>`);
+
+  const reload = () => loadCustom();
+  const add = async () => {
+    const asset = $("#c-asset").value, symbol = $("#c-symbol").value.trim();
+    if (!symbol) return;
+    $("#c-msg").textContent = "adding…";
+    try { await apiSend("/custom", "POST", { asset, symbol }); await reload(); }
+    catch (e) { const m = $("#c-msg"); if (m) m.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  };
+  $("#c-add").addEventListener("click", add);
+  $("#c-symbol").addEventListener("keydown", (ev) => { if (ev.key === "Enter") add(); });
+  sec.querySelectorAll(".rm").forEach((b) => b.addEventListener("click", async () => {
+    try { await apiSend("/custom/" + encodeURIComponent(b.dataset.id), "DELETE"); await reload(); } catch (e) { /* ignore */ }
+  }));
+}
+
 // Lazy loading: only fetch the visible tab; fetch others when first opened (by
 // then the background pre-cache has usually warmed them, so they appear fast).
 const loaded = new Set();
@@ -326,6 +386,7 @@ let active = "macro";
 function _loadFor(view) {
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
+  if (view === "custom") return loadCustom();
   return loadView(view);
 }
 

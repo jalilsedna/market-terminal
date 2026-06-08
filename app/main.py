@@ -120,6 +120,7 @@ def health() -> dict:
 from app.routers import (
     analysis,
     cot,
+    custom,
     macro,
     news,
     screener,
@@ -136,6 +137,7 @@ app.include_router(term_structure.router)
 app.include_router(screener.router)
 app.include_router(analysis.router)
 app.include_router(volatility.router)
+app.include_router(custom.router)
 
 
 from pathlib import Path

@@ -86,12 +86,14 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       term structure + news (and later its Kronos forecast — E3) on one screen.
 - [ ] **C5 — Interactive frontend.** Editable watchlist, charts, alerts
       (e.g. COT extreme / curve flip).
-- [ ] **C6 — Dynamic multi-asset watchlist.** Today the watchlist is a fixed
-      5-instrument map hardcoded in `obb_layer/symbols.py` (futures only). Let the
-      user **add/remove arbitrary assets across classes** — futures, crypto,
-      forex, equities, ETFs — as a persisted, editable instrument list (pairs
-      with C2 persistence; builds on the new crypto/forex `obb_layer` fetchers),
-      surfaced in both the UI and the MCP feed.
+- [~] **C6 — Dynamic multi-asset watchlist.** Shipped: a **My Watchlist** tab +
+      `/custom` CRUD endpoints + a JSON store (`services/custom_store.py`, pure +
+      tested) let the user **add/remove arbitrary assets across classes** (futures,
+      crypto, forex, equity, ETF), each showing price + change + vol/regime. Added
+      equity/ETF `obb_layer` fetchers. Custom instruments also flow into the
+      **Volatility** tab (asset-agnostic). **Follow-ups:** thread them into the
+      Analysis brief dropdown; persist on Railway via a volume (C2); COT stays
+      futures-only (CFTC has no stock/crypto positioning).
 
 ## E. Forecasting / quant layer — VOLATILITY (toward a Bloomberg-style terminal)
 The missing pillar is *forecasting*. We tested price/direction with
