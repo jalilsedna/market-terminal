@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     # Default is OpenAlice's dev UI. Execution lives there, never in this repo.
     alice_url: str = "http://localhost:5173"
 
+    # --- Data providers (ROADMAP B4 — reliability) ---
+    # Comma-separated EOD provider fallback chain for the equity/ETF routes (where
+    # symbols are consistent across providers, e.g. AAPL/SPY). The fetchers try
+    # each provider in order until one returns data, so a yfinance throttle/401
+    # falls back instead of degrading the panel. Add a (free) Tiingo key and set
+    # "tiingo,yfinance" for reliability. Crypto/FX/futures stay yfinance —
+    # provider-specific symbol formats need a mapping layer first (B-follow-up).
+    eod_providers: str = "yfinance"
+
     # --- Custom multi-asset watchlist (ROADMAP C6) ---
     # JSON file backing the user's add/remove-able instruments (futures, crypto,
     # forex, equity, ETF). Under gitignored cache/data/ so it's never committed.
@@ -97,6 +106,12 @@ class Settings(BaseSettings):
     intrinio_api_key: str | None = None
     tiingo_api_key: str | None = None
     eia_api_key: str | None = None
+
+    @property
+    def eod_provider_chain(self) -> list[str]:
+        """The EOD provider fallback chain (parsed from `eod_providers`)."""
+        chain = [p.strip() for p in self.eod_providers.split(",") if p.strip()]
+        return chain or ["yfinance"]
 
     @property
     def auth_enabled(self) -> bool:

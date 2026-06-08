@@ -109,6 +109,7 @@ def health() -> dict:
         "app": settings.app_name,
         "auth_enabled": settings.auth_enabled,
         "providers_configured": settings.configured_providers(),
+        "eod_providers": settings.eod_provider_chain,
         "precache_interval_min": settings.precache_interval_min,
         "alice_url": settings.alice_url,
     }

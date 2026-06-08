@@ -14,14 +14,16 @@ from cache.store import cached
 from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
+from obb_layer.providers import eod_with_fallback
 
 
 @cached("eod")
 @guarded()
 def etf_history(symbol: str) -> list[dict]:
-    """Daily OHLCV for an ETF (e.g. 'XLK'). Provider: yfinance."""
-    obb = get_obb()
-    return to_records(obb.etf.historical(symbol=symbol, provider="yfinance"))
+    """Daily OHLCV for a sector ETF (e.g. 'XLK'). Tries the EOD provider chain
+    (B4) so a yfinance throttle on the 11-ETF fan-out falls back instead of
+    dropping sectors."""
+    return eod_with_fallback(get_obb().etf.historical, symbol)
 
 
 @cached("eod")
