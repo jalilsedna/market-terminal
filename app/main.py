@@ -145,9 +145,10 @@ app.include_router(history.router)
 
 from pathlib import Path
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from app.auth import SESSION_COOKIE, current_user, set_session_cookie, users
 
@@ -156,9 +157,82 @@ _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 @app.get("/whoami", include_in_schema=False)
 def whoami(request: Request) -> dict:
-    """Who's signed in (for the web UI's session bar). Behind auth when enabled;
-    returns nulls when auth is off (keyless local dev)."""
-    return {"auth_enabled": settings.auth_enabled, "user": current_user(request)}
+    """Who's signed in + their role (for the web UI's session bar / Admin tab).
+    Behind auth when enabled; nulls when auth is off (keyless local dev)."""
+    user = current_user(request)
+    return {
+        "auth_enabled": settings.auth_enabled,
+        "user": user,
+        "role": users.role(user),
+        "registration_open": settings.registration_open,
+    }
+
+
+def _require_admin(request: Request) -> None:
+    """Raise 403 unless the caller is an admin (F2 admin endpoints)."""
+    if users.role(current_user(request)) != "admin":
+        raise HTTPException(status_code=403, detail="admin only")
+
+
+@app.get("/register", include_in_schema=False)
+def register_page() -> HTMLResponse:
+    """Self-service sign-up page (open only when registration_open)."""
+    closed = "" if settings.registration_open else (
+        '<p class="err">Registration is currently closed — ask an admin for an account.</p>'
+    )
+    html = (_WEB_DIR / "register.html").read_text(encoding="utf-8").replace("<!--CLOSED-->", closed)
+    return HTMLResponse(html)
+
+
+@app.post("/register", include_in_schema=False)
+async def register_submit(request: Request):
+    """Create a 'user' account and sign them in (when registration is open)."""
+    if not settings.registration_open:
+        raise HTTPException(status_code=403, detail="registration is closed")
+    form = await request.form()
+    username = str(form.get("username", "")).strip()
+    password = str(form.get("password", ""))
+    if len(username) < 3 or len(password) < 8:
+        raise HTTPException(status_code=400, detail="username ≥3 chars, password ≥8 chars")
+    if not users.create(username, password, role="user"):
+        raise HTTPException(status_code=409, detail="username already taken")
+    resp = RedirectResponse("/", status_code=303)
+    set_session_cookie(resp, username, secure=request.url.scheme == "https")
+    return resp
+
+
+@app.get("/admin/users", include_in_schema=False)
+def admin_list_users(request: Request) -> dict:
+    """List accounts (admin only)."""
+    _require_admin(request)
+    return {"users": users.list(), "registration_open": settings.registration_open}
+
+
+class _NewUser(BaseModel):
+    username: str
+    password: str
+    role: str = "user"
+
+
+@app.post("/admin/users", include_in_schema=False)
+def admin_create_user(request: Request, body: _NewUser) -> dict:
+    """Create an account (admin only)."""
+    _require_admin(request)
+    if body.role not in ("user", "admin"):
+        raise HTTPException(status_code=400, detail="role must be 'user' or 'admin'")
+    if len(body.username.strip()) < 3 or len(body.password) < 8:
+        raise HTTPException(status_code=400, detail="username ≥3 chars, password ≥8 chars")
+    if not users.create(body.username.strip(), body.password, role=body.role):
+        raise HTTPException(status_code=409, detail="username already taken")
+    return {"ok": True, "users": users.list()}
+
+
+@app.post("/admin/users/{username}/disabled", include_in_schema=False)
+def admin_set_disabled(request: Request, username: str, disabled: bool = True) -> dict:
+    """Enable/disable an account (admin only)."""
+    _require_admin(request)
+    users.set_disabled(username, disabled)
+    return {"ok": True, "users": users.list()}
 
 
 def _login_html(next_url: str = "/", error: str = "") -> str:

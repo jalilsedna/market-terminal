@@ -147,11 +147,13 @@ sign into.
       Sign out") backed by a `current_user` helper + `/whoami` endpoint; shows
       only on an auth-enabled deploy (keyless local dev is unchanged). The SPA
       already redirects to `/login` on a 401, so expiry is handled.
-- [ ] **F2 — User management panel.** Replace the single env admin with a
-      DB-backed user store (the `Users` seam), an admin panel to create / list /
-      disable users, and optional self-service registration. Pairs with C2
-      (persistence) for where the user table lives, and gates which API/MCP
-      scopes each user gets.
+- [x] **F2 — User management + registration.** The `Users` seam is now
+      SQLite-backed (C2 `users` table) with PBKDF2 password hashing (stdlib, no new
+      deps); the env admin stays as a bootstrap login. **Self-service `/register`**
+      (behind `REGISTRATION_OPEN`, default off) and an admin-only **Admin tab** /
+      `/admin/users` API to create / list / enable-disable accounts (roles
+      admin|user). `/whoami` returns the role; the Admin tab shows only to admins.
+      (Follow-up: per-user API/MCP scopes; password reset.)
 
 ## D. Housekeeping
 - [ ] **D1 — Keep `CLAUDE.md` ↔ the Claude Project's custom instructions in

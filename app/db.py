@@ -30,6 +30,10 @@ _SCHEMA = (
     """CREATE TABLE IF NOT EXISTS snapshots (
            series TEXT NOT NULL, ts TEXT NOT NULL, value TEXT NOT NULL)""",
     "CREATE INDEX IF NOT EXISTS ix_snap_series_ts ON snapshots (series, ts)",
+    """CREATE TABLE IF NOT EXISTS users (
+           username TEXT PRIMARY KEY, pw_hash TEXT NOT NULL,
+           role TEXT NOT NULL DEFAULT 'user', disabled INTEGER NOT NULL DEFAULT 0,
+           created_at TEXT NOT NULL)""",
 )
 
 
@@ -135,3 +139,43 @@ def series_list() -> list[str]:
     with _db() as conn:
         rows = conn.execute("SELECT DISTINCT series FROM snapshots ORDER BY series").fetchall()
     return [r["series"] for r in rows]
+
+
+# --- users (ROADMAP F2) ---------------------------------------------------- #
+def user_create(username: str, pw_hash: str, role: str = "user") -> bool:
+    """Insert a user. False if the username already exists."""
+    with _db() as conn:
+        try:
+            conn.execute(
+                "INSERT INTO users (username, pw_hash, role, disabled, created_at) "
+                "VALUES (?, ?, ?, 0, ?)",
+                (username, pw_hash, role, _now()),
+            )
+        except sqlite3.IntegrityError:
+            return False
+    return True
+
+
+def user_get(username: str) -> dict | None:
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT username, pw_hash, role, disabled FROM users WHERE username=?", (username,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def user_list() -> list[dict]:
+    """All users (no password hashes)."""
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT username, role, disabled, created_at FROM users ORDER BY created_at"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def user_set_disabled(username: str, disabled: bool) -> bool:
+    with _db() as conn:
+        cur = conn.execute(
+            "UPDATE users SET disabled=? WHERE username=?", (1 if disabled else 0, username)
+        )
+    return cur.rowcount > 0

@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     # Public URL of the deployed terminal (for docs / Alice's .mcp.json), e.g.
     # https://market-terminal.up.railway.app — informational only.
     public_base_url: str | None = None
+    # Self-service sign-ups (ROADMAP F2). OFF by default — a public research
+    # terminal shouldn't let anyone register and burn the provider keys. Flip to
+    # true to open the /register page; otherwise an admin creates accounts.
+    registration_open: bool = False
 
     # --- Pre-cache scheduler (Phase 3) ---
     # Minutes between background cache-warming cycles; 0 disables the scheduler.
