@@ -14,6 +14,7 @@ from cache.store import cached
 from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
+from obb_layer.providers import eod_with_fallback
 
 
 @cached("eod")
@@ -72,25 +73,21 @@ def fx_history(
 def equity_history(
     symbol: str, start_date: str | None = None, interval: str = "1d"
 ) -> list[dict]:
-    """OHLCV for an equity/index ticker (e.g. 'AAPL'). Provider: yfinance. Used by
-    the custom multi-asset watchlist (C6)."""
-    obb = get_obb()
-    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
-    if start_date:
-        kwargs["start_date"] = start_date
-    return to_records(obb.equity.price.historical(**kwargs))
+    """OHLCV for an equity/index ticker (e.g. 'AAPL'). Tries the EOD provider
+    chain (B4) — symbols are portable across providers here. Used by C6."""
+    return eod_with_fallback(
+        get_obb().equity.price.historical, symbol, start_date=start_date, interval=interval
+    )
 
 
 @cached("eod")
 @guarded()
 def etf_history(symbol: str, start_date: str | None = None, interval: str = "1d") -> list[dict]:
-    """OHLCV for an ETF (e.g. 'SPY', 'GLD'). Provider: yfinance. Used by the
-    custom multi-asset watchlist (C6)."""
-    obb = get_obb()
-    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
-    if start_date:
-        kwargs["start_date"] = start_date
-    return to_records(obb.etf.historical(**kwargs))
+    """OHLCV for an ETF (e.g. 'SPY', 'GLD'). Tries the EOD provider chain (B4).
+    Used by the custom multi-asset watchlist (C6)."""
+    return eod_with_fallback(
+        get_obb().etf.historical, symbol, start_date=start_date, interval=interval
+    )
 
 
 @cached("eod")

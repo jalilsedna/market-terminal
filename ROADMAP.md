@@ -64,8 +64,14 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       per-instrument yfinance. Functional but not true world news.
 - [ ] **B3 — GC/CL/NG futures curves (V5).** yfinance 401s; only VIX works.
       Needs another source for commodity term structure.
-- [ ] **B4 — Provider reliability.** yfinance throttles/401s often; evaluate a
-      sturdier EOD provider for the whole terminal.
+- [~] **B4 — Provider reliability.** Shipped a configurable **EOD provider
+      fallback chain** (`EOD_PROVIDERS`, `obb_layer/providers.py`): equity/ETF
+      fetchers — incl. the sector-rotation 11-ETF fan-out + custom equity/ETF —
+      try each provider until one returns data, so a yfinance throttle falls back
+      (add a free Tiingo key + `EOD_PROVIDERS=tiingo,yfinance`). Safe-by-default
+      (chain = yfinance, unchanged); `/health` shows the chain. See
+      `docs/data-providers.md`. **Follow-up:** a per-provider symbol-mapping layer
+      to extend the chain to crypto/FX/futures (different symbol formats).
 
 ## C. Skeleton → product
 - [x] **C1 — Tests + CI.** `tests/` covers the auth gate (session/token/expiry +
