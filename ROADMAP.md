@@ -120,9 +120,11 @@ sizing), never a trigger.
       `volatility` MCP tool (12th tool — Alice gets vol/regime for sizing).
       Forecaster EWMA, HAR alongside, regime classification, one-line read +
       disclaimer.
-- [ ] **E4 — Visualize.** A Volatility tab: realized-vol history + forecast +
-      regime band in the frontend (and fold the regime line into `analysis_brief`
-      / the C4 instrument-focus screen).
+- [x] **E4 — Visualize.** A **Volatility tab** in the web UI: realized vol,
+      regime (calm/normal/elevated/stressed, colour-coded), 1y/3y percentile, and
+      the EWMA forecast (HAR faint) per watchlist instrument + the one-line reads.
+      Added to the pre-cache warmer so the tab loads warm. (Optional follow-up:
+      fold the regime line into `analysis_brief` / the C4 instrument-focus screen.)
 
 ## F. Accounts & multi-user (builds on the A8 auth `Users` seam)
 The A8 auth layer (`app/auth.py`) was deliberately shaped around a `Users`
