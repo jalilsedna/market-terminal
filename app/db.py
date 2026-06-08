@@ -34,6 +34,10 @@ _SCHEMA = (
            username TEXT PRIMARY KEY, pw_hash TEXT NOT NULL,
            role TEXT NOT NULL DEFAULT 'user', disabled INTEGER NOT NULL DEFAULT 0,
            created_at TEXT NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS alerts (
+           id TEXT PRIMARY KEY, series TEXT NOT NULL, metric TEXT NOT NULL,
+           op TEXT NOT NULL, threshold TEXT NOT NULL, label TEXT,
+           enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL)""",
 )
 
 
@@ -177,5 +181,50 @@ def user_set_disabled(username: str, disabled: bool) -> bool:
     with _db() as conn:
         cur = conn.execute(
             "UPDATE users SET disabled=? WHERE username=?", (1 if disabled else 0, username)
+        )
+    return cur.rowcount > 0
+
+
+# --- alerts (ROADMAP C5) --------------------------------------------------- #
+def alert_create(
+    alert_id: str, series: str, metric: str, op: str, threshold: Any, label: str, enabled: bool = True
+) -> None:
+    """Insert (or replace) an alert rule. `threshold` is JSON-encoded so it can be
+    a number (vol/percentile/score) or a string (regime level)."""
+    with _db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO alerts "
+            "(id, series, metric, op, threshold, label, enabled, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (alert_id, series, metric, op, json.dumps(threshold), label, int(enabled), _now()),
+        )
+
+
+def alert_list() -> list[dict]:
+    """All alert rules, oldest first, with threshold decoded and enabled as bool."""
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT id, series, metric, op, threshold, label, enabled "
+            "FROM alerts ORDER BY created_at"
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["threshold"] = json.loads(d["threshold"])
+        d["enabled"] = bool(d["enabled"])
+        out.append(d)
+    return out
+
+
+def alert_remove(alert_id: str) -> bool:
+    with _db() as conn:
+        cur = conn.execute("DELETE FROM alerts WHERE id=?", (alert_id,))
+    return cur.rowcount > 0
+
+
+def alert_set_enabled(alert_id: str, enabled: bool) -> bool:
+    with _db() as conn:
+        cur = conn.execute(
+            "UPDATE alerts SET enabled=? WHERE id=?", (int(enabled), alert_id)
         )
     return cur.rowcount > 0
