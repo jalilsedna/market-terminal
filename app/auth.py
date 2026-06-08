@@ -25,38 +25,96 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import os
 import time
 from urllib.parse import quote
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
+from app import db
 from config import get_settings
 
 SESSION_COOKIE = "mt_session"
 SESSION_TTL = 7 * 24 * 60 * 60  # one week
 
-# Paths reachable without authentication: liveness, the login flow itself, and
-# the favicon (browsers request it pre-login).
-OPEN_PATHS = {"/health", "/login", "/logout", "/favicon.ico"}
+# Paths reachable without authentication: liveness, the login/registration flows,
+# and the favicon (browsers request it pre-login).
+OPEN_PATHS = {"/health", "/login", "/logout", "/register", "/favicon.ico"}
+
+_PBKDF2_ITERATIONS = 200_000
+
+
+def hash_password(password: str) -> str:
+    """Salted PBKDF2-SHA256 hash → "iterations$salt_hex$hash_hex" (stdlib only)."""
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, _PBKDF2_ITERATIONS)
+    return f"{_PBKDF2_ITERATIONS}${salt.hex()}${dk.hex()}"
+
+
+def verify_hash(password: str, stored: str) -> bool:
+    """Constant-time check of a password against a stored PBKDF2 hash."""
+    try:
+        iterations, salt_hex, hash_hex = stored.split("$")
+        dk = hashlib.pbkdf2_hmac(
+            "sha256", password.encode(), bytes.fromhex(salt_hex), int(iterations)
+        )
+    except Exception:  # noqa: BLE001 — a malformed hash is just "no match"
+        return False
+    return hmac.compare_digest(dk.hex(), hash_hex)
 
 
 # --------------------------------------------------------------------------- #
-# Identity — the one place that knows "who may access". Swap this class for a   #
-# DB-backed store to add multi-user + registration; nothing else changes.      #
+# Identity — DB-backed user store (ROADMAP F2) with an env-admin bootstrap.     #
 # --------------------------------------------------------------------------- #
 class Users:
-    """Account store. Current implementation: a single admin from env."""
+    """Account store: a SQLite `users` table, plus the env admin
+    (ADMIN_USERNAME/ADMIN_PASSWORD) as an always-available bootstrap login."""
 
-    def verify_password(self, username: str, password: str) -> bool:
-        """True if (username, password) match the configured admin."""
+    def _is_env_admin(self, username: str, password: str) -> bool:
         s = get_settings()
         if not s.admin_password:
             return False
-        # constant-time on both fields to avoid leaking either via timing
-        ok_user = hmac.compare_digest(username or "", s.admin_username)
-        ok_pass = hmac.compare_digest(password or "", s.admin_password)
-        return ok_user and ok_pass
+        return hmac.compare_digest(username or "", s.admin_username) and hmac.compare_digest(
+            password or "", s.admin_password
+        )
+
+    def verify_password(self, username: str, password: str) -> bool:
+        """True if the credentials match an enabled DB user or the env admin."""
+        u = db.user_get(username)
+        if u and not u["disabled"] and verify_hash(password, u["pw_hash"]):
+            return True
+        return self._is_env_admin(username, password)
+
+    def role(self, username: str | None) -> str | None:
+        """'admin' / 'user' for a known, enabled account; else None."""
+        if not username:
+            return None
+        u = db.user_get(username)
+        if u:
+            return None if u["disabled"] else u["role"]
+        s = get_settings()
+        if s.admin_password and hmac.compare_digest(username, s.admin_username):
+            return "admin"
+        return None
+
+    def exists(self, username: str) -> bool:
+        if db.user_get(username) is not None:
+            return True
+        s = get_settings()
+        return bool(s.admin_password and username == s.admin_username)
+
+    def create(self, username: str, password: str, role: str = "user") -> bool:
+        """Create a user; False if the username is taken."""
+        if self.exists(username):
+            return False
+        return db.user_create(username, hash_password(password), role)
+
+    def list(self) -> list[dict]:
+        return db.user_list()
+
+    def set_disabled(self, username: str, disabled: bool) -> bool:
+        return db.user_set_disabled(username, disabled)
 
 
 users = Users()

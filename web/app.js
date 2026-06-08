@@ -439,11 +439,51 @@ async function loadFocus() {
 const loaded = new Set();
 let active = "macro";
 
+// Admin tab (ROADMAP F2): list / create / disable users. Shown only to admins
+// (initSession reveals the tab when /whoami reports role==='admin').
+async function loadAdmin() {
+  const sec = $("#view-admin");
+  let env;
+  try { env = await fetchJSON("/admin/users"); }
+  catch (e) { sec.innerHTML = `<div class="err">admin only</div>`; return; }
+  const rows = (env.users || []).map((u) => `<tr>
+    <td>${esc(u.username)}</td>
+    <td><span class="pill ${u.role === "admin" ? "amber" : ""}">${esc(u.role)}</span></td>
+    <td>${u.disabled ? '<span class="down">disabled</span>' : '<span class="up">active</span>'}</td>
+    <td><button class="btn ux" data-u="${esc(u.username)}" data-d="${u.disabled ? 0 : 1}">${u.disabled ? "Enable" : "Disable"}</button></td>
+  </tr>`).join("");
+  sec.innerHTML = panel("Users", `
+    <div class="addbar">
+      <input id="a-user" class="inp" placeholder="username (≥3)" />
+      <input id="a-pass" class="inp" type="password" placeholder="password (≥8)" />
+      <select id="a-role" class="btn"><option value="user">user</option><option value="admin">admin</option></select>
+      <button id="a-add" class="btn">+ Create</button>
+      <span id="a-msg" class="dim"></span>
+    </div>
+    <table style="margin-top:10px"><thead><tr><th>Username</th><th>Role</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" class="dim">no DB users yet (the env admin always works)</td></tr>'}</tbody></table>
+    <div class="exec-help dim" style="margin-top:8px">Self-service sign-ups are ${env.registration_open ? "<b>open</b>" : "closed"} (set REGISTRATION_OPEN). The env admin is the bootstrap account.</div>`);
+
+  const reload = () => loadAdmin();
+  $("#a-add").addEventListener("click", async () => {
+    const username = $("#a-user").value.trim(), password = $("#a-pass").value, role = $("#a-role").value;
+    if (!username || !password) return;
+    $("#a-msg").textContent = "creating…";
+    try { await apiSend("/admin/users", "POST", { username, password, role }); await reload(); }
+    catch (e) { const m = $("#a-msg"); if (m) m.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  });
+  sec.querySelectorAll(".ux").forEach((b) => b.addEventListener("click", async () => {
+    try { await apiSend(`/admin/users/${encodeURIComponent(b.dataset.u)}/disabled?disabled=${b.dataset.d}`, "POST"); await reload(); }
+    catch (e) { /* ignore */ }
+  }));
+}
+
 function _loadFor(view) {
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
   if (view === "custom") return loadCustom();
+  if (view === "admin") return loadAdmin();
   return loadView(view);
 }
 
@@ -479,7 +519,12 @@ async function initSession() {
     const w = await fetchJSON("/whoami");
     if (w && w.auth_enabled && w.user) {
       $("#session").innerHTML =
-        `<span class="dim">signed in as ${esc(w.user)}</span> <a class="btn" href="/logout">Sign out</a>`;
+        `<span class="dim">signed in as ${esc(w.user)}${w.role === "admin" ? " · admin" : ""}</span> <a class="btn" href="/logout">Sign out</a>`;
+    }
+    // Reveal the Admin tab only to admins.
+    if (w && w.role === "admin") {
+      const t = document.querySelector(".tab-admin");
+      if (t) t.style.display = "";
     }
   } catch (e) { /* no session bar if unavailable */ }
 }
