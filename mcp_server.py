@@ -26,6 +26,7 @@ from services import macro as macro_svc
 from services import news as news_svc
 from services import screener as screener_svc
 from services import term_structure as ts_svc
+from services import volatility as vol_svc
 from services import watchlist as watchlist_svc
 
 mcp = FastMCP("market-terminal")
@@ -136,6 +137,18 @@ def analysis_term_structure(lookback_days: int = 7) -> dict:
     steepening/deepening across the tracked curves (now vs ~`lookback_days` ago).
     VIX is the reliable read (backwardation = stress). Research context."""
     return _safe(analysis_svc.term_structure_signal, lookback_days)
+
+
+@mcp.tool()
+def volatility(instrument: str | None = None, horizon: int = 5) -> dict:
+    """Realized volatility, **regime** (calm/normal/elevated/stressed vs ~3y
+    history), and a short-horizon vol forecast for a watchlist instrument ('GC',
+    '6E', 'NQ', 'YM', '6B') — or the whole watchlist if omitted. Forecast is EWMA
+    (validated best on daily futures), with HAR-RV alongside. Research context for
+    sizing / regime awareness — not a trade trigger."""
+    if instrument:
+        return _safe(vol_svc.volatility, instrument=instrument, horizon=horizon)
+    return _safe(vol_svc.dashboard, horizon=horizon)
 
 
 def main() -> None:
