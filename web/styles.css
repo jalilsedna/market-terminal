@@ -65,6 +65,11 @@ body {
   border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
 .exec-help { margin-top: 8px; font-size: 11px; }
 .exec-help code { color: var(--text); }
+.exec-card { margin-top: 10px; padding: 18px 16px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 6px; max-width: 720px; }
+.exec-card h3 { margin: 0 0 8px; }
+.exec-card p { margin: 8px 0; line-height: 1.5; }
+.exec-card code { color: var(--text); }
 
 /* Views */
 main { padding: 16px; max-width: 1400px; margin: 0 auto; }
