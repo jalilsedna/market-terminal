@@ -20,6 +20,7 @@ from vol.realized import (
     garman_klass_vol,
     log_returns,
     parkinson_vol,
+    realized_vol_series,
 )
 from vol.regime import vol_regime
 from vol.score import mae, qlike, rmse
@@ -30,6 +31,7 @@ __all__ = [
     "parkinson_vol",
     "garman_klass_vol",
     "daily_vol_series",
+    "realized_vol_series",
     "ewma_vol",
     "har_rv_forecast",
     "persistence_forecast",

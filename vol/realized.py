@@ -68,3 +68,15 @@ def daily_vol_series(open_, high, low, close, annualize: int = TRADING_DAYS) -> 
         raise ValueError("OHLC arrays must be equal length and non-empty")
     var = 0.5 * np.log(h / low_) ** 2 - (2 * np.log(2) - 1) * np.log(c / o) ** 2
     return np.sqrt(np.clip(var, 0.0, None) * annualize)
+
+
+def realized_vol_series(close, window: int = 21, annualize: int = TRADING_DAYS) -> np.ndarray:
+    """Trailing `window`-bar close-to-close annualized vol — one value per bar
+    from index `window` onward (length N-window). Smooth and strictly positive
+    (unlike single-bar estimators), so it's the right HAR-RV target/input."""
+    r = log_returns(close)
+    n = len(r) - window + 1
+    if n < 1:
+        raise ValueError(f"need >= {window + 1} closes, got {len(np.asarray(close))}")
+    out = np.array([np.std(r[i : i + window], ddof=1) for i in range(n)])
+    return out * np.sqrt(annualize)

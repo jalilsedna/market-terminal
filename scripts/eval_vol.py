@@ -21,34 +21,41 @@ import numpy as np
 
 from scripts._data import load_ohlcv
 from vol import (
-    daily_vol_series,
     ewma_vol,
     har_rv_forecast,
     log_returns,
     mae,
-    persistence_forecast,
     qlike,
+    realized_vol_series,
     rmse,
     vol_regime,
 )
 
+VOL_WINDOW = 21  # trailing window for the (smooth, non-zero) realized-vol target
+
 
 def _score_window(ctx, actual, horizon: int) -> dict:
-    """Score HAR vs EWMA vs persistence for one walk-forward window."""
-    vol_hist = daily_vol_series(ctx["open"], ctx["high"], ctx["low"], ctx["close"])
-    actual_vol = daily_vol_series(
-        actual["open"], actual["high"], actual["low"], actual["close"]
-    )
+    """Score HAR vs EWMA vs persistence for one walk-forward window.
 
-    har = har_rv_forecast(vol_hist, horizon=horizon)["forecast"]
-    ewma = np.full(horizon, ewma_vol(log_returns(ctx["close"])))
-    pers = persistence_forecast(vol_hist, horizon)
+    Target = the realized vol *actually observed over the next `horizon` bars*
+    (close-to-close), a single smooth, strictly-positive number — not a noisy
+    per-bar estimate (which made QLIKE blow up). Each model predicts one number.
+    """
+    vol_hist = realized_vol_series(ctx["close"].to_numpy(), window=VOL_WINDOW)
+    # actual realized vol of the next `horizon` bars (incl. the jump from the last
+    # context close into the horizon).
+    horizon_close = np.concatenate([[ctx["close"].iloc[-1]], actual["close"].to_numpy()])
+    actual_vol = float(np.std(log_returns(horizon_close), ddof=1) * np.sqrt(252))
+
+    har_fc = float(np.mean(har_rv_forecast(vol_hist, horizon=horizon)["forecast"]))
+    ewma_fc = ewma_vol(log_returns(ctx["close"].to_numpy()))
+    pers_fc = float(vol_hist[-1])
 
     out = {}
-    for name, fc in (("har", har), ("ewma", ewma), ("pers", pers)):
-        out[f"{name}_qlike"] = qlike(fc, actual_vol)
-        out[f"{name}_rmse"] = rmse(fc, actual_vol)
-        out[f"{name}_mae"] = mae(fc, actual_vol)
+    for name, fc in (("har", har_fc), ("ewma", ewma_fc), ("pers", pers_fc)):
+        out[f"{name}_qlike"] = qlike([fc], [actual_vol])
+        out[f"{name}_rmse"] = rmse([fc], [actual_vol])
+        out[f"{name}_mae"] = mae([fc], [actual_vol])
     return out
 
 
@@ -67,8 +74,8 @@ def main() -> None:
 
     df = load_ohlcv(args.asset, args.instrument, args.years, args.interval)
     context = min(args.context, len(df) - args.horizon - 1)
-    if context < 40:
-        raise SystemExit(f"not enough history ({len(df)} bars) — need >= ~80")
+    if context < VOL_WINDOW + 35:  # HAR needs >= ~30 windowed-vol points
+        raise SystemExit(f"not enough history ({len(df)} bars) — need a deeper series")
     anchors = list(range(context, len(df) - args.horizon + 1, step))[-args.windows :]
 
     print(f"{args.asset}:{args.instrument} @ {args.interval} — {len(df)} bars, "
@@ -97,8 +104,8 @@ def main() -> None:
     print("  →", "HAR earns its keep — proceed to wire it in (E3)" if beats
           else "HAR doesn't beat the baselines here — EWMA/persistence may suffice")
 
-    # Bonus: where current vol sits in its own history.
-    vol_all = daily_vol_series(df["open"], df["high"], df["low"], df["close"])
+    # Bonus: where current vol sits in its own history (smooth rolling series).
+    vol_all = realized_vol_series(df["close"].to_numpy(), window=VOL_WINDOW)
     print("\n  current regime:", vol_regime(float(vol_all[-1]), vol_all[:-1]))
 
 
