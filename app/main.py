@@ -122,6 +122,7 @@ from app.routers import (
     analysis,
     cot,
     custom,
+    history,
     macro,
     news,
     screener,
@@ -139,6 +140,7 @@ app.include_router(screener.router)
 app.include_router(analysis.router)
 app.include_router(volatility.router)
 app.include_router(custom.router)
+app.include_router(history.router)
 
 
 from pathlib import Path

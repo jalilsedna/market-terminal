@@ -109,3 +109,29 @@ def history(series: str, limit: int = 365) -> list[dict]:
             (series, limit),
         ).fetchall()
     return [{"ts": r["ts"], "value": json.loads(r["value"])} for r in rows]
+
+
+def record_snapshot_daily(series: str, value: Any, today: str | None = None) -> bool:
+    """Record a snapshot only if `series` has none for today (UTC date) — so the
+    pre-cache warmer (every 30 min) yields one point per day. True if recorded."""
+    day = today or datetime.now(UTC).date().isoformat()
+    ts = f"{day}T00:00:00+00:00" if today else _now()
+    with _db() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM snapshots WHERE series=? AND substr(ts, 1, 10)=? LIMIT 1",
+            (series, day),
+        ).fetchone()
+        if existing:
+            return False
+        conn.execute(
+            "INSERT INTO snapshots (series, ts, value) VALUES (?, ?, ?)",
+            (series, ts, json.dumps(value)),
+        )
+    return True
+
+
+def series_list() -> list[str]:
+    """Distinct snapshot series names recorded so far."""
+    with _db() as conn:
+        rows = conn.execute("SELECT DISTINCT series FROM snapshots ORDER BY series").fetchall()
+    return [r["series"] for r in rows]
