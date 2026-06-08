@@ -225,12 +225,29 @@ async function loadExecution() {
   const sec = $("#view-execution");
   let url = "http://localhost:5173";
   try { url = (await fetchJSON("/health")).alice_url || url; } catch (e) { /* keep default */ }
-  sec.innerHTML = `
-    <div class="exec-bar">
-      <span>Execution runs in <b>OpenAlice</b> — a separate app. Research flows out via MCP; orders stay there.</span>
+
+  const bar = `<div class="exec-bar">
+      <span>Execution runs in <b>OpenAlice</b> — a separate app on your machine. Research flows out via MCP; orders stay there.</span>
       <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open Alice ↗</a>
-    </div>
-    <iframe class="exec-frame" src="${esc(url)}" title="OpenAlice"></iframe>
+    </div>`;
+
+  // A browser won't embed an http:// (localhost) app inside an https:// page —
+  // "mixed content". On the deployed terminal that just yields a blank box, so
+  // show a clean explanation + launch button instead of a broken iframe. The
+  // embedded view works when you run the terminal locally (http → http).
+  const mixed = window.location.protocol === "https:" && url.startsWith("http://");
+  if (mixed) {
+    sec.innerHTML = bar + `<div class="exec-card">
+      <h3>Alice runs locally — by design</h3>
+      <p class="dim">OpenAlice is your <b>execution</b> app; it holds broker keys, so it stays on your machine and is never deployed. This online terminal can't embed your local <code>${esc(url)}</code> (browsers block http content inside an https page).</p>
+      <p><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open Alice ↗</a> &nbsp;launches your local Alice in a new tab.</p>
+      <p class="dim">Already connected the other way: Alice <b>pulls this terminal's research over MCP</b>. For the embedded side-by-side view, run the terminal locally (<code>uvicorn app.main:app</code>) and open <code>http://localhost:8000</code>.</p>
+    </div>`;
+    return;
+  }
+
+  sec.innerHTML = bar +
+    `<iframe class="exec-frame" src="${esc(url)}" title="OpenAlice"></iframe>
     <div class="exec-help dim">Not loading? Make sure OpenAlice is running (<code>pnpm dev</code>) and reachable at
       <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>. Some apps block embedding — use the "Open Alice ↗" button.</div>`;
 }
@@ -378,6 +395,45 @@ async function loadCustom() {
   }));
 }
 
+// Focus tab (ROADMAP C4): one instrument → its volatility + the full "what's
+// moving this contract" brief (regime, COT, term structure, momentum, news) on a
+// single screen. Reuses /volatility/{code} and /analysis/brief.
+function _renderVolCard(v) {
+  if (!v || v.ok === false) return panelErr("Volatility & Regime", (v && v.error) || "n/a");
+  const r = v.regime || {}, f = v.forecast || {};
+  return panel("Volatility & Regime", `
+    <div class="tiles">
+      <div class="tile"><div class="label">Realized vol (ann.)</div><div class="value">${num((v.current_vol_annualized || 0) * 100, 1)}%</div></div>
+      <div class="tile"><div class="label">Regime</div><div class="value">${_volPill(r.regime)}</div><div class="sub">${num(r.percentile, 0)}th pct ~3y</div></div>
+      <div class="tile"><div class="label">${num(f.horizon_days, 0)}d forecast</div><div class="value">${num((f.ewma || 0) * 100, 1)}%</div><div class="sub">EWMA · HAR ${num((f.har_rv || 0) * 100, 1)}%</div></div>
+    </div>
+    <div class="sub" style="margin-top:6px">${esc(v.read || "")}</div>`);
+}
+
+async function loadFocusOne(code) {
+  const body = document.getElementById("focus-body");
+  if (!body) return;
+  body.innerHTML = `<div class="loading">Loading ${esc(code)}…</div>`;
+  let vol = null, brief = null;
+  try { vol = (await fetchJSON("/volatility/" + encodeURIComponent(code))).data; } catch (e) { /* degrade */ }
+  try { brief = (await fetchJSON("/analysis/brief?instrument=" + encodeURIComponent(code))).data; } catch (e) { /* degrade */ }
+  body.innerHTML = `<div class="grid" style="grid-template-columns:1fr">
+    ${_renderVolCard(vol)}
+    ${panel("What's moving " + esc(code), brief ? _renderBrief(brief) : '<div class="err">unavailable</div>')}
+  </div>`;
+}
+
+async function loadFocus() {
+  const sec = $("#view-focus");
+  const codes = ["GC", "NQ", "6E", "6B", "YM"];
+  sec.innerHTML = panel("Instrument Focus — one symbol, everything",
+    `<select id="focus-pick" class="btn">${codes.map((k) => `<option${k === "GC" ? " selected" : ""}>${k}</option>`).join("")}</select>
+     <div id="focus-body" style="margin-top:12px"></div>`);
+  const pick = document.getElementById("focus-pick");
+  if (pick) pick.addEventListener("change", () => loadFocusOne(pick.value));
+  loadFocusOne(pick ? pick.value : "GC");
+}
+
 // Lazy loading: only fetch the visible tab; fetch others when first opened (by
 // then the background pre-cache has usually warmed them, so they appear fast).
 const loaded = new Set();
@@ -386,6 +442,7 @@ let active = "macro";
 function _loadFor(view) {
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
+  if (view === "focus") return loadFocus();
   if (view === "custom") return loadCustom();
   return loadView(view);
 }

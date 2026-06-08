@@ -88,8 +88,12 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
 - [x] **C3 — Analysis layer (the edge).** Shipped: COT extremes vs 1y/3y
       percentiles, regime vote, curve-flip detection, per-instrument briefs
       (`services/analysis.py`, the `analysis_*` MCP tools, the Analysis tab).
-- [ ] **C4 — Cross-view "instrument focus."** One symbol → its COT + price +
-      term structure + news (and later its Kronos forecast — E3) on one screen.
+- [x] **C4 — Cross-view "instrument focus."** A **Focus tab**: pick a watchlist
+      instrument → its volatility/regime/forecast card + the full "what's moving
+      this contract" brief (regime, COT, term structure, momentum, news) on one
+      screen (reuses `/volatility/{code}` + `/analysis/brief`). (Follow-up:
+      multi-asset focus for custom instruments — needs price/vol-only layout since
+      COT is futures-only.)
 - [ ] **C5 — Interactive frontend.** Editable watchlist, charts, alerts
       (e.g. COT extreme / curve flip).
 - [~] **C6 — Dynamic multi-asset watchlist.** Shipped: a **My Watchlist** tab +
