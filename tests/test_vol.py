@@ -10,6 +10,7 @@ import pytest
 
 from vol import forecast as F
 from vol import realized as R
+from vol import score as S
 from vol.regime import vol_regime
 
 
@@ -77,6 +78,20 @@ def test_ewma_constant_magnitude():
 
 def test_persistence_is_flat_last():
     assert np.array_equal(F.persistence_forecast([0.1, 0.2, 0.3], 4), np.full(4, 0.3))
+
+
+# --- scoring losses ------------------------------------------------------- #
+def test_losses_zero_when_equal():
+    f = np.array([0.2, 0.25, 0.3])
+    assert S.rmse(f, f) == 0.0
+    assert S.mae(f, f) == 0.0
+    assert S.qlike(f, f) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_losses_positive_when_off():
+    assert S.rmse([0.1], [0.2]) == pytest.approx(0.1)
+    assert S.mae([0.1], [0.2]) == pytest.approx(0.1)
+    assert S.qlike([0.1], [0.2]) > 0  # under-forecasting vol is penalized
 
 
 # --- regime --------------------------------------------------------------- #
