@@ -20,6 +20,9 @@ EOD_PROVIDERS=tiingo,yfinance
   Adding providers only *adds* resilience; the chain skips a provider that errors
   or returns empty and uses the first that works.
 - `/health` reports the active `eod_providers` chain.
+- **Verify it's really serving** (a fallback chain fails *silently* — a bad key
+  just falls through to yfinance): `python -m scripts.probe_providers` hits each
+  provider individually for AAPL and tells you which one the chain serves from.
 
 ### Get a free, sturdier provider
 - **Tiingo** — free tier, far steadier than yfinance for equities/ETFs. Sign up
