@@ -122,13 +122,25 @@ def main() -> None:
     print(f"{args.asset}:{args.instrument} @ {args.interval}")
     _data_health(df)
 
-    # Pick the most recent `windows` non-overlapping anchors that fit the context.
+    # Pick the most recent `windows` non-overlapping anchors. If the data is thin
+    # (e.g. yfinance caps 1h history), shrink the context so we still get several
+    # windows rather than one — `--context 512` becomes a ceiling, not a demand.
     context = min(args.context, len(df) - args.horizon - 1)
-    if context < 64:
-        raise SystemExit(f"not enough history ({len(df)} bars) for a useful context")
     anchors = list(range(context, len(df) - args.horizon + 1, step))[-args.windows :]
+    if len(anchors) < args.windows and context > 128:
+        context = min(context, len(df) - args.horizon - (args.windows - 1) * step - 1)
+        context = max(context, 96)  # floor: a too-short context isn't a fair test
+        anchors = list(range(context, len(df) - args.horizon + 1, step))[-args.windows :]
     if not anchors:
-        raise SystemExit("no valid walk-forward windows — reduce --context/--horizon")
+        raise SystemExit(
+            f"not enough history ({len(df)} bars) for any walk-forward window — "
+            f"reduce --context/--horizon or use a deeper data source."
+        )
+    if len(anchors) < 3:
+        print(
+            f"  ⚠️  only {len(anchors)} window(s) from {len(df)} bars — NOT a reliable read "
+            f"(near-zero variance). Need more history (sturdier intraday source / fewer windows)."
+        )
 
     print(
         f"  walk-forward: {len(anchors)} windows · horizon {args.horizon} · "
