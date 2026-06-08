@@ -110,16 +110,19 @@ sizing), never a trigger.
       (close-to-close, Parkinson, Garman-Klass), **HAR-RV** forecast + EWMA &
       persistence baselines, and a vol-**regime** read (percentile vs history).
       Unit-tested on synthetic data — validated in-sandbox, no host loop.
-- [ ] **E3 — Wire it in.** `services/volatility.py` (compose `vol/` with
-      `obb_layer` OHLCV) + `/volatility/{instrument}` router + a `volatility` MCP
-      tool; fold the regime/forecast into `analysis_brief` and the C4 screen.
-- [ ] **E4 — Visualize.** Realized-vol history + HAR forecast + regime band in the
-      frontend.
-- [~] **E5 — Validate on real data.** Harness built (`scripts/eval_vol.py`,
-      pure-CPU): walk-forward HAR vs EWMA vs persistence scored on QLIKE/RMSE/MAE
-      (+ current regime). Validated in-sandbox on synthetic vol (HAR < EWMA <
-      persistence, as expected). **Run on real instruments** to confirm HAR earns
-      its keep before E3 ships it. (No separate service — vol is in-core.)
+- [x] **E5 — Validated on real data.** `scripts/eval_vol.py` walk-forward on GC:
+      **EWMA wins** (QLIKE 1.04 vs HAR 1.16 vs persistence 1.19) — small gaps,
+      EWMA best, as the literature predicts for daily vol without intraday RV. So
+      EWMA is the shipped forecaster (HAR reported alongside). The regime read is
+      the headline and works well (GC flagged elevated/stressed correctly).
+- [x] **E3 — Wired in.** `services/volatility.py` (composes `vol/` + `obb_layer`
+      OHLCV over ~3y) → `/volatility` + `/volatility/{instrument}` router + a
+      `volatility` MCP tool (12th tool — Alice gets vol/regime for sizing).
+      Forecaster EWMA, HAR alongside, regime classification, one-line read +
+      disclaimer.
+- [ ] **E4 — Visualize.** A Volatility tab: realized-vol history + forecast +
+      regime band in the frontend (and fold the regime line into `analysis_brief`
+      / the C4 instrument-focus screen).
 
 ## F. Accounts & multi-user (builds on the A8 auth `Users` seam)
 The A8 auth layer (`app/auth.py`) was deliberately shaped around a `Users`
