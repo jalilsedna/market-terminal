@@ -7,6 +7,7 @@ const ENDPOINTS = {
   watchlist: "/watchlist",
   cot: "/cot/dashboard",
   term: "/term-structure",
+  volatility: "/volatility?horizon=5",
   sectors: "/screener/sectors",
   news: "/news?limit=40",
 };
@@ -171,7 +172,38 @@ function renderNews(env) {
   return panel(`News — ${num(d.count, 0)} headlines`, items || '<div class="dim">no headlines</div>');
 }
 
-const RENDERERS = { macro: renderMacro, watchlist: renderWatchlist, cot: renderCot, term: renderTerm, sectors: renderSectors, news: renderNews };
+// Volatility tab (ROADMAP E4): realized vol, regime vs ~3y, and a short-horizon
+// forecast (EWMA, validated best on daily futures; HAR shown faint). Research
+// context for sizing/regime awareness — never a trade trigger.
+function _volPill(regime) {
+  const cls = { calm: "green", normal: "", elevated: "amber", stressed: "red" }[regime] ?? "";
+  return `<span class="pill ${cls}">${esc(regime || "—")}</span>`;
+}
+function renderVolatility(env) {
+  const d = env.data || {};
+  const insts = d.instruments || {};
+  const vals = Object.values(insts);
+  const horizon = (vals.find((v) => v.ok) || {}).forecast?.horizon_days || 5;
+  const rows = vals.map((v) => {
+    if (!v.ok) return `<tr><td>${esc(v.instrument)} <span class="dim">${esc(v.name || "")}</span></td><td colspan="5" class="err">${esc(v.error || "n/a")}</td></tr>`;
+    const r = v.regime || {}, f = v.forecast || {};
+    return `<tr>
+      <td>${esc(v.instrument)} <span class="dim">${esc(v.name)}</span></td>
+      <td>${num((v.current_vol_annualized || 0) * 100, 1)}%</td>
+      <td>${_volPill(r.regime)}</td>
+      <td>${num(r.percentile, 0)}<span class="dim">th</span></td>
+      <td>${num((f.ewma || 0) * 100, 1)}%</td>
+      <td class="dim">${num((f.har_rv || 0) * 100, 1)}%</td></tr>`;
+  }).join("");
+  const head = `<div class="sub" style="margin-bottom:8px">Annualized realized volatility, regime vs ~3y history, and a ${num(horizon, 0)}-day forecast (EWMA; HAR shown faint). Research context — not a trade trigger.</div>`;
+  const table = panel("Volatility & Regime", head +
+    `<table><thead><tr><th>Instrument</th><th>Realized vol</th><th>Regime</th><th>%ile</th><th>Fcst (EWMA)</th><th>HAR</th></tr></thead><tbody>${rows}</tbody></table>`);
+  const reads = vals.filter((v) => v.ok && v.read).map((v) => `<div class="sub" style="margin-top:4px">• ${esc(v.read)}</div>`).join("");
+  return `<div class="grid" style="grid-template-columns:1fr">${table}${reads ? panel("Reads", reads) : ""}</div>
+    <div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>`;
+}
+
+const RENDERERS = { macro: renderMacro, watchlist: renderWatchlist, cot: renderCot, term: renderTerm, volatility: renderVolatility, sectors: renderSectors, news: renderNews };
 
 // ---- loading + tabs --------------------------------------------------------
 async function loadView(view) {
