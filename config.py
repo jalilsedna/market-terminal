@@ -78,13 +78,12 @@ class Settings(BaseSettings):
     # provider-specific symbol formats need a mapping layer first (B-follow-up).
     eod_providers: str = "yfinance"
 
-    # --- Custom multi-asset watchlist (ROADMAP C6) ---
-    # JSON file backing the user's add/remove-able instruments (futures, crypto,
-    # forex, equity, ETF). Under gitignored cache/data/ so it's never committed.
-    # NOTE: on Railway the container filesystem is ephemeral — point this at a
-    # mounted volume (e.g. /data/custom_watchlist.json) for it to survive
-    # redeploys; otherwise it resets to empty. Ties into C2 (persistence).
-    custom_watchlist_path: str = "cache/data/custom_watchlist.json"
+    # --- Persistence (ROADMAP C2) ---
+    # SQLite database backing the custom watchlist + history snapshots. Default is
+    # under gitignored cache/data/. On Railway the container filesystem is
+    # ephemeral — point this at a mounted VOLUME (e.g. /data/terminal.db) so the
+    # watchlist + history survive redeploys; otherwise they reset.
+    db_path: str = "cache/data/terminal.db"
 
     # --- Forecasting (Kronos — roadmap §E; see docs/kronos-integration.md) ---
     # The terminal's core never imports torch; these settings are read only by

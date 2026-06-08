@@ -44,18 +44,13 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       steps, and a troubleshooting table.
 - [ ] **A6 — Resolve Claude Code's `/doctor` "MCP" warning** in the WSL agent.
 - [ ] **A7 — Rotate the OpenAlice admin token.**
-- [~] **A8 — Deploy market-terminal to Railway** (online access). **Code +
-      infra shipped** (`docs/deploy-railway.md`): single service serving web UI +
-      REST + MCP (mounted at `/mcp`) under one domain and one **auth gate**
-      (`app/auth.py` — login-page session cookie for the browser + Bearer token
-      for Alice/MCP/API, on a `Users` abstraction ready for a future DB store +
-      registration). Added `Dockerfile`, `railway.json`, `.dockerignore`, the
-      `/login` page, and the FastMCP-into-FastAPI mount (validated end-to-end:
-      mount + bearer 401→200 + MCP handshake + DNS-rebind config). **Remaining
-      (your click-ops):** create the Railway project, set the secrets/env, expose
-      a domain, run the smoke test, then point Alice's `.mcp.json` at the public
-      `/mcp` URL with the Bearer header. Research-only — **never** deploy
-      OpenAlice / broker keys publicly.
+- [x] **A8 — Deployed to Railway** (online access). **Live & verified** at
+      `market-terminal-production-131c.up.railway.app`: single service serving web
+      UI + REST + MCP (mounted at `/mcp`) under one domain and one **auth gate**
+      (`app/auth.py`), with `Dockerfile` / `railway.json` / `/login`. Smoke-tested
+      (auth on, anon→401, Bearer→200, MCP handshake). Research-only — OpenAlice /
+      broker keys never deployed. (Optional: point `DB_PATH` / `CUSTOM…` at a
+      Railway volume for watchlist persistence — see C2.)
 
 ## B. Data / provider gaps (documented, still open)
 - [ ] **B1 — Economic calendar.** Paywalled on FMP free tier; V1's calendar
@@ -83,8 +78,13 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       view's import fails CI). Added `pyproject.toml` (ruff + pytest config) and
       `requirements-dev.txt`; ruff-cleaned the existing tree. (The live Phase-0
       probe stays a manual tool — it needs provider keys + network.)
-- [ ] **C2 — Persistence.** Cache is in-memory and resets on restart; add a
-      disk/SQLite layer + history.
+- [~] **C2 — Persistence.** Foundation shipped: a SQLite layer (`app/db.py` —
+      key/value, watchlist, and a generic **history** snapshots table), unit-
+      tested. The custom watchlist moved off the ephemeral JSON file onto SQLite,
+      so it survives restarts (and redeploys when `DB_PATH` points at a Railway
+      volume). **Follow-ups:** have the pre-cache warmer record vol/regime
+      snapshots + a `/history` endpoint (feeds C5 charts/alerts); a users table
+      for F2. (The in-memory TTL cache is left as-is — the warmer re-warms on boot.)
 - [x] **C3 — Analysis layer (the edge).** Shipped: COT extremes vs 1y/3y
       percentiles, regime vote, curve-flip detection, per-instrument briefs
       (`services/analysis.py`, the `analysis_*` MCP tools, the Analysis tab).
@@ -161,8 +161,19 @@ sign into.
 
 ---
 
-**Status:** Research→reason→paper-execute loop proven (A1–A5); deployed online,
-authenticated, on Railway (A8); analysis edge shipped (C3); tests + CI green (C1).
-**Next candidates:** **E1** (evaluate Kronos — the forecasting pillar), **C4**
-(instrument-focus screen), or **B** (trustworthy data — needed before forecasts
-can be trusted; Kronos is only as good as its input bars).
+**Status (current):** Deployed + authenticated on Railway (A8) with logout/session
+(F1). Research→reason→paper-execute loop proven (A1–A5). Shipped: analysis edge
+(C3), the **volatility forecasting pillar** (E1–E5 — Kronos price-forecasting
+evaluated and rejected; pivoted to HAR/EWMA + regime, in the API/MCP/UI),
+instrument **Focus** screen (C4), **multi-asset watchlist** (C6), provider
+**fallback** for equity/ETF (B4), tests + CI green (C1), and a **SQLite
+persistence** foundation (C2).
+
+**Still open:** **C2 follow-ups** (history snapshots + `/history`, then C5) ·
+**C5** (charts + alerts) · **F2** (user management + registration) · **B1/B2**
+(calendar/news — need paid keys) · **B3** (commodity curves) · **B-next**
+(symbol-mapping to extend the provider chain to crypto/FX/futures) · housekeeping
+(A6 `/doctor`, A7+D2 token rotation, D1 CLAUDE.md sync, C6 brief-threading).
+
+**Suggested next:** wire C2 history → a `/history` endpoint → **C5 charts +
+alerts** (the biggest "feels alive" upgrade), and **F2** for the multi-user path.
