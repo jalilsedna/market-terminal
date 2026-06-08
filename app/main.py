@@ -119,6 +119,7 @@ def health() -> dict:
 # Phase 1 (complete): V1 Macro Dashboard, V4 COT/Positioning, V2 Watchlist.
 # Phase 2 (complete): V3 News Feed, V5 Term Structure, V6 Screener/Sector Rotation.
 from app.routers import (
+    alerts,
     analysis,
     cot,
     custom,
@@ -141,6 +142,7 @@ app.include_router(analysis.router)
 app.include_router(volatility.router)
 app.include_router(custom.router)
 app.include_router(history.router)
+app.include_router(alerts.router)
 
 
 from pathlib import Path

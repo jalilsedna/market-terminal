@@ -94,8 +94,14 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       screen (reuses `/volatility/{code}` + `/analysis/brief`). (Follow-up:
       multi-asset focus for custom instruments — needs price/vol-only layout since
       COT is futures-only.)
-- [ ] **C5 — Interactive frontend.** Editable watchlist, charts, alerts
-      (e.g. COT extreme / curve flip).
+- [x] **C5 — Charts + alerts.** A **History ▸ Alerts tab**: inline SVG charts of
+      the recorded daily snapshots (vol/regime per instrument + macro regime, off
+      `/history/{series}`) and research **alert rules** over them
+      (`services/alerts.py`, `/alerts` CRUD, persisted in SQLite). Rules watch a
+      metric of a series (regime ==/!=, or vol/percentile/score >/>=/</<=) and
+      *flag* — surfaced as a header badge and exposed over MCP (`alerts_status`)
+      for Alice. Flags are research context, never a trade trigger. Tested in CI
+      (`tests/test_alerts.py`).
 - [~] **C6 — Dynamic multi-asset watchlist.** Shipped: a **My Watchlist** tab +
       `/custom` CRUD endpoints + a JSON store (`services/custom_store.py`, pure +
       tested) let the user **add/remove arbitrary assets across classes** (futures,
@@ -171,11 +177,12 @@ instrument **Focus** screen (C4), **multi-asset watchlist** (C6), provider
 **fallback** for equity/ETF (B4), tests + CI green (C1), and a **SQLite
 persistence** foundation (C2).
 
-**Still open:** **C2 follow-ups** (history snapshots + `/history`, then C5) ·
-**C5** (charts + alerts) · **F2** (user management + registration) · **B1/B2**
-(calendar/news — need paid keys) · **B3** (commodity curves) · **B-next**
-(symbol-mapping to extend the provider chain to crypto/FX/futures) · housekeeping
-(A6 `/doctor`, A7+D2 token rotation, D1 CLAUDE.md sync, C6 brief-threading).
+**Still open:** **B1/B2** (calendar/news — need paid keys) · **B3** (commodity
+curves) · **B-next** (symbol-mapping to extend the provider chain to
+crypto/FX/futures) · housekeeping (A6 `/doctor`, A7+D2 token rotation, D1
+CLAUDE.md sync, C6 brief-threading).
 
-**Suggested next:** wire C2 history → a `/history` endpoint → **C5 charts +
-alerts** (the biggest "feels alive" upgrade), and **F2** for the multi-user path.
+**Done since:** **C2 history** (`/history`) → **C5 charts + alerts** (History ▸
+Alerts tab, `services/alerts.py`, `/alerts`, `alerts_status` MCP tool) and **F2**
+(multi-user). The core feature set is complete; what remains is paid-data depth
+(B1/B2/B3), the crypto/FX provider-chain extension (B-next), and housekeeping.

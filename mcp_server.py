@@ -20,6 +20,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from services import alerts as alerts_svc
 from services import analysis as analysis_svc
 from services import cot as cot_svc
 from services import macro as macro_svc
@@ -149,6 +150,16 @@ def volatility(instrument: str | None = None, horizon: int = 5) -> dict:
     if instrument:
         return _safe(vol_svc.volatility, instrument=instrument, horizon=horizon)
     return _safe(vol_svc.dashboard, horizon=horizon)
+
+
+@mcp.tool()
+def alerts_status() -> dict:
+    """Research alert flags over the recorded daily history (volatility regime /
+    percentile per instrument, macro regime). Returns each rule with its current
+    triggered state and a `triggered_count` — e.g. to check 'is any tracked
+    instrument's vol regime stressed right now?'. Flags are research context, not
+    a trade trigger."""
+    return _safe(alerts_svc.evaluate)
 
 
 def main() -> None:

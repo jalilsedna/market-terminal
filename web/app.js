@@ -478,12 +478,151 @@ async function loadAdmin() {
   }));
 }
 
+// History ▸ Alerts tab (ROADMAP C5): charts the recorded daily snapshots
+// (vol/regime per instrument, macro regime) and lets you set research alert
+// rules over them. Both read /history + /alerts — no new data fetching.
+const REGIME_COLOR = {
+  calm: "#26a69a", normal: "#7a8294", elevated: "#ffb300", stressed: "#ef5350",
+  "risk-on": "#26a69a", "risk-off": "#ef5350", neutral: "#7a8294",
+};
+const _regimeColor = (r) => REGIME_COLOR[String(r || "").toLowerCase()] || "#7a8294";
+
+// Inline SVG line chart of a snapshot series (no chart lib — fits the terminal).
+// Points arrive newest-first; we reverse to chronological. Picks the first
+// numeric metric present (vol→%, score, percentile) and draws a regime band.
+function _chart(points) {
+  const pts = (points || []).slice().reverse();
+  const has = (k) => pts.some((p) => p.value && p.value[k] != null);
+  let metric, label, scale = 1;
+  if (has("vol")) { metric = "vol"; label = "annualized vol %"; scale = 100; }
+  else if (has("score")) { metric = "score"; label = "macro regime score"; }
+  else if (has("percentile")) { metric = "percentile"; label = "percentile"; }
+  else return '<div class="dim">no numeric metric to chart in this series.</div>';
+
+  const xs = [], ys = [], regimes = [];
+  pts.forEach((p) => {
+    const v = p.value || {};
+    if (v[metric] != null) { xs.push(p.ts); ys.push(v[metric] * scale); regimes.push(v.regime); }
+  });
+  const n = ys.length;
+  if (n < 2) return `<div class="dim">not enough history yet (${n} point${n === 1 ? "" : "s"}) — the chart fills in as daily snapshots accrue.</div>`;
+
+  const min = Math.min(...ys), max = Math.max(...ys), span = (max - min) || 1;
+  const W = 1000, H = 220, padL = 8, padR = 8, padT = 12, padB = 26;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const X = (i) => padL + (i / (n - 1)) * innerW;
+  const Y = (v) => padT + innerH - ((v - min) / span) * innerH;
+  const poly = ys.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+  const bw = innerW / n, bandY = H - padB + 4;
+  const band = regimes.map((r, i) => r
+    ? `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${bandY}" width="${bw.toFixed(1)}" height="6" fill="${_regimeColor(r)}"/>` : "").join("");
+  const last = ys[n - 1], lastR = regimes[n - 1];
+  return `
+    <div class="chart-head"><span class="dim">${esc(label)}</span>
+      <span>last <b>${num(last, 2)}</b>${lastR ? " " + _volPill(lastR) : ""} · range ${num(min, 2)}–${num(max, 2)} · ${n} pts</span></div>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)} history">
+      <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${poly}"/>
+      <circle cx="${X(n - 1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="3.5" fill="var(--accent)"/>
+      ${band}
+    </svg>
+    <div class="chart-axis dim"><span>${esc((xs[0] || "").slice(0, 10))}</span><span>${esc((xs[n - 1] || "").slice(0, 10))}</span></div>`;
+}
+
+const _ALERT_OPS = { regime: ["==", "!="], percentile: [">=", ">", "<=", "<"], vol: [">=", ">", "<=", "<"], score: [">=", ">", "<=", "<"] };
+const _ALERT_PH = { regime: "stressed / elevated / risk-off", percentile: "0–100", vol: "fraction e.g. 0.25", score: "number" };
+
+async function loadHistory() {
+  const sec = $("#view-history");
+  let seriesList = [], al = {};
+  try { seriesList = ((await fetchJSON("/history")).data || {}).series || []; } catch (e) { /* degrade */ }
+  try { al = (await fetchJSON("/alerts")).data || {}; } catch (e) { /* degrade */ }
+
+  const aRows = (al.alerts || []).map((a) => {
+    const state = !a.enabled ? '<span class="dim">off</span>'
+      : a.status !== "ok" ? `<span class="dim">${esc(a.status)}</span>`
+      : a.triggered ? '<span class="pill red">TRIGGERED</span>' : '<span class="pill green">ok</span>';
+    const cur = a.current == null ? "—" : (typeof a.current === "number" ? num(a.current, 2) : esc(a.current));
+    return `<tr><td>${esc(a.label)}</td><td>${esc(a.series)}</td>
+      <td>${esc(a.metric)} ${esc(a.op)} ${esc(a.threshold)}</td><td>${cur}</td><td>${state}</td>
+      <td><button class="btn al-tog" data-id="${esc(a.id)}" data-e="${a.enabled ? 0 : 1}">${a.enabled ? "Disable" : "Enable"}</button>
+          <button class="btn rm al-rm" data-id="${esc(a.id)}" title="remove">✕</button></td></tr>`;
+  }).join("");
+
+  const badge = al.triggered_count ? ` · <span class="pill red">${num(al.triggered_count, 0)} triggered</span>` : "";
+  const alertsPanel = panel("Alerts" + badge, `
+    <div class="addbar">
+      <input id="al-series" class="inp" list="al-series-list" placeholder="series (vol:GC, regime:macro)" />
+      <datalist id="al-series-list">${seriesList.map((s) => `<option value="${esc(s)}"></option>`).join("")}</datalist>
+      <select id="al-metric" class="btn">${["regime", "percentile", "vol", "score"].map((m) => `<option>${m}</option>`).join("")}</select>
+      <select id="al-op" class="btn"></select>
+      <input id="al-th" class="inp" style="max-width:130px" placeholder="threshold" />
+      <button id="al-add" class="btn">+ Add</button>
+      <span id="al-msg" class="dim"></span>
+    </div>
+    <table style="margin-top:10px"><thead><tr><th>Label</th><th>Series</th><th>Condition</th><th>Current</th><th>State</th><th></th></tr></thead>
+      <tbody>${aRows || '<tr><td colspan="6" class="dim">No alerts yet — add one (e.g. series <b>vol:GC</b>, metric <b>regime</b> <b>==</b> <b>stressed</b>).</td></tr>'}</tbody></table>
+    <div class="exec-help dim" style="margin-top:8px">${esc(al.disclaimer || "")}</div>`);
+
+  const chartPanel = panel("History Chart", seriesList.length
+    ? `<select id="h-series" class="btn">${seriesList.map((s) => `<option>${esc(s)}</option>`).join("")}</select>
+       <div id="h-chart" style="margin-top:12px"></div>`
+    : '<div class="dim">No history recorded yet — daily snapshots (vol/regime per instrument, macro regime) accrue once the pre-cache warmer has run. Check back after a day or two of uptime.</div>');
+
+  sec.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${alertsPanel}${chartPanel}</div>`;
+
+  const syncOps = () => {
+    const m = $("#al-metric").value;
+    $("#al-op").innerHTML = _ALERT_OPS[m].map((o) => `<option>${o}</option>`).join("");
+    $("#al-th").placeholder = _ALERT_PH[m];
+  };
+  if ($("#al-metric")) { $("#al-metric").addEventListener("change", syncOps); syncOps(); }
+
+  const addAlert = async () => {
+    const series = $("#al-series").value.trim(), metric = $("#al-metric").value;
+    const op = $("#al-op").value, threshold = $("#al-th").value.trim();
+    if (!series || !threshold) { $("#al-msg").textContent = "series + threshold required"; return; }
+    $("#al-msg").textContent = "adding…";
+    try { await apiSend("/alerts", "POST", { series, metric, op, threshold }); await loadHistory(); refreshAlertBadge(); }
+    catch (e) { const m = $("#al-msg"); if (m) m.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  };
+  if ($("#al-add")) { $("#al-add").addEventListener("click", addAlert); $("#al-th").addEventListener("keydown", (ev) => { if (ev.key === "Enter") addAlert(); }); }
+  sec.querySelectorAll(".al-rm").forEach((b) => b.addEventListener("click", async () => {
+    try { await apiSend("/alerts/" + encodeURIComponent(b.dataset.id), "DELETE"); await loadHistory(); refreshAlertBadge(); } catch (e) { /* */ }
+  }));
+  sec.querySelectorAll(".al-tog").forEach((b) => b.addEventListener("click", async () => {
+    try { await apiSend("/alerts/" + encodeURIComponent(b.dataset.id) + "/enabled?enabled=" + b.dataset.e, "POST"); await loadHistory(); refreshAlertBadge(); } catch (e) { /* */ }
+  }));
+
+  const hpick = $("#h-series");
+  if (hpick) {
+    const draw = async () => {
+      const box = $("#h-chart");
+      box.innerHTML = '<div class="loading">loading…</div>';
+      try { const pts = ((await fetchJSON("/history/" + encodeURIComponent(hpick.value))).data || {}).points || []; box.innerHTML = _chart(pts); }
+      catch (e) { box.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+    };
+    hpick.addEventListener("change", draw); draw();
+  }
+}
+
+// Header badge: count of triggered alerts, refreshed on load + with opened tabs.
+async function refreshAlertBadge() {
+  try {
+    const d = (await fetchJSON("/alerts")).data || {};
+    const b = $("#alert-badge");
+    if (!b) return;
+    if (d.triggered_count > 0) { b.textContent = d.triggered_count; b.style.display = ""; }
+    else b.style.display = "none";
+  } catch (e) { /* no badge if unavailable */ }
+}
+
 function _loadFor(view) {
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
   if (view === "custom") return loadCustom();
   if (view === "admin") return loadAdmin();
+  if (view === "history") return loadHistory();
   return loadView(view);
 }
 
@@ -531,6 +670,7 @@ async function initSession() {
 
 initTabs();
 initSession();
+refreshAlertBadge();
 $("#refresh").addEventListener("click", refreshActive);
 setInterval(tick, 1000); tick();
 showView("macro"); // initial load = visible tab only
