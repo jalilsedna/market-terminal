@@ -144,9 +144,16 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.auth import SESSION_COOKIE, set_session_cookie, users
+from app.auth import SESSION_COOKIE, current_user, set_session_cookie, users
 
 _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+
+@app.get("/whoami", include_in_schema=False)
+def whoami(request: Request) -> dict:
+    """Who's signed in (for the web UI's session bar). Behind auth when enabled;
+    returns nulls when auth is off (keyless local dev)."""
+    return {"auth_enabled": settings.auth_enabled, "user": current_user(request)}
 
 
 def _login_html(next_url: str = "/", error: str = "") -> str:

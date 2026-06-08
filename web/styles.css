@@ -29,6 +29,7 @@ body {
 .logo { color: var(--accent); }
 .tag { font-weight: 400; color: var(--muted); font-size: 11px; letter-spacing: 0; }
 .controls { display: flex; align-items: center; gap: 14px; }
+.session { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .clock { color: var(--muted); }
 .btn {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);

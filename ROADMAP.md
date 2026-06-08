@@ -131,9 +131,10 @@ The A8 auth layer (`app/auth.py`) was deliberately shaped around a `Users`
 abstraction — single admin-from-env today, swappable for a real store without
 touching the middleware. These items realize that, toward a product others can
 sign into.
-- [ ] **F1 — Logout button + session UX.** The `/logout` route exists; surface
-      it in the web UI (a button + who's logged in), and handle session-expiry
-      gracefully (the SPA already redirects to `/login` on 401).
+- [x] **F1 — Logout button + session UX.** Header session bar ("signed in as X ·
+      Sign out") backed by a `current_user` helper + `/whoami` endpoint; shows
+      only on an auth-enabled deploy (keyless local dev is unchanged). The SPA
+      already redirects to `/login` on a 401, so expiry is handled.
 - [ ] **F2 — User management panel.** Replace the single env admin with a
       DB-backed user store (the `Users` seam), an admin panel to create / list /
       disable users, and optional self-service registration. Pairs with C2

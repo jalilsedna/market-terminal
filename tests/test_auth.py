@@ -113,6 +113,27 @@ def test_query_token_sets_cookie(client):
     assert "mt_session" in r.headers.get("set-cookie", "") or client.cookies.get("mt_session")
 
 
+class _FakeReq:
+    """Minimal stand-in for a Starlette Request (current_user only reads
+    .headers.get and .cookies.get)."""
+
+    def __init__(self, headers=None, cookies=None):
+        self.headers = headers or {}
+        self.cookies = cookies or {}
+
+
+def test_current_user(auth_env):
+    """current_user resolves Bearer → 'token', valid cookie → username, else None."""
+    from app import auth
+
+    assert auth.current_user(_FakeReq(headers={"authorization": "Bearer tok-123"})) == "token"
+    assert auth.current_user(_FakeReq(headers={"authorization": "Bearer nope"})) is None
+    assert auth.current_user(
+        _FakeReq(cookies={auth.SESSION_COOKIE: auth.issue_session("jalil")})
+    ) == "jalil"
+    assert auth.current_user(_FakeReq()) is None
+
+
 def test_disabled_auth_is_noop(no_auth_env):
     """With no credentials, the middleware lets everything through."""
     from app.auth import auth_middleware
