@@ -20,6 +20,7 @@ from collections.abc import Callable
 from services import (
     cot,
     custom_watchlist,
+    history,
     macro,
     news,
     screener,
@@ -49,6 +50,8 @@ WARMERS: list[tuple[str, Callable[[], object]]] = [
     ("news", lambda: news.feed(limit=40)),
     ("volatility", volatility.dashboard),
     ("custom", custom_watchlist.dashboard),
+    # Runs last so it snapshots the just-warmed vol/regime (one point/day).
+    ("history", history.record_all),
 ]
 
 

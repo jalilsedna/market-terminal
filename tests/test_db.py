@@ -54,3 +54,19 @@ def test_history_snapshots(db):
     assert db.history("vol:GC", limit=1) == [
         {"ts": "2026-01-02T00:00:00+00:00", "value": {"vol": 0.20}}
     ]
+
+
+def test_record_daily_dedup(db):
+    assert db.record_snapshot_daily("vol:GC", {"vol": 0.10}, today="2026-01-01") is True
+    assert db.record_snapshot_daily("vol:GC", {"vol": 0.20}, today="2026-01-01") is False  # same day
+    assert db.record_snapshot_daily("vol:GC", {"vol": 0.30}, today="2026-01-02") is True
+    hist = db.history("vol:GC")
+    assert [h["value"]["vol"] for h in hist] == [0.30, 0.10]  # 2nd (same-day) skipped
+    assert db.series_list() == ["vol:GC"]
+
+
+def test_series_list_distinct(db):
+    db.record_snapshot_daily("regime:macro", {"regime": "risk-on"}, today="2026-01-01")
+    db.record_snapshot_daily("vol:NQ", {"vol": 0.3}, today="2026-01-01")
+    db.record_snapshot_daily("vol:NQ", {"vol": 0.3}, today="2026-01-02")
+    assert db.series_list() == ["regime:macro", "vol:NQ"]

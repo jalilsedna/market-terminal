@@ -78,13 +78,13 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       view's import fails CI). Added `pyproject.toml` (ruff + pytest config) and
       `requirements-dev.txt`; ruff-cleaned the existing tree. (The live Phase-0
       probe stays a manual tool — it needs provider keys + network.)
-- [~] **C2 — Persistence.** Foundation shipped: a SQLite layer (`app/db.py` —
-      key/value, watchlist, and a generic **history** snapshots table), unit-
-      tested. The custom watchlist moved off the ephemeral JSON file onto SQLite,
-      so it survives restarts (and redeploys when `DB_PATH` points at a Railway
-      volume). **Follow-ups:** have the pre-cache warmer record vol/regime
-      snapshots + a `/history` endpoint (feeds C5 charts/alerts); a users table
-      for F2. (The in-memory TTL cache is left as-is — the warmer re-warms on boot.)
+- [x] **C2 — Persistence.** SQLite layer (`app/db.py` — key/value, watchlist,
+      history snapshots), unit-tested. The custom watchlist moved off the
+      ephemeral JSON onto SQLite (survives restarts; redeploys on a `DB_PATH`
+      volume). The pre-cache warmer now records **one daily snapshot per series**
+      (`services/history.py`: per-instrument vol/regime + macro regime), exposed
+      via `GET /history` + `/history/{series}` — the time-series groundwork for
+      C5. (In-memory TTL cache left as-is; a users table is F2.)
 - [x] **C3 — Analysis layer (the edge).** Shipped: COT extremes vs 1y/3y
       percentiles, regime vote, curve-flip detection, per-instrument briefs
       (`services/analysis.py`, the `analysis_*` MCP tools, the Analysis tab).
