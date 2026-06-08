@@ -93,36 +93,32 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       with C2 persistence; builds on the new crypto/forex `obb_layer` fetchers),
       surfaced in both the UI and the MCP feed.
 
-## E. Forecasting / quant layer — toward a Bloomberg-style terminal
-The terminal *displays* and *interprets* data; the missing pillar is
-*forecasting*. [Kronos](https://github.com/shiyu-coder/Kronos) (MIT) is an
-open-source foundation model for OHLCV candlesticks — it takes a price history
-and emits a **probabilistic forecast** of the next N bars. Framed as research
-context with a disclaimer (like the analysis layer), it fits without crossing the
-execution boundary: one more input Alice *pulls*, never a trade trigger.
-- [~] **E1 — Evaluate.** Walk-forward harness (`scripts/eval_kronos.py` + the
-      isolated `kronos_layer/`) scores Kronos-base vs a persistence baseline.
-      **Daily futures: FAILED.** **Daily crypto: weak** (BTC coin-flip, ETH
-      marginal). **Daily FX: a modest, real directional edge** (~55% avg, 4/6
-      majors beat the always-up baseline) — but no level skill and broken bands.
-      A GitHub deep-search ([Rahimikia 2511.18578](https://arxiv.org/abs/2511.18578))
-      confirms no open model beats persistence on daily price; volatility is the
-      one proven win. **Now testing Kronos zero-shot on *hourly* FX** (its native
-      cadence; harness has `--interval 1h`) before any fine-tune — fine-tuning
-      daily FX was deprioritized (too little data + evidence says it still fails).
-      Full evidence + decisions: **`docs/decisions.md`**.
-- [ ] **E2 — Isolated `kronos_layer/`** (the ONLY place that imports torch —
-      mirrors the `obb_layer` rule): load tokenizer+model once, cache it, expose
-      `forecast(ohlcv_df, horizon) -> probabilistic paths`.
-- [ ] **E3 — Wire it in.** `services/forecast.py` + `/forecast/{instrument}`
-      router + a `forecast` MCP tool; fold the forecast into `analysis_brief` and
-      the C4 instrument-focus screen.
-- [ ] **E4 — Visualize.** History + forecast cone (median + quantile band) in the
+## E. Forecasting / quant layer — VOLATILITY (toward a Bloomberg-style terminal)
+The missing pillar is *forecasting*. We tested price/direction with
+[Kronos](https://github.com/shiyu-coder/Kronos) and **it doesn't work** on our
+data (full evidence in `docs/decisions.md` §E): daily futures dead, daily crypto
+weak, daily FX a modest/uneven ~55% lean with broken bands, hourly no lift — and
+independent research ([Rahimikia 2511.18578](https://arxiv.org/abs/2511.18578))
+confirms no open model beats persistence on daily price. **Pivoted to
+volatility**, the one proven, defensible win — and it needs no torch/service, so
+it ships in-core like the analysis layer. Framed as research context (regime /
+sizing), never a trigger.
+- [x] **E1 — Evaluate Kronos (price/direction).** Done & negative; chase closed.
+      Walk-forward harness (`scripts/eval_kronos.py`, `kronos_layer/`) kept for
+      the record / any future re-test.
+- [x] **E2 — Volatility core (`vol/`).** Pure-numpy realized-vol estimators
+      (close-to-close, Parkinson, Garman-Klass), **HAR-RV** forecast + EWMA &
+      persistence baselines, and a vol-**regime** read (percentile vs history).
+      Unit-tested on synthetic data — validated in-sandbox, no host loop.
+- [ ] **E3 — Wire it in.** `services/volatility.py` (compose `vol/` with
+      `obb_layer` OHLCV) + `/volatility/{instrument}` router + a `volatility` MCP
+      tool; fold the regime/forecast into `analysis_brief` and the C4 screen.
+- [ ] **E4 — Visualize.** Realized-vol history + HAR forecast + regime band in the
       frontend.
-- [ ] **E5 — Deployment decision.** torch + a ~100M model is heavy (image size,
-      RAM). Likely run Kronos as a **separate forecasting service** the terminal
-      calls (matches the multi-service Railway future), or keep it feature-flagged
-      so the core stays lightweight. Decide before wiring E3 to the public deploy.
+- [ ] **E5 — Validate on real data.** A `vol`-eval (HAR vs EWMA vs persistence,
+      walk-forward) on our instruments to confirm HAR earns its keep before E3
+      ships it. (No separate service needed — vol is in-core; the E.0 "separate
+      service" decision applied only to the heavy Kronos model.)
 
 ## F. Accounts & multi-user (builds on the A8 auth `Users` seam)
 The A8 auth layer (`app/auth.py`) was deliberately shaped around a `Users`

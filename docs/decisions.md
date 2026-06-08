@@ -73,20 +73,30 @@ Kronos-base (102M) is the largest **open** variant; large (499M) is unreleased,
 no v2 exists. Bigger models don't fix daily price/direction (Rahimikia tested
 larger ones). ~55% FX is near the ceiling for this model class on daily bars.
 
-### E.6 — Decisions
-- **DECIDED:** forecasting (if shipped) runs as a **separate service** the
-  terminal calls over HTTP (circuit-breaker guarded) — keeps torch out of the
-  lean core; matches the multi-service Railway future.
-- **DECIDED:** model = **Kronos-base**; daily futures price forecasting is
-  **dropped**.
-- **OPEN (in progress):** before any fine-tune, test Kronos **zero-shot on
-  *hourly* FX** — its proven frequency (the 58–65% directional numbers are
-  hourly), and the data volume daily FX lacks. Harness now supports
-  `--interval 1h`. Gate: if hourly jumps toward 60–65%, ship/extend; if it's
-  also ~55%, pivot the forecasting pillar to **volatility** (the proven win) or
-  shelve. (Fine-tuning daily FX was deprioritized: too little data — ~6 pairs ×
-  ~2k bars overfits a 102M model — and the evidence says fine-tuned daily still
-  fails.)
+### E.6 — Hourly FX test: also no lift
+Tested Kronos on **hourly** FX (its native cadence). Limitation: yfinance only
+returns ~1 month of hourly (500 bars) — too shallow for a deep context. On that
+thin data, EURUSD hourly directional was **~47% (below coin)** — *worse* than
+daily's 60%, not better. Frequency was not the unlock (within free-data limits).
+
+### E.7 — DECISION: pivot the forecasting pillar to VOLATILITY
+After a thorough sweep (daily futures dead; daily crypto weak; daily FX a modest,
+uneven ~55% lean with broken bands; hourly no lift) and independent evidence that
+**no open model beats persistence on daily price**, we **pivot the forecasting
+pillar from price/direction to volatility** — the one place these methods have
+proven, defensible skill.
+- **Method:** **HAR-RV** (Corsi 2009) — the academic workhorse for realized-vol
+  forecasting — plus EWMA & persistence baselines and a vol-**regime** read
+  (percentile of current vol vs its own history: calm/normal/elevated/stressed).
+- **Why it fits:** pure numpy, **no torch, no HuggingFace, no separate service** —
+  so it ships **in-core** (like the analysis layer), reversing the E.0 "separate
+  service" decision (that was only needed for the heavy Kronos model). Framed as
+  interpreted research context (regime/sizing), never a trigger.
+- **Built & validated in-sandbox:** `vol/` (realized estimators, HAR-RV, EWMA,
+  regime) with unit tests on synthetic data — no "run it on your machine" loop.
+- **Kronos:** the price/direction chase is **closed**. The modest daily-FX
+  directional lean (~55%) may later return as an *optional, disclaimed secondary*
+  signal, but it is not the pillar.
 
 ---
 
