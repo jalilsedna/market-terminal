@@ -22,6 +22,7 @@ from vol.realized import (
     parkinson_vol,
 )
 from vol.regime import vol_regime
+from vol.score import mae, qlike, rmse
 
 __all__ = [
     "log_returns",
@@ -33,4 +34,7 @@ __all__ = [
     "har_rv_forecast",
     "persistence_forecast",
     "vol_regime",
+    "rmse",
+    "mae",
+    "qlike",
 ]

@@ -115,10 +115,11 @@ sizing), never a trigger.
       tool; fold the regime/forecast into `analysis_brief` and the C4 screen.
 - [ ] **E4 — Visualize.** Realized-vol history + HAR forecast + regime band in the
       frontend.
-- [ ] **E5 — Validate on real data.** A `vol`-eval (HAR vs EWMA vs persistence,
-      walk-forward) on our instruments to confirm HAR earns its keep before E3
-      ships it. (No separate service needed — vol is in-core; the E.0 "separate
-      service" decision applied only to the heavy Kronos model.)
+- [~] **E5 — Validate on real data.** Harness built (`scripts/eval_vol.py`,
+      pure-CPU): walk-forward HAR vs EWMA vs persistence scored on QLIKE/RMSE/MAE
+      (+ current regime). Validated in-sandbox on synthetic vol (HAR < EWMA <
+      persistence, as expected). **Run on real instruments** to confirm HAR earns
+      its keep before E3 ships it. (No separate service — vol is in-core.)
 
 ## F. Accounts & multi-user (builds on the A8 auth `Users` seam)
 The A8 auth layer (`app/auth.py`) was deliberately shaped around a `Users`
