@@ -16,7 +16,9 @@ flow back in. See [`docs/openalice.md`](./docs/openalice.md).
 
 - **Stack:** Python 3.12 · FastAPI · OpenBB Platform · MCP
 - **Deploys to:** Railway, as one authenticated service (web + REST + MCP). See
-  [`docs/deploy-railway.md`](./docs/deploy-railway.md).
+  [`docs/deploy-railway.md`](./docs/deploy-railway.md) to deploy and
+  [`docs/operator-guide.md`](./docs/operator-guide.md) for day-2 ops (data,
+  backups, users, token rotation).
 - **Spec / rules:** [`SPEC.md`](./SPEC.md) · [`CLAUDE.md`](./CLAUDE.md) ·
   backlog in [`ROADMAP.md`](./ROADMAP.md)
 
@@ -106,7 +108,8 @@ claude mcp add market-terminal -- .venv/bin/python mcp_server.py
 ```
 
 Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
-`cot_search`, `term_structure`, `sector_rotation`, `market_news`, and the
+`cot_search`, `term_structure`, `sector_rotation`, `market_news`, `volatility`
+(realized vol + regime + forecast), `alerts_status` (C5 research flags), and the
 interpreted-signal tools `analysis_cot`, `analysis_regime`, `analysis_brief`,
 `analysis_term_structure`. All return research context (EOD/delayed/weekly),
 with a disclaimer — never a trade trigger.
