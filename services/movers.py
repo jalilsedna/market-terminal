@@ -1,9 +1,10 @@
-"""Market-wide Movers screener (ROADMAP — Flat Files).
+"""Market-wide Movers screener (ROADMAP B5 — Grouped Daily).
 
 Top gainers / losers / most-active across the **entire** US stock market, from
-Massive Flat Files (one ~300 KB daily file = every ticker's OHLCV). The compute
-is pure (`compute_movers`) and unit-tested; `movers()` wires in the S3 fetch and
-caches the result for the day (EOD TTL). Research context, never a trade trigger.
+the Polygon/Massive **Grouped Daily** REST endpoint (one free call returns every
+ticker's daily bar). The compute is pure (`compute_movers`) and unit-tested;
+`movers()` wires in the fetch and caches the result for the day (EOD TTL).
+Research context, never a trade trigger.
 
 We filter to liquid, plain-symbol common stocks/ETFs (price ≥ $1, a dollar-volume
 floor, `^[A-Z]{1,5}$` tickers) so the lists are signal, not penny-stock /
@@ -15,11 +16,11 @@ from __future__ import annotations
 import re
 
 from cache.store import cached
-from obb_layer import flatfiles
+from obb_layer import grouped
 
 _PLAIN_TICKER = re.compile(r"^[A-Z]{1,5}$")
 
-DISCLAIMER = "Whole-market EOD scan from Massive Flat Files (T+1) — research context, not a trade trigger."
+DISCLAIMER = "Whole-market EOD scan (Grouped Daily) — research context, not a trade trigger."
 
 
 def compute_movers(
@@ -71,16 +72,16 @@ def compute_movers(
 
 @cached("eod")
 def movers(top_n: int = 20, min_price: float = 1.0, min_dollar_volume: float = 5_000_000.0) -> dict:
-    """Whole-market movers from the two most recent daily Flat Files (today vs
-    prior day). Cached for the day. Raises if Flat Files aren't reachable."""
-    keys = flatfiles.latest_day_agg_keys(2)
-    if len(keys) < 2:
-        raise RuntimeError("need at least 2 daily Flat Files to compute movers")
-    prev = flatfiles.fetch_day_aggs(keys[-2])
-    today = flatfiles.fetch_day_aggs(keys[-1])
+    """Whole-market movers from the two most recent trading days of Grouped Daily
+    data (today vs prior). Cached for the day. Raises if the endpoint is
+    unreachable or fewer than two trading days are available."""
+    days = grouped.recent_trading_days(2)
+    if len(days) < 2:
+        raise RuntimeError("need at least 2 trading days of grouped-daily data")
+    (today_str, today), (prev_str, prev) = days[0], days[1]
     result = compute_movers(
         today, prev, min_price=min_price, min_dollar_volume=min_dollar_volume, top_n=top_n
     )
-    result["as_of"] = flatfiles.date_from_key(keys[-1])
-    result["prev"] = flatfiles.date_from_key(keys[-2])
+    result["as_of"] = today_str
+    result["prev"] = prev_str
     return result

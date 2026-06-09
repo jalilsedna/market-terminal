@@ -156,9 +156,10 @@ def volatility(instrument: str | None = None, horizon: int = 5) -> dict:
 @mcp.tool()
 def market_movers(top: int = 20) -> dict:
     """Whole-market top **gainers / losers / most-active** US stocks for the
-    latest session, scanned across the entire market via Massive Flat Files
-    (T+1 EOD). Filtered to liquid plain-symbol names. `top` caps each list.
-    Requires Flat Files to be configured; research context, not a trade trigger."""
+    latest session, scanned across the entire market via the Polygon/Massive
+    Grouped Daily endpoint (EOD). Filtered to liquid plain-symbol names. `top`
+    caps each list. Requires POLYGON_API_KEY; research context, not a trade
+    trigger."""
     return _safe(movers_svc.movers, top_n=top)
 
 

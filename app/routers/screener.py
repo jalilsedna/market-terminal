@@ -17,7 +17,7 @@ from services import screener
 router = APIRouter(prefix="/screener", tags=["V6 — Screener / Sector Rotation"])
 
 _FRESHNESS = "EOD (daily) — research context, not a tradeable signal"
-_MOVERS_FRESHNESS = "whole-market EOD scan from Massive Flat Files (T+1) — research context"
+_MOVERS_FRESHNESS = "whole-market EOD scan (Polygon/Massive Grouped Daily) — research context"
 
 
 @router.get("/sectors", response_model=Envelope)
@@ -34,17 +34,17 @@ def sectors() -> Envelope:
 @router.get("/movers", response_model=Envelope)
 def movers(top: int = Query(20, ge=1, le=100, description="Rows per list")) -> Envelope:
     """Whole-market top gainers/losers/most-active from Massive Flat Files."""
-    if not get_settings().flatfiles_enabled:
+    if not get_settings().movers_enabled:
         return Envelope(
-            ok=False, provider="massive-flatfiles", freshness=_MOVERS_FRESHNESS,
-            error="Movers needs Massive Flat Files — set MASSIVE_S3_ACCESS_KEY / MASSIVE_S3_SECRET_KEY.",
+            ok=False, provider="polygon", freshness=_MOVERS_FRESHNESS,
+            error="Movers needs a Polygon/Massive key — set POLYGON_API_KEY.",
         )
     try:
         data = movers_svc.movers(top_n=top)
     except Exception as exc:  # noqa: BLE001 — provider failure → degraded envelope
-        return Envelope(ok=False, provider="massive-flatfiles", freshness=_MOVERS_FRESHNESS,
+        return Envelope(ok=False, provider="polygon", freshness=_MOVERS_FRESHNESS,
                         error=f"{type(exc).__name__}: {exc}"[:200])
-    return Envelope(data=data, provider="massive-flatfiles", freshness=_MOVERS_FRESHNESS)
+    return Envelope(data=data, provider="polygon", freshness=_MOVERS_FRESHNESS)
 
 
 @router.get("", response_model=Envelope)

@@ -56,10 +56,10 @@ WARMERS: list[tuple[str, Callable[[], object]]] = [
     ("history", history.record_all),
 ]
 
-# Whole-market Movers (Flat Files) — only warm it when the S3 creds are set, so a
-# deploy without Flat Files doesn't log a failed warm every cycle. Inserted before
-# `history` so that stays last.
-if get_settings().flatfiles_enabled:
+# Whole-market Movers (Grouped Daily) — only warm it when the Polygon/Massive key
+# is set, so a deploy without it doesn't log a failed warm every cycle. Inserted
+# before `history` so that stays last.
+if get_settings().movers_enabled:
     WARMERS.insert(-1, ("movers", lambda: movers.movers()))
 
 

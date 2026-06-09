@@ -110,7 +110,7 @@ def health() -> dict:
         "auth_enabled": settings.auth_enabled,
         "providers_configured": settings.configured_providers(),
         "eod_providers": settings.eod_provider_chain,
-        "flatfiles_configured": settings.flatfiles_enabled,
+        "movers_configured": settings.movers_enabled,
         "precache_interval_min": settings.precache_interval_min,
         "alice_url": settings.alice_url,
     }

@@ -1,34 +1,27 @@
-"""Movers screener — Flat Files parse + compute (no S3/boto3, runs in CI)."""
+"""Movers screener — Grouped Daily parse + compute (no network, runs in CI)."""
 
 from __future__ import annotations
 
-import gzip
 
+def test_parse_grouped_basic_and_skips_garbage():
+    from obb_layer.grouped import parse_grouped
 
-def _gz(csv_text: str) -> bytes:
-    return gzip.compress(csv_text.encode("utf-8"))
-
-
-def test_parse_day_aggs_basic_and_skips_garbage():
-    from obb_layer.flatfiles import parse_day_aggs
-
-    csv_text = (
-        "ticker,volume,open,close,high,low,window_start,transactions\n"
-        "AAPL,1000,100,110,111,99,1700000000000000000,50\n"
-        "MSFT,2000,200,190,205,188,1700000000000000000,80\n"
-        "BAD,notanumber,1,2,3,0,1700000000000000000,1\n"   # bad volume → skipped
-        ",5,5,5,5,5,1700000000000000000,1\n"               # empty ticker → skipped
-    )
-    out = parse_day_aggs(_gz(csv_text))
+    results = [
+        {"T": "AAPL", "o": 100, "h": 111, "l": 99, "c": 110, "v": 1000, "n": 50},
+        {"T": "MSFT", "o": 200, "h": 205, "l": 188, "c": 190, "v": 2000, "n": 80},
+        {"T": "BAD", "o": 1, "h": 3, "l": 0, "v": 5, "n": 1},          # missing 'c' → skipped
+        {"T": "", "o": 5, "h": 5, "l": 5, "c": 5, "v": 5, "n": 1},     # empty ticker → skipped
+    ]
+    out = parse_grouped(results)
     assert set(out) == {"AAPL", "MSFT"}
     assert out["AAPL"]["close"] == 110.0
     assert out["MSFT"]["volume"] == 2000.0
 
 
-def test_date_from_key():
-    from obb_layer.flatfiles import date_from_key
+def test_parse_grouped_handles_none():
+    from obb_layer.grouped import parse_grouped
 
-    assert date_from_key("us_stocks_sip/day_aggs_v1/2026/06/2026-06-08.csv.gz") == "2026-06-08"
+    assert parse_grouped(None) == {}
 
 
 def test_compute_movers_ranks_and_filters():

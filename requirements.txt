@@ -38,8 +38,3 @@ uvicorn[standard]==0.40.0
 pydantic==2.13.4
 pydantic-settings==2.14.1
 python-dotenv==1.2.2
-
-# --- Massive.com Flat Files (S3 bulk historical) — powers the Movers screener.
-# Decoupled from OpenBB's dependency tree (its own botocore/urllib3 ranges
-# satisfy OpenBB's pins), so a compatible-range spec avoids pip backtracking.
-boto3>=1.34,<2

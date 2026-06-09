@@ -48,24 +48,22 @@ last-resort free fallback). Verify which one actually serves with
   (B-next) — and Polygon, which covers all of them, becomes the natural backstop
   once that lands.
 
-## Flat Files — whole-market bulk history (Movers screener)
+## Whole-market scan — Grouped Daily (Movers screener)
 
-Massive (ex-Polygon) also offers **Flat Files**: an S3-compatible bucket of
-compressed daily CSVs where **one ~300 KB `day_aggs_v1` file = every US stock's
-OHLCV for that day**. That makes a whole-market scan one cheap download instead
-of thousands of REST calls — the basis for the **Movers** tab (top
-gainers/losers/most-active across the entire market).
+The **Movers** tab (top gainers/losers/most-active across the *entire* US market)
+is powered by Polygon/Massive's **Grouped Daily** REST endpoint, which returns
+every US stock's daily bar for a date in a **single call** — on the **free**
+tier. Movers needs just two calls (latest trading day + prior), well inside the
+free 5/min limit, so it reuses the same `POLYGON_API_KEY`.
 
-- **Separate S3 credentials** from the REST key — an Access Key ID + Secret from
-  the Massive dashboard. Set `MASSIVE_S3_ACCESS_KEY` / `MASSIVE_S3_SECRET_KEY`
-  (endpoint `https://files.massive.com`, bucket `flatfiles` are the defaults).
-- OpenBB's `polygon` provider is REST-only, so this lives in
-  `obb_layer/flatfiles.py` (an S3 client via `boto3`) — the sanctioned
-  "OpenBB lacks it → extend here" path. Compute is in `services/movers.py`.
-- **Gated:** with the keys unset, the Movers tab/endpoint degrades cleanly and
-  `/health` reports `flatfiles_configured:false`. Data is T+1 (each session lands
-  ~11:00 AM ET next day). Verify access: `aws s3 ls
-  s3://flatfiles/us_stocks_sip/day_aggs_v1/ --endpoint-url https://files.massive.com`.
+- OpenBB's `polygon` provider doesn't expose this market-wide route, so it lives
+  in `obb_layer/grouped.py` (a thin REST client via `httpx`) — the sanctioned
+  "OpenBB lacks it → extend here" path. Compute is the pure `services/movers.py`.
+- **Gated:** with `POLYGON_API_KEY` unset, the Movers tab/endpoint degrades
+  cleanly and `/health` reports `movers_configured:false`.
+- *Note:* Massive's separate **Flat Files** (S3 bulk product, `files.massive.com`)
+  give the same daily data in bulk but are **paid-tier** (free keys can list the
+  bucket but not download), so we use the free Grouped Daily endpoint instead.
 
 ## Still open (B1–B3)
 - **B1 — Economic calendar:** paywalled on FMP free; V1's calendar is degraded.

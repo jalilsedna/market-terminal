@@ -39,8 +39,7 @@ Set in Railway → **Variables** (mirror locally in `.env`, which is gitignored)
 | `DB_PATH` | SQLite file location | **point at the mounted volume** → `/data/terminal.db` (§3) |
 | `EOD_PROVIDERS` | equity/ETF provider fallback chain | e.g. `tiingo,polygon,yfinance` (§5) |
 | `TIINGO_API_KEY` | sturdier equity/ETF data | pairs with `EOD_PROVIDERS` |
-| `POLYGON_API_KEY` | Polygon/Massive data (massive.com = Polygon rebrand) | a `massive.com` key works as-is; add to the chain |
-| `MASSIVE_S3_ACCESS_KEY` / `MASSIVE_S3_SECRET_KEY` | Flat Files (S3) — powers the Movers tab | separate S3 creds from the dashboard; unset → Movers off |
+| `POLYGON_API_KEY` | Polygon/Massive data (massive.com = Polygon rebrand) | a `massive.com` key works as-is; in the chain **and** powers the Movers tab (free Grouped Daily); unset → Movers off |
 | `REGISTRATION_OPEN` | open `/register` self-signup | default **false** — admin creates users instead |
 | `PUBLIC_BASE_URL` | informational (docs / Alice config) | `https://<app>.up.railway.app` |
 | `PRECACHE_INTERVAL_MIN` | cache-warm + snapshot cadence | `0` disables the scheduler |
@@ -128,9 +127,10 @@ Volatility · Sectors · Movers · News · Analysis · History ▸ Alerts ·
 Execution ▸ Alice · Admin**. Everything is **research context, never a trade
 trigger** — data is EOD/delayed/weekly and labelled with freshness.
 
-**Movers** (needs `MASSIVE_S3_*`): whole-market top gainers/losers/most-active
-for the latest session, scanned across *every* US stock via Massive Flat Files
-(one ~300 KB daily download). Filtered to liquid plain-symbol names. T+1 EOD.
+**Movers** (needs `POLYGON_API_KEY`): whole-market top gainers/losers/most-active
+for the latest session, scanned across *every* US stock via the free Polygon/
+Massive Grouped Daily endpoint (one call = the whole market). Filtered to liquid
+plain-symbol names. EOD.
 
 **Chart:** embeds TradingView's Advanced Chart widget (its full TA toolset) for
 interactive candlestick/indicator analysis. Quick-pick buttons map the futures
