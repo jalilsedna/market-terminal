@@ -48,11 +48,18 @@ See `SPEC.md` for the full product specification.
 ## Project layout
 
 ```
-app/        FastAPI app, routers, schemas
-services/   thin domain logic per view
-obb_layer/  the ONLY place that imports openbb
-cache/      response cache (per-data-type TTLs)
-web/        frontend (later phase)
+app/        FastAPI app, routers, schemas, auth, pre-cache scheduler
+services/   thin domain logic per view (incl. analysis, alerts, movers, doctor)
+obb_layer/  provider-integration layer: the ONLY place that imports openbb, plus
+            direct provider clients where OpenBB falls short (e.g. grouped.py —
+            Polygon Grouped Daily REST) and the symbol maps
+vol/        volatility/regime models (pure numpy — realized vol, HAR/EWMA, regime)
+cache/      in-process response cache (per-data-type TTLs)
+web/        single-page dashboard (vanilla JS) + login/register pages
+tests/      pytest suite (lightweight, no-OpenBB) — CI-gated
+docs/       deploy, data-provider, OpenAlice, and operator guides
+scripts/    eval + ops tools (probe_providers, eval_vol, …)
+mcp_server.py  exposes the views as MCP tools (stdio or HTTP)
 config.py   loads keys/settings from .env
 ```
 
@@ -61,6 +68,18 @@ config.py   loads keys/settings from .env
 - Pin `openbb` and provider extensions; OpenBB's surface moves fast.
 - Treat every number as research context, not a trade trigger. Label data
   freshness explicitly.
-- Keep symbol mapping (CME ↔ yfinance continuation ↔ spot proxy) in one explicit
-  config map, not scattered string literals.
+- Keep symbol mapping in explicit config maps, never scattered literals: the
+  futures map (`obb_layer/symbols.py` — CME ↔ yfinance ↔ spot proxy ↔ TradingView)
+  and the per-provider crypto/FX formats (`obb_layer/symbol_map.py`).
+- Provider reliability is a chain: equity/ETF and crypto/FX fetchers fall back
+  across `EOD_PROVIDERS` (`obb_layer/providers.py`); add new providers there.
 - Ship each view backend-complete and cached before starting the next.
+
+## Keeping this in sync (ROADMAP D1)
+
+This file is the **canonical** guidance. Mirror it into the claude.ai **Project
+instructions** (and any other agent config) so web, IDE, and CLI sessions all
+follow the same rules — when you change CLAUDE.md, update the Project
+instructions to match. `SPEC.md` (product spec) and `ROADMAP.md` (backlog +
+done-ledger) are the other living docs; keep all three honest as the product
+moves.

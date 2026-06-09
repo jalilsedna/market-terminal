@@ -43,7 +43,14 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       only in the OpenAlice clone), mirrored-networking `.wslconfig`, run/verify
       steps, and a troubleshooting table.
 - [ ] **A6 — Resolve Claude Code's `/doctor` "MCP" warning** in the WSL agent.
-- [ ] **A7 — Rotate the OpenAlice admin token.**
+- [x] **A6b — Operational `/doctor` endpoint** (app self-diagnostic). Auth-gated
+      `GET /doctor` reports provider config + the EOD chain, SQLite/volume state
+      (path, writability, row counts), cache stats, and advisory checks (auth on,
+      sturdy provider in chain, DB on a volume, optional keys). `services/doctor.py`
+      + `app/db.stats()` + `cache.store.stats()`, CI-tested (`tests/test_doctor.py`).
+- [x] **A7 — Rotated the OpenAlice admin token.** Cleared `data/config/auth.json`
+      → regenerated on boot (sessions wiped); verified old→401, new→200. Procedure
+      captured in `docs/openalice.md`.
 - [x] **A8 — Deployed to Railway** (online access). **Live & verified** at
       `market-terminal-production-131c.up.railway.app`: single service serving web
       UI + REST + MCP (mounted at `/mcp`) under one domain and one **auth gate**
@@ -184,10 +191,12 @@ sign into.
       (Follow-up: per-user API/MCP scopes; password reset.)
 
 ## D. Housekeeping
-- [ ] **D1 — Keep `CLAUDE.md` ↔ the Claude Project's custom instructions in
-      sync** (rule #1 reframed: execution delegated, not forbidden).
-- [ ] **D2 — Rotate `AUTH_TOKEN`** (it was shared in chat during setup); update
-      the Railway env and Alice's `.mcp.json` to match.
+- [x] **D1 — `CLAUDE.md` ↔ Claude Project sync.** Refreshed the project-layout +
+      conventions to match today's modules, and added a "Keeping this in sync"
+      note marking CLAUDE.md canonical (mirror into the claude.ai Project
+      instructions on change).
+- [x] **D2 — Rotated `AUTH_TOKEN`** (shared in chat during setup); Railway env +
+      Alice's `.mcp.json` updated to match (verified new→200, old→401).
 
 ---
 
@@ -200,8 +209,8 @@ instrument **Focus** screen (C4), **multi-asset watchlist** (C6), provider
 persistence** foundation (C2).
 
 **Still open:** **B1/B2** (calendar/news — need paid keys) · **B3** (commodity
-curves) · housekeeping (A6 `/doctor`, A7+D2 token rotation, D1
-CLAUDE.md sync, C6 brief-threading).
+curves) · the free `FRED_API_KEY` (lights up Macro tiles + Dollar/FX) · minor
+housekeeping (A6 Claude-Code CLI warning, C6 brief-threading).
 
 **Done since:** **C2 history** (`/history`) → **C5 charts + alerts** (History ▸
 Alerts tab, `services/alerts.py`, `/alerts`, `alerts_status` MCP tool) and **F2**

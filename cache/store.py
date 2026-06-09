@@ -83,3 +83,14 @@ def clear() -> None:
     """Drop all cached entries (test/diagnostic helper)."""
     with _lock:
         _store.clear()
+
+
+def stats() -> dict:
+    """Cache introspection for /doctor: total vs live (non-expired) entries and
+    the distinct namespaces (cached functions) currently populated."""
+    now = time.monotonic()
+    with _lock:
+        items = list(_store.items())
+    live = sum(1 for _k, (expires, _v) in items if expires > now)
+    namespaces = sorted({k.rsplit(":", 1)[0] for k, _ in items})
+    return {"entries": len(items), "live": live, "namespaces": namespaces}
