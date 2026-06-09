@@ -77,9 +77,10 @@ class Settings(BaseSettings):
     # Comma-separated EOD provider fallback chain for the equity/ETF routes (where
     # symbols are consistent across providers, e.g. AAPL/SPY). The fetchers try
     # each provider in order until one returns data, so a yfinance throttle/401
-    # falls back instead of degrading the panel. Add a (free) Tiingo key and set
-    # "tiingo,yfinance" for reliability. Crypto/FX/futures stay yfinance —
-    # provider-specific symbol formats need a mapping layer first (B-follow-up).
+    # falls back instead of degrading the panel. With Tiingo + Polygon (Massive)
+    # keys set, "tiingo,polygon,yfinance" gives three-deep resilience. Crypto/FX/
+    # futures stay yfinance — provider-specific symbol formats need a mapping layer
+    # first (B-next; Polygon would cover them once that lands).
     eod_providers: str = "yfinance"
 
     # --- Persistence (ROADMAP C2) ---
@@ -108,6 +109,12 @@ class Settings(BaseSettings):
     benzinga_api_key: str | None = None
     intrinio_api_key: str | None = None
     tiingo_api_key: str | None = None
+    # Polygon.io — Polygon rebranded to **Massive.com** (2025-10-30); a massive.com
+    # key IS a Polygon key and works against OpenBB's `polygon` provider (the legacy
+    # api.polygon.io endpoint still accepts it). Covers stocks/options/forex/crypto/
+    # indices — a strong EOD-chain provider (see docs/data-providers.md). The
+    # credential is pushed into OpenBB in obb_layer/client.py.
+    polygon_api_key: str | None = None
     eia_api_key: str | None = None
 
     @property
@@ -130,6 +137,7 @@ class Settings(BaseSettings):
             "benzinga": bool(self.benzinga_api_key),
             "intrinio": bool(self.intrinio_api_key),
             "tiingo": bool(self.tiingo_api_key),
+            "polygon": bool(self.polygon_api_key),
             "eia": bool(self.eia_api_key),
         }
 
