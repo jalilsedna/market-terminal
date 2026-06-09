@@ -21,6 +21,7 @@ see [`docs/openalice.md`](./openalice.md).
 | REST API + `/docs` | same host | `Authorization: Bearer <AUTH_TOKEN>` |
 | MCP feed | `https://<app>.up.railway.app/mcp` | same Bearer token |
 | Liveness | `/health` (always open) | none — reports `auth_enabled`, providers, EOD chain |
+| Diagnostics | `/doctor` | gated — deep report: provider config, DB/volume state, cache, advisory checks |
 
 One container, one process (single worker — the in-memory cache and the
 main-thread OpenBB warm assume it). A background **pre-cache** warms every view
@@ -161,6 +162,10 @@ box accepts any TradingView symbol (`NASDAQ:AAPL`, `BINANCE:BTCUSDT`, `FX:EURUSD
 - Don't paste secrets into chat or logs; rotate (§6) if one leaks.
 
 ## 9. Troubleshooting
+
+**First stop:** hit `GET /doctor` (signed in) — it reports provider config, the
+EOD chain, DB/volume writability + row counts, cache state, and advisory checks,
+so most of the table below is answered in one call.
 
 | Symptom | Likely cause / fix |
 |---|---|

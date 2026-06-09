@@ -228,3 +228,27 @@ def alert_set_enabled(alert_id: str, enabled: bool) -> bool:
             "UPDATE alerts SET enabled=? WHERE id=?", (int(enabled), alert_id)
         )
     return cur.rowcount > 0
+
+
+# --- diagnostics (/doctor) ------------------------------------------------- #
+def stats() -> dict:
+    """DB health for /doctor: path, existence, writability, row counts per table,
+    and the recorded snapshot series. Opening `_db()` also exercises a write (it
+    creates tables / sets WAL), so a read-only filesystem surfaces as
+    writable=False rather than raising."""
+    path = Path(get_settings().db_path)
+    out: dict = {"path": str(path), "exists": path.exists()}
+    try:
+        with _db() as conn:
+            out["counts"] = {
+                t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                for t in ("watchlist", "snapshots", "users", "alerts", "kv")
+            }
+            out["series"] = [
+                r[0] for r in conn.execute("SELECT DISTINCT series FROM snapshots").fetchall()
+            ]
+        out["writable"] = True
+    except Exception as exc:  # noqa: BLE001 — report the failure, don't raise
+        out["writable"] = False
+        out["error"] = f"{type(exc).__name__}: {exc}"[:200]
+    return out
