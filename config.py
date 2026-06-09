@@ -124,6 +124,12 @@ class Settings(BaseSettings):
         return chain or ["yfinance"]
 
     @property
+    def movers_enabled(self) -> bool:
+        """Whether the whole-market Movers screener can run — it needs the Polygon
+        (Massive) key for the free Grouped Daily endpoint."""
+        return bool(self.polygon_api_key)
+
+    @property
     def auth_enabled(self) -> bool:
         """Whether access control is active. True as soon as a Bearer token or an
         admin password is configured; false (open) for keyless local dev."""

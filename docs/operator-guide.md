@@ -39,7 +39,7 @@ Set in Railway → **Variables** (mirror locally in `.env`, which is gitignored)
 | `DB_PATH` | SQLite file location | **point at the mounted volume** → `/data/terminal.db` (§3) |
 | `EOD_PROVIDERS` | equity/ETF provider fallback chain | e.g. `tiingo,polygon,yfinance` (§5) |
 | `TIINGO_API_KEY` | sturdier equity/ETF data | pairs with `EOD_PROVIDERS` |
-| `POLYGON_API_KEY` | Polygon/Massive data (massive.com = Polygon rebrand) | a `massive.com` key works as-is; add to the chain |
+| `POLYGON_API_KEY` | Polygon/Massive data (massive.com = Polygon rebrand) | a `massive.com` key works as-is; in the chain **and** powers the Movers tab (free Grouped Daily); unset → Movers off |
 | `REGISTRATION_OPEN` | open `/register` self-signup | default **false** — admin creates users instead |
 | `PUBLIC_BASE_URL` | informational (docs / Alice config) | `https://<app>.up.railway.app` |
 | `PRECACHE_INTERVAL_MIN` | cache-warm + snapshot cadence | `0` disables the scheduler |
@@ -123,9 +123,14 @@ once (healthcheck timeout is 300s).
 ## 7. Using the terminal day to day
 
 Tabs: **Macro · Focus · Chart · Watchlist · My Watchlist · COT · Term Structure ·
-Volatility · Sectors · News · Analysis · History ▸ Alerts · Execution ▸ Alice ·
-Admin**. Everything is **research context, never a trade trigger** — data is
-EOD/delayed/weekly and labelled with freshness.
+Volatility · Sectors · Movers · News · Analysis · History ▸ Alerts ·
+Execution ▸ Alice · Admin**. Everything is **research context, never a trade
+trigger** — data is EOD/delayed/weekly and labelled with freshness.
+
+**Movers** (needs `POLYGON_API_KEY`): whole-market top gainers/losers/most-active
+for the latest session, scanned across *every* US stock via the free Polygon/
+Massive Grouped Daily endpoint (one call = the whole market). Filtered to liquid
+plain-symbol names. EOD.
 
 **Chart:** embeds TradingView's Advanced Chart widget (its full TA toolset) for
 interactive candlestick/indicator analysis. Quick-pick buttons map the futures

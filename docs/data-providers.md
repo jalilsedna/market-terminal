@@ -48,6 +48,23 @@ last-resort free fallback). Verify which one actually serves with
   (B-next) — and Polygon, which covers all of them, becomes the natural backstop
   once that lands.
 
+## Whole-market scan — Grouped Daily (Movers screener)
+
+The **Movers** tab (top gainers/losers/most-active across the *entire* US market)
+is powered by Polygon/Massive's **Grouped Daily** REST endpoint, which returns
+every US stock's daily bar for a date in a **single call** — on the **free**
+tier. Movers needs just two calls (latest trading day + prior), well inside the
+free 5/min limit, so it reuses the same `POLYGON_API_KEY`.
+
+- OpenBB's `polygon` provider doesn't expose this market-wide route, so it lives
+  in `obb_layer/grouped.py` (a thin REST client via `httpx`) — the sanctioned
+  "OpenBB lacks it → extend here" path. Compute is the pure `services/movers.py`.
+- **Gated:** with `POLYGON_API_KEY` unset, the Movers tab/endpoint degrades
+  cleanly and `/health` reports `movers_configured:false`.
+- *Note:* Massive's separate **Flat Files** (S3 bulk product, `files.massive.com`)
+  give the same daily data in bulk but are **paid-tier** (free keys can list the
+  bucket but not download), so we use the free Grouped Daily endpoint instead.
+
 ## Still open (B1–B3)
 - **B1 — Economic calendar:** paywalled on FMP free; V1's calendar is degraded.
 - **B2 — World news:** FMP free paywalled; worked around with per-instrument

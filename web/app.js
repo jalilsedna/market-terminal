@@ -9,6 +9,7 @@ const ENDPOINTS = {
   term: "/term-structure",
   volatility: "/volatility?horizon=5",
   sectors: "/screener/sectors",
+  movers: "/screener/movers?top=20",
   news: "/news?limit=40",
 };
 
@@ -163,6 +164,34 @@ function renderSectors(env) {
   return panel("Sector Rotation (1-week)", head + bars);
 }
 
+// Movers tab (Flat Files): whole-market top gainers/losers/most-active for the
+// latest session, from Massive's daily flat file (one download = every ticker).
+function _fmtUSD(v) {
+  if (v === null || v === undefined) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e9) return "$" + (v / 1e9).toFixed(1) + "B";
+  if (a >= 1e6) return "$" + (v / 1e6).toFixed(1) + "M";
+  if (a >= 1e3) return "$" + (v / 1e3).toFixed(1) + "K";
+  return "$" + num(v, 0);
+}
+function _moversTable(title, rows) {
+  const body = (rows || []).map((r) => `<tr>
+    <td><b>${esc(r.ticker)}</b></td><td>${num(r.close, 2)}</td>
+    <td>${pct(r.change_1d_pct)}</td><td style="text-align:right">${_fmtUSD(r.dollar_volume)}</td></tr>`).join("");
+  return panel(title, `<table><thead><tr><th>Ticker</th><th>Close</th><th>1d</th><th style="text-align:right">$ Vol</th></tr></thead>
+    <tbody>${body || '<tr><td colspan="4" class="dim">none</td></tr>'}</tbody></table>`);
+}
+function renderMovers(env) {
+  const d = env.data || {};
+  const f = d.filters || {};
+  const head = `<div class="sub" style="margin-bottom:8px">Whole US market — ${esc(d.as_of || "")} vs ${esc(d.prev || "")} · ${num(d.universe, 0)} liquid names (price ≥ $${num(f.min_price, 0)}, $vol ≥ ${_fmtUSD(f.min_dollar_volume)})</div>`;
+  const grid = `<div class="grid">
+    ${_moversTable("Top Gainers (1d)", d.gainers)}
+    ${_moversTable("Top Losers (1d)", d.losers)}
+    ${_moversTable("Most Active ($ vol)", d.most_active)}</div>`;
+  return head + grid + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>`;
+}
+
 function renderNews(env) {
   const d = env.data || {};
   const items = (d.headlines || []).map((h) => `<div class="news-item">
@@ -203,7 +232,7 @@ function renderVolatility(env) {
     <div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>`;
 }
 
-const RENDERERS = { macro: renderMacro, watchlist: renderWatchlist, cot: renderCot, term: renderTerm, volatility: renderVolatility, sectors: renderSectors, news: renderNews };
+const RENDERERS = { macro: renderMacro, watchlist: renderWatchlist, cot: renderCot, term: renderTerm, volatility: renderVolatility, sectors: renderSectors, movers: renderMovers, news: renderNews };
 
 // ---- loading + tabs --------------------------------------------------------
 async function loadView(view) {
