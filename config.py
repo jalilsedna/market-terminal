@@ -78,9 +78,10 @@ class Settings(BaseSettings):
     # symbols are consistent across providers, e.g. AAPL/SPY). The fetchers try
     # each provider in order until one returns data, so a yfinance throttle/401
     # falls back instead of degrading the panel. With Tiingo + Polygon (Massive)
-    # keys set, "tiingo,polygon,yfinance" gives three-deep resilience. Crypto/FX/
-    # futures stay yfinance — provider-specific symbol formats need a mapping layer
-    # first (B-next; Polygon would cover them once that lands).
+    # keys set, "tiingo,polygon,yfinance" gives three-deep resilience. The chain
+    # now covers equity/ETF **and** crypto/FX (B-next adds per-provider symbol
+    # mapping in obb_layer/symbol_map.py); futures stay yfinance (continuation
+    # roots aren't portable across providers).
     eod_providers: str = "yfinance"
 
     # --- Persistence (ROADMAP C2) ---

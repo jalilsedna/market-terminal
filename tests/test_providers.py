@@ -64,6 +64,37 @@ def test_passes_through_kwargs():
     }
 
 
+def test_asset_mapping_per_provider():
+    # With asset="crypto", each provider must be queried with ITS symbol format.
+    seen = []
+
+    def route(symbol=None, provider=None, **kw):
+        seen.append((provider, symbol))
+        return [{"ok": 1}] if provider == "yfinance" else []  # only yfinance serves
+
+    providers.eod_with_fallback(
+        route, "BTC-USD", asset="crypto", providers=["polygon", "tiingo", "yfinance"]
+    )
+    assert seen == [
+        ("polygon", "X:BTCUSD"),
+        ("tiingo", "btcusd"),
+        ("yfinance", "BTC-USD"),
+    ]
+
+
+def test_asset_skips_unmapped_provider():
+    seen = []
+
+    def route(symbol=None, provider=None, **kw):
+        seen.append((provider, symbol))
+        return []
+
+    providers.eod_with_fallback(
+        route, "BTC-USD", asset="crypto", providers=["mystery", "yfinance"]
+    )
+    assert seen == [("yfinance", "BTC-USD")]  # 'mystery' has no mapping → skipped
+
+
 def test_chain_parsing(monkeypatch):
     monkeypatch.setenv("EOD_PROVIDERS", "tiingo, yfinance ,")
     import config

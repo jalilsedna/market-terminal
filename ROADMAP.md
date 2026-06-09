@@ -65,8 +65,14 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       try each provider until one returns data, so a yfinance throttle falls back
       (add a free Tiingo key + `EOD_PROVIDERS=tiingo,yfinance`). Safe-by-default
       (chain = yfinance, unchanged); `/health` shows the chain. See
-      `docs/data-providers.md`. **Follow-up:** a per-provider symbol-mapping layer
-      to extend the chain to crypto/FX/futures (different symbol formats).
+      `docs/data-providers.md`.
+- [x] **B-next — Crypto/FX in the fallback chain.** A per-provider
+      **symbol-mapping layer** (`obb_layer/symbol_map.py`) rewrites the canonical
+      symbol for each provider (`BTC-USD` → Polygon `X:BTCUSD` / Tiingo `btcusd`;
+      `EURUSD` → Polygon `C:EURUSD`), so `crypto_history`/`fx_history` now ride the
+      same `eod_with_fallback` chain as equity/ETF (unmapped providers are
+      skipped). Pure + CI-tested (`tests/test_symbol_map.py`). Futures stay
+      yfinance (continuation roots aren't portable).
 
 ## C. Skeleton → product
 - [x] **C1 — Tests + CI.** `tests/` covers the auth gate (session/token/expiry +
@@ -194,11 +200,12 @@ instrument **Focus** screen (C4), **multi-asset watchlist** (C6), provider
 persistence** foundation (C2).
 
 **Still open:** **B1/B2** (calendar/news — need paid keys) · **B3** (commodity
-curves) · **B-next** (symbol-mapping to extend the provider chain to
-crypto/FX/futures) · housekeeping (A6 `/doctor`, A7+D2 token rotation, D1
+curves) · housekeeping (A6 `/doctor`, A7+D2 token rotation, D1
 CLAUDE.md sync, C6 brief-threading).
 
 **Done since:** **C2 history** (`/history`) → **C5 charts + alerts** (History ▸
 Alerts tab, `services/alerts.py`, `/alerts`, `alerts_status` MCP tool) and **F2**
-(multi-user). The core feature set is complete; what remains is paid-data depth
-(B1/B2/B3), the crypto/FX provider-chain extension (B-next), and housekeeping.
+(multi-user), plus **C5b** (TradingView Chart), **B5** (whole-market Movers via
+Grouped Daily), the **Polygon/Massive** provider, and **B-next** (crypto/FX in
+the fallback chain). The core feature set is complete; what remains is paid-data
+depth (B1/B2/B3) and housekeeping.
