@@ -40,13 +40,19 @@ EOD_PROVIDERS=tiingo,yfinance
 last-resort free fallback). Verify which one actually serves with
 `python -m scripts.probe_providers`.
 
-### Not yet in the chain (why)
-- **Crypto / FX / futures** stay on yfinance — providers use **different symbol
-  formats** (yfinance `BTC-USD` / `EURUSD` / `GC=F` vs Polygon `X:BTCUSD` /
-  `C:EURUSD` / …), so a naive fallback would send the wrong symbol. A per-provider
-  **symbol-mapping layer** is the follow-up that unlocks the chain for these
-  (B-next) — and Polygon, which covers all of them, becomes the natural backstop
-  once that lands.
+### Crypto / FX in the chain (B-next — shipped)
+Crypto and FX now use the **same** fallback chain as equity/ETF, via a
+per-provider **symbol-mapping layer** (`obb_layer/symbol_map.py`) that rewrites
+our canonical symbol for each provider — e.g. `BTC-USD` → Polygon `X:BTCUSD`,
+Tiingo `btcusd`; `EURUSD` → Polygon `C:EURUSD`. A provider with no mapping is
+skipped, so the chain still ends on yfinance. Pure + unit-tested
+(`tests/test_symbol_map.py`).
+
+### Still yfinance-only (why)
+- **Futures** stay on yfinance — continuation-contract roots (`GC=F`, `NQ=F`)
+  aren't portable across providers (each has its own root/expiry scheme), so a
+  symbol map isn't a clean fix. Left as a future item if futures reliability
+  becomes a pain point.
 
 ## Whole-market scan — Grouped Daily (Movers screener)
 

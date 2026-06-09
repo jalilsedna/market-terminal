@@ -41,17 +41,15 @@ def futures_history(
 def crypto_history(
     symbol: str, start_date: str | None = None, interval: str = "1d"
 ) -> list[dict]:
-    """OHLCV for a crypto pair (e.g. 'BTC-USD'). Provider: yfinance.
-
-    Used by the forecasting eval (§E) to test Kronos on crypto — the asset class
-    it was actually trained/demoed on (BTC/USDT). `interval` ('1d', '1h', …) sets
-    the bar frequency.
+    """OHLCV for a crypto pair (e.g. 'BTC-USD'). Tries the EOD provider chain
+    (B-next) with per-provider symbol mapping (`BTC-USD` → Polygon `X:BTCUSD`,
+    Tiingo `btcusd`, …), falling back to yfinance. `interval` ('1d', '1h', …)
+    sets the bar frequency; the forecasting eval (§E) uses '1h'.
     """
-    obb = get_obb()
-    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
-    if start_date:
-        kwargs["start_date"] = start_date
-    return to_records(obb.crypto.price.historical(**kwargs))
+    return eod_with_fallback(
+        get_obb().crypto.price.historical, symbol, asset="crypto",
+        start_date=start_date, interval=interval,
+    )
 
 
 @cached("eod")
@@ -59,13 +57,13 @@ def crypto_history(
 def fx_history(
     symbol: str, start_date: str | None = None, interval: str = "1d"
 ) -> list[dict]:
-    """OHLCV for an FX pair (e.g. 'EURUSD'). Provider: yfinance. `interval`
-    ('1d', '1h', …) sets the bar frequency."""
-    obb = get_obb()
-    kwargs: dict = {"symbol": symbol, "provider": "yfinance", "interval": interval}
-    if start_date:
-        kwargs["start_date"] = start_date
-    return to_records(obb.currency.price.historical(**kwargs))
+    """OHLCV for an FX pair (e.g. 'EURUSD'). Tries the EOD provider chain (B-next)
+    with per-provider symbol mapping (`EURUSD` → Polygon `C:EURUSD`, …), falling
+    back to yfinance. `interval` ('1d', '1h', …) sets the bar frequency."""
+    return eod_with_fallback(
+        get_obb().currency.price.historical, symbol, asset="forex",
+        start_date=start_date, interval=interval,
+    )
 
 
 @cached("eod")
