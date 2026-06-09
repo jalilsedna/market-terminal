@@ -37,8 +37,9 @@ Set in Railway → **Variables** (mirror locally in `.env`, which is gitignored)
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | bootstrap admin for `/login` | always works, even with no DB users |
 | `SESSION_SECRET` | signs the browser cookie | keep stable, or all sessions log out |
 | `DB_PATH` | SQLite file location | **point at the mounted volume** → `/data/terminal.db` (§3) |
-| `EOD_PROVIDERS` | equity/ETF provider fallback chain | e.g. `tiingo,yfinance` (§5) |
+| `EOD_PROVIDERS` | equity/ETF provider fallback chain | e.g. `tiingo,polygon,yfinance` (§5) |
 | `TIINGO_API_KEY` | sturdier equity/ETF data | pairs with `EOD_PROVIDERS` |
+| `POLYGON_API_KEY` | Polygon/Massive data (massive.com = Polygon rebrand) | a `massive.com` key works as-is; add to the chain |
 | `REGISTRATION_OPEN` | open `/register` self-signup | default **false** — admin creates users instead |
 | `PUBLIC_BASE_URL` | informational (docs / Alice config) | `https://<app>.up.railway.app` |
 | `PRECACHE_INTERVAL_MIN` | cache-warm + snapshot cadence | `0` disables the scheduler |

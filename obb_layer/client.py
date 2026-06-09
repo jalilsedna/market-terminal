@@ -27,6 +27,9 @@ def get_obb():
     _maybe_set(creds, "benzinga_api_key", settings.benzinga_api_key)
     _maybe_set(creds, "intrinio_api_key", settings.intrinio_api_key)
     _maybe_set(creds, "tiingo_token", settings.tiingo_api_key)
+    # Massive.com == Polygon.io (rebranded); the key authenticates OpenBB's
+    # `polygon` provider via the still-supported api.polygon.io endpoint.
+    _maybe_set(creds, "polygon_api_key", settings.polygon_api_key)
     _maybe_set(creds, "eia_api_key", settings.eia_api_key)
 
     return obb

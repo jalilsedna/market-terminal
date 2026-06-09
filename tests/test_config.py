@@ -37,5 +37,5 @@ def test_configured_providers_shape(no_auth_env):
     from config import get_settings
 
     providers = get_settings().configured_providers()
-    assert set(providers) == {"fmp", "fred", "benzinga", "intrinio", "tiingo", "eia"}
+    assert set(providers) == {"fmp", "fred", "benzinga", "intrinio", "tiingo", "polygon", "eia"}
     assert all(v is False for v in providers.values())

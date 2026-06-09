@@ -26,17 +26,27 @@ EOD_PROVIDERS=tiingo,yfinance
 
 ### Get a free, sturdier provider
 - **Tiingo** — free tier, far steadier than yfinance for equities/ETFs. Sign up
-  at <https://www.tiingo.com>, then set `TIINGO_API_KEY=...` and
-  `EOD_PROVIDERS=tiingo,yfinance`. (`obb_layer/client.py` already pushes the key
-  into OpenBB's credential store.)
-- **Polygon / FMP** — alternatives; add the key and put the provider first in the
-  chain.
+  at <https://www.tiingo.com>, then set `TIINGO_API_KEY=...`.
+  (`obb_layer/client.py` pushes the key into OpenBB's `tiingo_token` credential.)
+- **Polygon / Massive** — **Polygon.io rebranded to Massive.com (2025-10-30)**; a
+  `massive.com` key **is** a Polygon key and authenticates OpenBB's `polygon`
+  provider unchanged (the legacy `api.polygon.io` endpoint still accepts it). Set
+  `POLYGON_API_KEY=...` (`obb_layer/client.py` pushes it into the `polygon_api_key`
+  credential). Covers stocks/options/forex/crypto/indices/CME futures.
+- **FMP** — another alternative; add the key and place the provider in the chain.
+
+**Recommended chain with both keys:** `EOD_PROVIDERS=tiingo,polygon,yfinance`
+(Tiingo primary — most generous free rate; Polygon strong secondary; yfinance the
+last-resort free fallback). Verify which one actually serves with
+`python -m scripts.probe_providers`.
 
 ### Not yet in the chain (why)
 - **Crypto / FX / futures** stay on yfinance — providers use **different symbol
-  formats** (yfinance `BTC-USD` / `EURUSD` / `GC=F` vs Tiingo `btcusd` / …), so a
-  naive fallback would send the wrong symbol. A per-provider **symbol-mapping
-  layer** is the follow-up that unlocks the chain for these (B-next).
+  formats** (yfinance `BTC-USD` / `EURUSD` / `GC=F` vs Polygon `X:BTCUSD` /
+  `C:EURUSD` / …), so a naive fallback would send the wrong symbol. A per-provider
+  **symbol-mapping layer** is the follow-up that unlocks the chain for these
+  (B-next) — and Polygon, which covers all of them, becomes the natural backstop
+  once that lands.
 
 ## Still open (B1–B3)
 - **B1 — Economic calendar:** paywalled on FMP free; V1's calendar is degraded.
