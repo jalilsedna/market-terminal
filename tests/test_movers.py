@@ -2,6 +2,43 @@
 
 from __future__ import annotations
 
+import pytest
+
+
+def _row(close):
+    return {"open": 1.0, "high": 1.0, "low": 1.0, "close": close, "volume": 1_000_000, "transactions": 1}
+
+
+def test_recent_trading_days_skips_forbidden_recent_day(monkeypatch):
+    """A 403 on the most-recent day (free tier can't serve today) must be skipped,
+    walking back to settled sessions — not abort the whole fetch."""
+    from obb_layer import grouped
+
+    calls: list[str] = []
+
+    def fake_fetch(day):
+        calls.append(day)
+        if len(calls) == 1:  # most recent weekday → forbidden, like free-tier "today"
+            raise RuntimeError(f"grouped-daily {day}: HTTP 403")
+        return {"AAA": _row(100 + len(calls))}
+
+    monkeypatch.setattr(grouped, "fetch_grouped_daily", fake_fetch)
+    days = grouped.recent_trading_days(count=2)
+    assert len(days) == 2            # skipped the 403 day, found two older ones
+    assert len(calls) >= 3           # one forbidden + two with data
+
+
+def test_recent_trading_days_all_forbidden_raises(monkeypatch):
+    """If every attempt fails (e.g. a bad key), surface the sanitized error."""
+    from obb_layer import grouped
+
+    def fake_fetch(day):
+        raise RuntimeError(f"grouped-daily {day}: HTTP 403")
+
+    monkeypatch.setattr(grouped, "fetch_grouped_daily", fake_fetch)
+    with pytest.raises(RuntimeError, match="HTTP 403"):
+        grouped.recent_trading_days(count=2)
+
 
 def test_parse_grouped_basic_and_skips_garbage():
     from obb_layer.grouped import parse_grouped
