@@ -434,6 +434,77 @@ async function loadFocus() {
   loadFocusOne(pick ? pick.value : "GC");
 }
 
+// Chart tab: embeds TradingView's Advanced Chart widget (its full TA toolset).
+// TradingView is the chart's DISPLAY data source — every number elsewhere in the
+// terminal still comes through OpenBB. Symbols come from /chart/symbols (the one
+// explicit map in obb_layer/symbols.py), with a free-form box for anything else.
+let _tvLoading = null;
+function ensureTradingView() {
+  if (window.TradingView && window.TradingView.widget) return Promise.resolve();
+  if (_tvLoading) return _tvLoading;
+  _tvLoading = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://s3.tradingview.com/tv.js";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { _tvLoading = null; reject(new Error("could not load TradingView (network/blocked)")); };
+    document.head.appendChild(s);
+  });
+  return _tvLoading;
+}
+
+async function renderTVChart(containerId, symbol) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  try { await ensureTradingView(); }
+  catch (e) { el.innerHTML = `<div class="err">${esc(e.message)} — try the "Open in TradingView ↗" link.</div>`; return; }
+  el.innerHTML = ""; // tear down any previous widget before re-creating
+  // eslint-disable-next-line no-undef
+  new TradingView.widget({
+    container_id: containerId,
+    symbol: symbol || "COMEX:GC1!",
+    interval: "D",
+    timezone: "Etc/UTC",
+    theme: "dark",
+    style: "1",
+    locale: "en",
+    toolbar_bg: "#131722",
+    enable_publishing: false,
+    allow_symbol_change: true,
+    hide_side_toolbar: false,
+    autosize: true,
+  });
+}
+
+async function loadChart() {
+  const sec = $("#view-chart");
+  let picks = [];
+  try { picks = ((await fetchJSON("/chart/symbols")).data || {}).picks || []; } catch (e) { /* free-form still works */ }
+  const quick = picks.map((p) => `<button class="btn tv-pick" data-sym="${esc(p.tv_symbol)}" title="${esc(p.name)}">${esc(p.code)}</button>`).join("");
+  sec.innerHTML = panel("Chart — TradingView", `
+    <div class="addbar">
+      <input id="tv-input" class="inp" placeholder="TradingView symbol (e.g. COMEX:GC1!, NASDAQ:AAPL, BINANCE:BTCUSDT, FX:EURUSD)" />
+      <button id="tv-go" class="btn">Load</button>
+      <a id="tv-ext" class="btn" href="#" target="_blank" rel="noopener">Open in TradingView ↗</a>
+      ${quick ? `<span class="dim">quick:</span> ${quick}` : ""}
+    </div>
+    <div id="tv-chart" class="tv-chart"></div>
+    <div class="exec-help dim" style="margin-top:8px">Chart data is TradingView's (entitlement-dependent, often delayed). Visual research context only — the terminal's own numbers come through OpenBB. Not a trade trigger.</div>`);
+
+  const ext = $("#tv-ext");
+  const go = (sym) => {
+    const s = (sym || $("#tv-input").value).trim();
+    if (!s) return;
+    $("#tv-input").value = s;
+    if (ext) ext.href = "https://www.tradingview.com/chart/?symbol=" + encodeURIComponent(s);
+    renderTVChart("tv-chart", s);
+  };
+  $("#tv-go").addEventListener("click", () => go());
+  $("#tv-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+  sec.querySelectorAll(".tv-pick").forEach((b) => b.addEventListener("click", () => go(b.dataset.sym)));
+  go(picks[0] ? picks[0].tv_symbol : "COMEX:GC1!");
+}
+
 // Lazy loading: only fetch the visible tab; fetch others when first opened (by
 // then the background pre-cache has usually warmed them, so they appear fast).
 const loaded = new Set();
@@ -623,6 +694,7 @@ function _loadFor(view) {
   if (view === "custom") return loadCustom();
   if (view === "admin") return loadAdmin();
   if (view === "history") return loadHistory();
+  if (view === "chart") return loadChart();
   return loadView(view);
 }
 
@@ -674,4 +746,6 @@ refreshAlertBadge();
 $("#refresh").addEventListener("click", refreshActive);
 setInterval(tick, 1000); tick();
 showView("macro"); // initial load = visible tab only
-setInterval(() => loaded.forEach(_loadFor), 10 * 60 * 1000); // refresh opened tabs every 10 min
+// Refresh opened tabs every 10 min — but skip "chart": TradingView's widget
+// self-updates, and re-creating it would reset the user's zoom/drawings.
+setInterval(() => loaded.forEach((v) => { if (v !== "chart") _loadFor(v); }), 10 * 60 * 1000);

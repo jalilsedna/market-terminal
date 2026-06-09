@@ -121,10 +121,17 @@ once (healthcheck timeout is 300s).
 
 ## 7. Using the terminal day to day
 
-Tabs: **Macro · Focus · Watchlist · My Watchlist · COT · Term Structure ·
+Tabs: **Macro · Focus · Chart · Watchlist · My Watchlist · COT · Term Structure ·
 Volatility · Sectors · News · Analysis · History ▸ Alerts · Execution ▸ Alice ·
 Admin**. Everything is **research context, never a trade trigger** — data is
 EOD/delayed/weekly and labelled with freshness.
+
+**Chart:** embeds TradingView's Advanced Chart widget (its full TA toolset) for
+interactive candlestick/indicator analysis. Quick-pick buttons map the futures
+watchlist to TradingView symbols (from `obb_layer/symbols.py`), and a free-form
+box accepts any TradingView symbol (`NASDAQ:AAPL`, `BINANCE:BTCUSDT`, `FX:EURUSD`,
+…). The chart's data is **TradingView's** (display only, often delayed); every
+*number* elsewhere in the terminal still comes through OpenBB.
 
 **History ▸ Alerts (C5):**
 - **Charts** plot the recorded daily snapshots (vol/percentile/score over time +

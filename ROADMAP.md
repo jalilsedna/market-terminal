@@ -102,6 +102,13 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       *flag* — surfaced as a header badge and exposed over MCP (`alerts_status`)
       for Alice. Flags are research context, never a trade trigger. Tested in CI
       (`tests/test_alerts.py`).
+- [x] **C5b — Interactive price charts (TradingView).** A **Chart tab** embeds
+      TradingView's Advanced Chart widget (full TA toolset) for candlestick/
+      indicator analysis. Quick-picks map the futures watchlist to TradingView
+      symbols via the one explicit map (`obb_layer/symbols.py` → `tv_symbol`,
+      served by `/chart/symbols`); a free-form box accepts any TV symbol. The
+      chart is TradingView's *display* data (often delayed); every number
+      elsewhere still funnels through OpenBB. Tested in CI (`tests/test_chart.py`).
 - [~] **C6 — Dynamic multi-asset watchlist.** Shipped: a **My Watchlist** tab +
       `/custom` CRUD endpoints + a JSON store (`services/custom_store.py`, pure +
       tested) let the user **add/remove arbitrary assets across classes** (futures,

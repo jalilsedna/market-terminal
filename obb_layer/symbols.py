@@ -19,6 +19,7 @@ class Instrument:
     proxy_name: str
     cot_code: str       # CFTC contract market code for COT (V4)
     news_symbol: str    # liquid ETF proxy that carries free yfinance news (V3)
+    tv_symbol: str      # TradingView continuous-futures symbol for the Chart tab
 
 
 # `cot_code` is the CFTC "contract market code". GC=088691 is probe-confirmed;
@@ -29,10 +30,15 @@ class Instrument:
 # `news_symbol` is a liquid ETF that tracks the same underlying and carries free
 # news via yfinance (the only free news provider in this OpenBB version): gold
 # (GLD), Nasdaq-100 (QQQ), Dow (DIA), euro (FXE), pound (FXB).
+#
+# `tv_symbol` is the TradingView continuous-futures symbol (`EXCHANGE:ROOT1!`)
+# the Chart tab embeds: euro/pound on CME, gold on COMEX, the e-minis on
+# CME_MINI / CBOT_MINI. TradingView is the chart's *display* data source — the
+# rest of the terminal's numbers still come through obb_layer.
 WATCHLIST: dict[str, Instrument] = {
-    "6E": Instrument("6E", "Euro FX futures", "6E=F", "EURUSD=X", "EUR/USD spot", "099741", "FXE"),
-    "6B": Instrument("6B", "British Pound futures", "6B=F", "GBPUSD=X", "GBP/USD spot", "096742", "FXB"),
-    "GC": Instrument("GC", "Gold futures", "GC=F", "GLD", "Gold (GLD ETF)", "088691", "GLD"),
-    "NQ": Instrument("NQ", "E-mini Nasdaq-100", "NQ=F", "^NDX", "Nasdaq-100 cash", "209742", "QQQ"),
-    "YM": Instrument("YM", "E-mini Dow", "YM=F", "^DJI", "Dow Jones cash", "124603", "DIA"),
+    "6E": Instrument("6E", "Euro FX futures", "6E=F", "EURUSD=X", "EUR/USD spot", "099741", "FXE", "CME:6E1!"),
+    "6B": Instrument("6B", "British Pound futures", "6B=F", "GBPUSD=X", "GBP/USD spot", "096742", "FXB", "CME:6B1!"),
+    "GC": Instrument("GC", "Gold futures", "GC=F", "GLD", "Gold (GLD ETF)", "088691", "GLD", "COMEX:GC1!"),
+    "NQ": Instrument("NQ", "E-mini Nasdaq-100", "NQ=F", "^NDX", "Nasdaq-100 cash", "209742", "QQQ", "CME_MINI:NQ1!"),
+    "YM": Instrument("YM", "E-mini Dow", "YM=F", "^DJI", "Dow Jones cash", "124603", "DIA", "CBOT_MINI:YM1!"),
 }
