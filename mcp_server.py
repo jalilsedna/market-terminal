@@ -24,6 +24,7 @@ from services import alerts as alerts_svc
 from services import analysis as analysis_svc
 from services import cot as cot_svc
 from services import macro as macro_svc
+from services import movers as movers_svc
 from services import news as news_svc
 from services import screener as screener_svc
 from services import term_structure as ts_svc
@@ -150,6 +151,15 @@ def volatility(instrument: str | None = None, horizon: int = 5) -> dict:
     if instrument:
         return _safe(vol_svc.volatility, instrument=instrument, horizon=horizon)
     return _safe(vol_svc.dashboard, horizon=horizon)
+
+
+@mcp.tool()
+def market_movers(top: int = 20) -> dict:
+    """Whole-market top **gainers / losers / most-active** US stocks for the
+    latest session, scanned across the entire market via Massive Flat Files
+    (T+1 EOD). Filtered to liquid plain-symbol names. `top` caps each list.
+    Requires Flat Files to be configured; research context, not a trade trigger."""
+    return _safe(movers_svc.movers, top_n=top)
 
 
 @mcp.tool()

@@ -108,8 +108,9 @@ claude mcp add market-terminal -- .venv/bin/python mcp_server.py
 ```
 
 Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
-`cot_search`, `term_structure`, `sector_rotation`, `market_news`, `volatility`
-(realized vol + regime + forecast), `alerts_status` (C5 research flags), and the
+`cot_search`, `term_structure`, `sector_rotation`, `market_movers` (whole-market
+gainers/losers via Flat Files), `market_news`, `volatility` (realized vol +
+regime + forecast), `alerts_status` (C5 research flags), and the
 interpreted-signal tools `analysis_cot`, `analysis_regime`, `analysis_brief`,
 `analysis_term_structure`. All return research context (EOD/delayed/weekly),
 with a disclaimer — never a trade trigger.

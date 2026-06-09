@@ -109,6 +109,13 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       served by `/chart/symbols`); a free-form box accepts any TV symbol. The
       chart is TradingView's *display* data (often delayed); every number
       elsewhere still funnels through OpenBB. Tested in CI (`tests/test_chart.py`).
+- [x] **B5 — Whole-market Movers (Massive Flat Files).** A **Movers tab** +
+      `/screener/movers` + `market_movers` MCP tool: top gainers/losers/most-active
+      across **every** US stock for the latest session, from Massive (ex-Polygon)
+      **Flat Files** — one ~300 KB daily S3 file = the whole market's OHLCV.
+      `obb_layer/flatfiles.py` (boto3 S3 client, lazy) + pure `services/movers.py`
+      compute (CI-tested), gated on `MASSIVE_S3_*` keys. OpenBB is REST-only here,
+      so this is the sanctioned "extend in obb_layer" path.
 - [~] **C6 — Dynamic multi-asset watchlist.** Shipped: a **My Watchlist** tab +
       `/custom` CRUD endpoints + a JSON store (`services/custom_store.py`, pure +
       tested) let the user **add/remove arbitrary assets across classes** (futures,

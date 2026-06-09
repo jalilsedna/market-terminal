@@ -126,11 +126,12 @@ no change is needed — see `docs/openalice-wsl-setup.md`.)
 
 ## Tools OpenAlice will see
 
-All 13, all returning research context (EOD / delayed / weekly), **never** trade
+All 14, all returning research context (EOD / delayed / weekly), **never** trade
 signals. The agent interprets them; the terminal only reports.
 
-**Raw data (7):** `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
-`cot_search`, `term_structure`, `sector_rotation`, `market_news`.
+**Raw data (8):** `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
+`cot_search`, `term_structure`, `sector_rotation`, `market_movers` (whole-market
+gainers/losers/most-active via Flat Files), `market_news`.
 
 **Derived / operational (2):** `volatility` (realized vol + calm/normal/
 elevated/stressed regime + short-horizon forecast) and `alerts_status` (C5

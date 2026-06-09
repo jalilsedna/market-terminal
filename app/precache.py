@@ -17,11 +17,13 @@ import threading
 import time
 from collections.abc import Callable
 
+from config import get_settings
 from services import (
     cot,
     custom_watchlist,
     history,
     macro,
+    movers,
     news,
     screener,
     term_structure,
@@ -53,6 +55,12 @@ WARMERS: list[tuple[str, Callable[[], object]]] = [
     # Runs last so it snapshots the just-warmed vol/regime (one point/day).
     ("history", history.record_all),
 ]
+
+# Whole-market Movers (Flat Files) — only warm it when the S3 creds are set, so a
+# deploy without Flat Files doesn't log a failed warm every cycle. Inserted before
+# `history` so that stays last.
+if get_settings().flatfiles_enabled:
+    WARMERS.insert(-1, ("movers", lambda: movers.movers()))
 
 
 def _warm_one(item: tuple[str, Callable[[], object]]) -> bool:

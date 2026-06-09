@@ -117,11 +117,26 @@ class Settings(BaseSettings):
     polygon_api_key: str | None = None
     eia_api_key: str | None = None
 
+    # --- Massive.com Flat Files (S3 bulk historical; powers the Movers screener) ---
+    # SEPARATE S3 credentials from the dashboard (not the REST key). One tiny
+    # (~300 KB) gzip file per trading day holds every US stock's OHLCV, so the
+    # whole-market Movers scan costs one download/day. Endpoint/bucket are the
+    # standard Massive (ex-Polygon) values; override only if they change.
+    massive_s3_access_key: str | None = None
+    massive_s3_secret_key: str | None = None
+    massive_s3_endpoint: str = "https://files.massive.com"
+    massive_s3_bucket: str = "flatfiles"
+
     @property
     def eod_provider_chain(self) -> list[str]:
         """The EOD provider fallback chain (parsed from `eod_providers`)."""
         chain = [p.strip() for p in self.eod_providers.split(",") if p.strip()]
         return chain or ["yfinance"]
+
+    @property
+    def flatfiles_enabled(self) -> bool:
+        """Whether Massive Flat Files (S3) are configured — gates the Movers view."""
+        return bool(self.massive_s3_access_key and self.massive_s3_secret_key)
 
     @property
     def auth_enabled(self) -> bool:
