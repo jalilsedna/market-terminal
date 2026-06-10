@@ -38,6 +38,9 @@ _SCHEMA = (
            id TEXT PRIMARY KEY, series TEXT NOT NULL, metric TEXT NOT NULL,
            op TEXT NOT NULL, threshold TEXT NOT NULL, label TEXT,
            enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS tv_signals (
+           id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL,
+           ticker TEXT, action TEXT, price TEXT, text TEXT, raw TEXT NOT NULL)""",
 )
 
 
@@ -228,6 +231,31 @@ def alert_set_enabled(alert_id: str, enabled: bool) -> bool:
             "UPDATE alerts SET enabled=? WHERE id=?", (int(enabled), alert_id)
         )
     return cur.rowcount > 0
+
+
+# --- TradingView webhook signals (ROADMAP G3) ----------------------------- #
+def tv_signal_add(
+    ticker: str | None, action: str | None, price: str | None, text: str | None, raw: str
+) -> int:
+    """Store one TradingView webhook signal; returns its row id."""
+    with _db() as conn:
+        cur = conn.execute(
+            "INSERT INTO tv_signals (ts, ticker, action, price, text, raw) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (_now(), ticker, action, price, text, raw),
+        )
+    return int(cur.lastrowid)
+
+
+def tv_signal_list(limit: int = 50) -> list[dict]:
+    """Most-recent-first TradingView signals."""
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT id, ts, ticker, action, price, text FROM tv_signals "
+            "ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # --- diagnostics (/doctor) ------------------------------------------------- #

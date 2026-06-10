@@ -112,8 +112,10 @@ Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
 gainers/losers via Flat Files), `market_news`, `volatility` (realized vol +
 regime + forecast), `alerts_status` (C5 research flags), and the
 interpreted-signal tools `analysis_cot`, `analysis_regime`, `analysis_brief`,
-`analysis_term_structure`. All return research context (EOD/delayed/weekly),
-with a disclaimer — never a trade trigger.
+`analysis_term_structure`, plus `tradingview_signals` (TradingView alert/strategy
+signals received via webhook — see [`docs/tradingview.md`](./docs/tradingview.md)).
+All return research context (EOD/delayed/weekly), with a disclaimer — never a
+trade trigger.
 
 **Feeding an execution agent (e.g. OpenAlice):** market-terminal stays
 research-only and acts as an MCP data source the agent *pulls from*. See

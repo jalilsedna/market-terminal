@@ -505,12 +505,31 @@ async function renderTVChart(containerId, symbol) {
   });
 }
 
+// TradingView strategy/alert signals (G3) received via webhook — research only.
+function _tvSignalsPanel(sig) {
+  if (!sig || sig.enabled === false) {
+    return panel("TradingView Signals", '<div class="dim">No webhook configured. Set <code>TV_WEBHOOK_SECRET</code> and point a TradingView alert at <code>/webhook/tradingview?token=…</code> to stream your Pine strategy/alert signals here.</div>');
+  }
+  const rows = (sig.signals || []).map((s) => `<tr>
+    <td style="text-align:left">${esc((s.ts || "").slice(0, 16).replace("T", " "))}</td>
+    <td><b>${esc(s.ticker || "—")}</b></td>
+    <td>${s.action ? `<span class="pill">${esc(s.action)}</span>` : '<span class="dim">—</span>'}</td>
+    <td>${esc(s.price || "—")}</td>
+    <td style="text-align:left" class="dim">${esc(s.text || "")}</td></tr>`).join("");
+  return panel(`TradingView Signals${sig.count ? " · " + num(sig.count, 0) : ""}`,
+    rows
+      ? `<table><thead><tr><th>Time</th><th>Ticker</th><th>Action</th><th>Price</th><th style="text-align:left">Message</th></tr></thead><tbody>${rows}</tbody></table>
+         <div class="exec-help dim" style="margin-top:6px">${esc(sig.disclaimer || "")}</div>`
+      : '<div class="dim">No signals yet — fire a TradingView alert at this terminal\'s webhook.</div>');
+}
+
 async function loadChart() {
   const sec = $("#view-chart");
-  let picks = [];
+  let picks = [], sig = {};
   try { picks = ((await fetchJSON("/chart/symbols")).data || {}).picks || []; } catch (e) { /* free-form still works */ }
+  try { sig = (await fetchJSON("/tradingview/signals?limit=15")).data || {}; } catch (e) { /* panel degrades */ }
   const quick = picks.map((p) => `<button class="btn tv-pick" data-sym="${esc(p.tv_symbol)}" title="${esc(p.name)}">${esc(p.code)}</button>`).join("");
-  sec.innerHTML = panel("Chart — TradingView", `
+  sec.innerHTML = _tvSignalsPanel(sig) + panel("Chart — TradingView", `
     <div class="addbar">
       <input id="tv-input" class="inp" placeholder="TradingView symbol (e.g. COMEX:GC1!, NASDAQ:AAPL, BINANCE:BTCUSDT, FX:EURUSD)" />
       <button id="tv-go" class="btn">Load</button>

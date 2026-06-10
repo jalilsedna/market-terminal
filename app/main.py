@@ -131,6 +131,7 @@ from app.routers import (
     news,
     screener,
     term_structure,
+    tradingview,
     volatility,
     watchlist,
 )
@@ -148,6 +149,7 @@ app.include_router(history.router)
 app.include_router(alerts.router)
 app.include_router(chart.router)
 app.include_router(doctor.router)
+app.include_router(tradingview.router)
 
 
 from pathlib import Path

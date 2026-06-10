@@ -28,6 +28,7 @@ from services import movers as movers_svc
 from services import news as news_svc
 from services import screener as screener_svc
 from services import term_structure as ts_svc
+from services import tradingview as tv_svc
 from services import volatility as vol_svc
 from services import watchlist as watchlist_svc
 
@@ -161,6 +162,15 @@ def market_movers(top: int = 20) -> dict:
     caps each list. Requires POLYGON_API_KEY; research context, not a trade
     trigger."""
     return _safe(movers_svc.movers, top_n=top)
+
+
+@mcp.tool()
+def tradingview_signals(limit: int = 50) -> dict:
+    """Recent **TradingView** strategy/alert signals received via webhook (ticker,
+    action, price, message; newest first). These are your TradingView Pine alerts
+    forwarded into the terminal — research context, NOT auto-executed. Empty if no
+    webhook secret is configured or none have fired yet."""
+    return _safe(tv_svc.signals, limit=limit)
 
 
 @mcp.tool()

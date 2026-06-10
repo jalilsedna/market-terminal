@@ -216,11 +216,16 @@ sign into.
       states, custom scrollbars, view fade-in. **No HTML/JS change** — every class
       name preserved, so it's a pure visual refresh. (Follow-up: align the
       login/register pages to the same tokens.)
-- [ ] **G3 — TradingView integration.** (a) `/webhook/tradingview` endpoint that
-      ingests Pine **alert/strategy webhooks** → stores → surfaces in UI → exposes
-      as an MCP tool so Alice sees TV signals. (b) Manual **Pine→Python** ports of
-      chosen strategies into a `signals/` module. *(Note: TradingView has no API to
-      auto-read saved Pine scripts — webhooks + manual ports are the real paths.)*
+- [~] **G3 — TradingView integration.** *(a) shipped:* `POST /webhook/tradingview`
+      ingests TradingView alert/strategy webhooks (secret-gated via `TV_WEBHOOK_SECRET`
+      since TV can't send a Bearer header — it's the only open route besides
+      `/health`, store-only), persists to SQLite, surfaces in the **Chart tab**
+      ("TradingView Signals" panel) and over MCP (`tradingview_signals`) so Alice
+      sees them. Research-only — never auto-executed. `services/tradingview.py` +
+      `docs/tradingview.md`, CI-tested (`tests/test_tradingview.py`).
+      *(b) pending:* manual **Pine→Python** ports of chosen strategies into a
+      `signals/` module. *(TradingView has no API to auto-read saved Pine scripts —
+      webhooks + manual ports are the real paths.)*
 - [ ] **G4 — Provider depth (budgeted).** Add Tiingo-paid (news/intraday) and/or
       Polygon-paid (intraday/real-time + full flat files) as needs arise; Benzinga
       only if low-latency news becomes critical. See `docs/data-providers.md`.
