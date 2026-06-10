@@ -292,8 +292,14 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       New FMP endpoints in `obb_layer/fmp.py` (quote/grades/PT-summary/insider/
       congress/technicals). Fault-tolerant + tier-gated; pure scoring CI-tested
       (`tests/test_signals.py`). Research context, never auto-executed — it biases
-      the order-flow execution (NinjaTrader). *(Next: `daily_hitlist` market-wide
-      scanner that attaches these signals to today's movers.)*
+      the order-flow execution (NinjaTrader).
+- [x] **H9 — Daily hit-list scanner.** `services/signals.py:daily_hitlist()` →
+      `GET /signals/hitlist` + the `daily_hitlist` MCP tool. The opportunity finder:
+      whole-market **movers** (Polygon Grouped Daily) enriched per name with catalyst
+      (analyst rating change, earnings proximity) + smart-money (insider flow), ranked
+      by **confluence** (catalyst agrees with the day's move) + conviction + intensity,
+      each with a long/short/neutral `bias`. Needs FMP + `POLYGON_API_KEY`. Pure
+      ranking/scoring CI-tested. Research context, never auto-executed.
 
 ---
 

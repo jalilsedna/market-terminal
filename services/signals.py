@@ -370,6 +370,126 @@ def trade_setup(symbol: str) -> dict:
     }
 
 
+# --- Daily hit-list: market-wide morning scanner --------------------------- #
+def hitlist_candidates(movers_data: dict) -> list[dict]:
+    """Flatten movers (gainers/losers/most-active) into unique candidates with a
+    day-direction tag. Pure."""
+    cands: dict[str, dict] = {}
+    for r in movers_data.get("gainers", []) or []:
+        cands.setdefault(r["ticker"], {**r, "day_dir": "up"})
+    for r in movers_data.get("losers", []) or []:
+        cands.setdefault(r["ticker"], {**r, "day_dir": "down"})
+    for r in movers_data.get("most_active", []) or []:
+        d = "up" if (_num(r.get("change_1d_pct")) or 0) >= 0 else "down"
+        cands.setdefault(r["ticker"], {**r, "day_dir": d})
+    return list(cands.values())
+
+
+def score_candidate(move_pct: float | None, catalyst_pts: int, smart_pts: int) -> dict:
+    """The day's move sets the in-play direction (weighted 2x); catalyst + smart
+    money confirm or diverge. Returns bias + score + confluence. Pure."""
+    move_pts = 0
+    if move_pct is not None:
+        move_pts = 2 if move_pct > 0 else -2 if move_pct < 0 else 0
+    extra = catalyst_pts + smart_pts
+    score = move_pts + extra
+    bias = "long" if score >= 2 else "short" if score <= -2 else "neutral"
+    confluence = bool((move_pts > 0 and extra > 0) or (move_pts < 0 and extra < 0))
+    return {"score": score, "bias": bias, "confluence": confluence}
+
+
+def rank_hitlist(rows: list[dict]) -> list[dict]:
+    """Confluence first, then conviction (|score|), then raw intensity (|move|). Pure."""
+    return sorted(
+        rows,
+        key=lambda r: (
+            1 if r.get("confluence") else 0,
+            abs(r.get("score") or 0),
+            abs(_num(r.get("change_1d_pct")) or 0),
+        ),
+        reverse=True,
+    )
+
+
+def _enrich_candidate(ticker: str) -> tuple[int, int, list[str], dict]:
+    """Light per-ticker enrichment for the hit-list: catalyst (grades + earnings)
+    and smart money (insider stats). Few calls each (cached); fault-tolerant."""
+    def safe(fn, default):
+        try:
+            return fn()
+        except Exception:  # noqa: BLE001
+            return default
+
+    grades = safe(lambda: fmp.grades_historical(ticker, limit=6), []) or []
+    earn = safe(lambda: fmp.earnings(ticker), []) or []
+    stats = safe(lambda: fmp.insider_statistics(ticker), []) or []
+    c_pts, c_trigs, c_det = catalyst_signal(grades, {}, [], earn)
+    s_pts, s_trigs, _ = smart_money_signal(stats, [], [], [])
+    return c_pts, s_pts, c_trigs + s_trigs, c_det.get("earnings", {})
+
+
+def daily_hitlist(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2.0) -> dict:
+    """Market-wide morning scanner: today's movers, enriched with catalyst +
+    smart-money signals, ranked into the most tradeable names with a directional
+    lean. Needs FMP (signals) + POLYGON_API_KEY (whole-market movers feed).
+    Research context, never a trade trigger."""
+    from config import get_settings
+    if not get_settings().fmp_enabled:
+        return {"enabled": False, "error": "FMP not configured (set FMP_API_KEY)",
+                "disclaimer": DISCLAIMER}
+
+    from services import movers as movers_svc
+    try:
+        m = movers_svc.movers(top_n=25)
+    except Exception as exc:  # noqa: BLE001 — movers needs POLYGON_API_KEY
+        return {"enabled": True, "hitlist": [], "count": 0,
+                "error": f"movers feed unavailable ({type(exc).__name__}) — set POLYGON_API_KEY",
+                "disclaimer": DISCLAIMER}
+
+    cands = [c for c in hitlist_candidates(m)
+             if abs(_num(c.get("change_1d_pct")) or 0) >= min_move_pct]
+    cands.sort(key=lambda c: abs(_num(c.get("change_1d_pct")) or 0), reverse=True)
+
+    rows: list[dict] = []
+    for c in cands[: max(1, scan_depth)]:
+        ticker = c["ticker"]
+        move = _num(c.get("change_1d_pct"))
+        c_pts, s_pts, trigs, ev = _enrich_candidate(ticker)
+        sc = score_candidate(move, c_pts, s_pts)
+        event_risk = ev.get("days_away") is not None and 0 <= ev["days_away"] <= 7
+        if event_risk:
+            trigs = trigs + [f"earnings in {ev['days_away']}d — event risk"]
+        rows.append({
+            "ticker": ticker,
+            "day_dir": c.get("day_dir"),
+            "change_1d_pct": move,
+            "dollar_volume": c.get("dollar_volume"),
+            "bias": sc["bias"],
+            "score": sc["score"],
+            "confluence": sc["confluence"],
+            "event_risk": event_risk,
+            "triggers": trigs,
+            "read": f"{ticker}: {sc['bias'].upper()} ({move:+.1f}% today"
+                    + (", confluence" if sc["confluence"] else "") + ")"
+                    + (" — " + "; ".join(trigs[:3]) if trigs else ""),
+        })
+
+    ranked = rank_hitlist(rows)[: max(1, limit)]
+    return {
+        "enabled": True,
+        "as_of": m.get("as_of"),
+        "scanned": len(rows),
+        "count": len(ranked),
+        "long_count": sum(1 for r in ranked if r["bias"] == "long"),
+        "short_count": sum(1 for r in ranked if r["bias"] == "short"),
+        "hitlist": ranked,
+        "method": "Whole-market movers (EOD) enriched with analyst rating changes, "
+                  "earnings proximity, and insider flow; ranked by confluence + "
+                  "conviction + intensity.",
+        "disclaimer": DISCLAIMER,
+    }
+
+
 def _read(symbol: str, fused: dict, part: dict, catalyst_detail: dict) -> str:
     rvol = part.get("relative_volume")
     play = "IN PLAY" if part.get("in_play") else "quiet"
