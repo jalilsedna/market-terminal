@@ -32,6 +32,7 @@ from services import macro as macro_svc
 from services import movers as movers_svc
 from services import news as news_svc
 from services import screener as screener_svc
+from services import signals as signals_svc
 from services import term_structure as ts_svc
 from services import tradingview as tv_svc
 from services import volatility as vol_svc
@@ -268,6 +269,19 @@ def forex_brain_screen(symbols: str | None = None, limit: int = 25) -> dict:
     Research synthesis, not a trade trigger."""
     syms = [s for s in (symbols or "").split(",") if s.strip()] or None
     return _safe(brain_forex_svc.screen, symbols=syms, limit=limit)
+
+
+@mcp.tool()
+def trade_setup(ticker: str) -> dict:
+    """**Daily trade-setup bias** for a stock (FMP) — the day-trader's morning read.
+    Fuses trend (price vs 50/200-MA), momentum (RSI/ADX), catalysts (analyst
+    rating change, price-target trend, fresh news, earnings proximity), smart
+    money (insider buy/sell ratio + senate/house trades), and the macro/fundamental
+    context into a single `bias` (long/short/neutral), `score`, `conviction`, and
+    `in_play` flag (relative volume). Returns concrete `triggers` and risk `flags`.
+    Use it to bias/filter order-flow execution — research context, NOT an
+    auto-executed trade signal."""
+    return _safe(signals_svc.trade_setup, ticker)
 
 
 @mcp.tool()
