@@ -753,13 +753,28 @@ function _fundTile(label, value, sub) {
 function renderFundamentals(env) {
   const d = env.data || {};
   const p = d.profile || {}, v = d.valuation || {}, q = d.quality || {}, g = d.growth || {};
+  const r = d.read || {}, dcf = d.dcf || {}, an = d.analyst || {}, ea = d.earnings || {};
   const head = `<div class="sub" style="margin-bottom:8px">
     <b>${esc(p.name || d.symbol)}</b> <span class="dim">${esc(d.symbol)}</span> · ${esc(p.sector || "—")} / ${esc(p.industry || "—")}
     · ${esc(p.exchange || "")} · mkt cap ${_fmtBig(p.market_cap)} · β ${num(p.beta, 2)}</div>`;
+
+  // Interpreted read — the decisioning verdict (H2).
+  const flags = (r.flags || []).map((x) => `<span class="pill amber" style="margin:2px">${esc(x)}</span>`).join(" ");
+  const readPanel = r.verdict
+    ? panel("Fundamental Read", `<div style="font-size:14px"><b>${esc(r.verdict)}</b></div>${flags ? `<div style="margin-top:6px">${flags}</div>` : ""}`)
+    : "";
+
   const valuation = panel("Valuation", `<div class="tiles">
     ${_fundTile("P/E", num(v.pe, 1))}${_fundTile("P/S", num(v.ps, 1))}${_fundTile("P/B", num(v.pb, 1))}
     ${_fundTile("EV/EBITDA", num(v.ev_ebitda, 1))}${_fundTile("Div yield", _pctv(v.dividend_yield))}
     ${_fundTile("FCF yield", _pctv(v.fcf_yield))}</div>`);
+
+  const dcfAnalyst = panel("DCF & Analyst", `<div class="tiles">
+    ${_fundTile("DCF fair value", dcf.fair_value != null ? "$" + num(dcf.fair_value, 2) : "—", dcf.gap != null ? (dcf.gap > 0 ? "undervalued" : "overvalued") : "")}
+    ${_fundTile("DCF gap", dcf.gap != null ? pct(dcf.gap * 100, 0) : "—")}
+    ${_fundTile("Analyst target", an.target != null ? "$" + num(an.target, 2) : "—", an.rating ? String(an.rating) : "")}
+    ${_fundTile("Implied upside", an.upside != null ? pct(an.upside * 100, 0) : "—")}
+    ${_fundTile("Next earnings", ea.next_date || "—", ea.days_away != null ? ea.days_away + "d away" : "")}</div>`);
   const quality = panel("Quality & Health", `<div class="tiles">
     ${_fundTile("Piotroski", num(q.piotroski, 0), "0–9, higher better")}
     ${_fundTile("Altman Z", num(q.altman_z, 2), ">3 safe")}
@@ -772,7 +787,7 @@ function renderFundamentals(env) {
     ? panel("Peers", (d.peers).map((s) => `<span class="pill" style="margin:2px">${esc(s)}</span>`).join(" ")) : "";
   const desc = p.description ? panel("About", `<div class="sub">${esc(p.description)}</div>`) : "";
   const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">unavailable: ${esc(Object.keys(d.errors).join(", "))} (FMP tier / endpoint)</div>` : "";
-  return head + `<div class="grid" style="grid-template-columns:1fr">${valuation}${quality}${growth}${peers}${desc}</div>`
+  return head + readPanel + `<div class="grid" style="grid-template-columns:1fr">${valuation}${dcfAnalyst}${quality}${growth}${peers}${desc}</div>`
     + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + errs;
 }
 

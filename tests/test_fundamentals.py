@@ -38,6 +38,12 @@ def test_dashboard_composition(monkeypatch):
     monkeypatch.setattr(fmp, "peers", lambda s: [{"symbol": "AAPL", "peersList": ["MSFT", "GOOGL"]}])
     monkeypatch.setattr(fmp, "revenue_geo", lambda s: [{"date": "2025", "Americas": 2e11, "Europe": 1e11}])
     monkeypatch.setattr(fmp, "revenue_product", lambda s: [])
+    # H2 endpoints
+    monkeypatch.setattr(fmp, "dcf", lambda s: [{"dcf": 220.0}])
+    monkeypatch.setattr(fmp, "price_target_consensus", lambda s: [{"targetConsensus": 209.0}])
+    monkeypatch.setattr(fmp, "ratings_snapshot", lambda s: [{"rating": "Buy"}])
+    monkeypatch.setattr(fmp, "earnings", lambda s, **k: [])
+    monkeypatch.setattr(fmp, "dividends", lambda s, **k: [])
 
     d = f.dashboard("aapl")
     assert d["symbol"] == "AAPL"
@@ -92,6 +98,59 @@ def test_dashboard_is_fault_tolerant(monkeypatch):
     d = f.dashboard("X")
     assert d["profile"]["name"] == "X"  # view still composes
     assert "ratios" in (d["errors"] or {})  # the gated block is reported
+
+
+def test_dcf_and_analyst_extraction():
+    from services.fundamentals import _analyst, _dcf
+
+    dcf = _dcf({"dcf": 220.0}, price=190.0)
+    assert dcf["fair_value"] == 220.0
+    assert round(dcf["gap"], 4) == round((220 - 190) / 190, 4)  # undervalued
+
+    an = _analyst({"targetConsensus": 209.0}, {"rating": "Buy"}, price=190.0)
+    assert an["target"] == 209.0 and an["rating"] == "Buy"
+    assert round(an["upside"], 4) == round((209 - 190) / 190, 4)
+
+
+def test_next_earnings_picks_future_and_last():
+    from datetime import UTC, datetime, timedelta
+
+    from services.fundamentals import _next_earnings
+
+    today = datetime.now(UTC).date()
+    rows = [
+        {"date": (today - timedelta(days=80)).isoformat(), "epsActual": 1.2, "epsEstimated": 1.1},
+        {"date": (today + timedelta(days=9)).isoformat()},
+        {"date": (today + timedelta(days=100)).isoformat()},
+    ]
+    out = _next_earnings(rows)
+    assert out["days_away"] == 9
+    assert out["last_eps_actual"] == 1.2
+
+
+def test_read_verdict_and_flags():
+    from services.fundamentals import _read
+
+    out = _read(
+        valuation={}, quality={"piotroski": 8, "altman_z": 6.0},
+        growth={"revenue": 0.08}, dcf={"gap": 0.22},
+        analyst={"upside": 0.12}, earnings={"days_away": 9},
+    )
+    assert "cheap" in out["verdict"] and "strong quality" in out["verdict"]
+    assert "growing" in out["verdict"] and "analysts +12%" in out["verdict"]
+    assert any("event risk" in f for f in out["flags"])  # earnings in 9d
+    assert out["labels"]["valuation"] == "cheap"
+
+
+def test_read_distress_flag_and_insufficient():
+    from services.fundamentals import _read
+
+    distress = _read({}, {"piotroski": 2, "altman_z": 1.2}, {}, {}, {}, {})
+    assert any("distress" in f for f in distress["flags"])
+    assert "weak quality" in distress["verdict"]
+
+    empty = _read({}, {}, {}, {}, {}, {})
+    assert empty["verdict"] == "insufficient fundamental data"
 
 
 def test_client_disabled_without_key(monkeypatch):

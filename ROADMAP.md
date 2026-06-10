@@ -242,10 +242,13 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       (P/E, P/S, P/B, EV/EBITDA, div & FCF yield), quality (Piotroski, Altman-Z,
       ROE/ROIC, margins, D/E), growth, peers, revenue segmentation. Defensive field
       extraction; CI-tested (`tests/test_fundamentals.py`).
-- [ ] **H2 — Valuation/analyst/calendars + interpreted READ.** DCF, analyst
-      estimates/grades/targets, earnings/dividends; `fundamental_read` verdict
-      (cheap/fair/expensive · quality · growth · DCF gap · analyst · earnings
-      proximity) folded into Focus.
+- [x] **H2 — Valuation/analyst/calendars + interpreted READ.** Added DCF fair
+      value (+gap vs price), analyst price-target consensus (+implied upside) &
+      rating, and next-earnings date (+days away, last surprise). The
+      **`_read` verdict** synthesizes valuation (cheap/fair/expensive from DCF gap)
+      · quality (Piotroski/Altman-Z) · growth · analyst upside · earnings proximity
+      into one line + flags (event-risk, distress), shown atop the Fundamentals
+      tab. CI-tested. (Analyst/DCF may be Starter-gated → degrade.)
 - [ ] **H3 — ETF holdings + ownership/alt-data** (holdings/sector/country, insider,
       13F [gated], congress trades, ESG).
 - [ ] **H4 — Market/discovery/macro/news/filings** + a fundamental **screener**.
