@@ -12,7 +12,7 @@ from services import watchlist as wl
 router = APIRouter(prefix="/custom", tags=["Custom Watchlist (legacy)"])
 
 _FRESHNESS = "EOD prices + realized-vol read — research context, not a signal"
-_PROVIDER = "yfinance"
+_PROVIDER = "fmp"
 
 
 class AddInstrument(BaseModel):

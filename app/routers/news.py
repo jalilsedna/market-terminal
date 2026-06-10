@@ -21,7 +21,7 @@ _FRESHNESS = "near-real-time headlines (cached ~15m) — research context, not a
 def news_feed(
     limit: int = Query(50, ge=1, le=200, description="Max headlines to return"),
     instrument: str | None = Query(None, description="Filter to one instrument, e.g. 'GC'"),
-    provider: str = Query("yfinance", description="News provider (yfinance is free)"),
+    provider: str = Query("fmp", description="News provider (requires FMP_API_KEY)"),
 ) -> Envelope:
     """Merged, instrument-tagged, deduped news feed across the watchlist."""
     try:

@@ -15,8 +15,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application + provider settings, populated from environment / `.env`.
 
-    All fields are optional so the app can boot on 100% free providers
-    (yfinance, fred, cftc, ...) with no keys configured. Add keys to `.env`
+    All fields are optional so the app can boot on free providers (fred, cftc,
+    ...) with no keys configured. FMP is the primary market-data key. Add keys to `.env`
     only when you need the corresponding paid provider.
     """
 
@@ -84,13 +84,11 @@ class Settings(BaseSettings):
     # --- Data providers (ROADMAP B4 — reliability) ---
     # Comma-separated EOD provider fallback chain for the equity/ETF routes (where
     # symbols are consistent across providers, e.g. AAPL/SPY). The fetchers try
-    # each provider in order until one returns data, so a yfinance throttle/401
-    # falls back instead of degrading the panel. With Tiingo + Polygon (Massive)
-    # keys set, "tiingo,polygon,yfinance" gives three-deep resilience. The chain
-    # now covers equity/ETF **and** crypto/FX (B-next adds per-provider symbol
-    # mapping in obb_layer/symbol_map.py); futures stay yfinance (continuation
-    # roots aren't portable across providers).
-    eod_providers: str = "yfinance"
+    # each provider in order until one returns data. Default is FMP-first;
+    # Tiingo/Polygon add resilience when keys are set (`fmp,tiingo,polygon`).
+    # Covers equity/ETF and crypto/FX (per-provider symbol mapping in
+    # obb_layer/symbol_map.py). Futures use direct FMP REST (obb_layer/fmp_market.py).
+    eod_providers: str = "fmp,tiingo,polygon"
 
     # --- Persistence (ROADMAP C2) ---
     # SQLite database backing the custom watchlist + history snapshots. Default is
@@ -144,7 +142,7 @@ class Settings(BaseSettings):
     def eod_provider_chain(self) -> list[str]:
         """The EOD provider fallback chain (parsed from `eod_providers`)."""
         chain = [p.strip() for p in self.eod_providers.split(",") if p.strip()]
-        return chain or ["yfinance"]
+        return chain or ["fmp"]
 
     @property
     def fmp_enabled(self) -> bool:

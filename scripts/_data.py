@@ -20,7 +20,7 @@ def resolve(asset: str, instrument: str):
     """(asset class, instrument) → (provider symbol, fetcher)."""
     if asset == "futures":
         if instrument in WATCHLIST:
-            return WATCHLIST[instrument].yf_symbol, futures_history
+            return WATCHLIST[instrument].futures_symbol, futures_history
         return instrument, futures_history  # raw yf symbol (e.g. 'CL=F')
     if asset == "crypto":
         return instrument, crypto_history  # e.g. 'BTC-USD'
@@ -34,7 +34,7 @@ def load_ohlcv(asset: str, instrument: str, years: int, interval: str = "1d") ->
     symbol, fetch = resolve(asset, instrument)
     days = 365 * years + 10
     if interval != "1d":
-        days = min(days, 729)  # yfinance caps intraday history (~730d for 1h)
+        days = min(days, 729)  # provider caps intraday history (~730d for 1h)
     start = (date.today() - timedelta(days=days)).isoformat()
     records = fetch(symbol, start_date=start, interval=interval)
     if not records:

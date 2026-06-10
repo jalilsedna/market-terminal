@@ -4,7 +4,7 @@ Kronos demos on crypto-hourly; this answers whether it forecasts our *daily
 futures* with real skill. It improves on a single held-out slice in three ways:
 
   * deep history  — pulls multi-year OHLCV via obb_layer so the model gets its
-    full 512-bar context (yfinance's default ~1y starves it);
+    full 512-bar context (shallow default history starves it);
   * walk-forward  — scores many non-overlapping windows, not one noisy slice;
   * baselines     — compares against *persistence* (predict last-close-flat) on
     error and against a coin-flip / always-up rate on direction, because a low
@@ -38,8 +38,8 @@ def _resolve(asset: str, instrument: str) -> tuple[str, callable]:
     daily futures it's out-of-distribution on."""
     if asset == "futures":
         if instrument in WATCHLIST:
-            return WATCHLIST[instrument].yf_symbol, futures_history
-        return instrument, futures_history  # raw yfinance symbol (e.g. 'CL=F')
+            return WATCHLIST[instrument].futures_symbol, futures_history
+        return instrument, futures_history  # raw futures symbol (e.g. 'CL=F')
     if asset == "crypto":
         return instrument, crypto_history   # e.g. 'BTC-USD', 'ETH-USD'
     if asset == "forex":
@@ -51,7 +51,7 @@ def _load_ohlcv(asset: str, instrument: str, years: int, interval: str = "1d") -
     symbol, fetch = _resolve(asset, instrument)
     days = 365 * years + 10
     if interval != "1d":
-        days = min(days, 729)  # yfinance caps intraday history (~730d for 1h bars)
+        days = min(days, 729)  # provider caps intraday history (~730d for 1h bars)
     start = (date.today() - timedelta(days=days)).isoformat()
     records = fetch(symbol, start_date=start, interval=interval)
     if not records:
@@ -107,7 +107,7 @@ def main() -> None:
                         "crypto: BTC-USD, ETH-USD; forex: EURUSD, GBPUSD")
     p.add_argument("--interval", default="1d", choices=["1d", "1h"],
                    help="bar frequency; 1h = Kronos's native intraday cadence "
-                        "(yfinance caps 1h history to ~730 days)")
+                        "(provider caps 1h history to ~730 days)")
     p.add_argument("--horizon", type=int, default=10, help="bars to forecast per window")
     p.add_argument("--context", type=int, default=512, help="context bars (Kronos-base trained @512)")
     p.add_argument("--windows", type=int, default=12, help="walk-forward windows to score")
@@ -123,7 +123,7 @@ def main() -> None:
     _data_health(df)
 
     # Pick the most recent `windows` non-overlapping anchors. If the data is thin
-    # (e.g. yfinance caps 1h history), shrink the context so we still get several
+    # (e.g. provider caps 1h history), shrink the context so we still get several
     # windows rather than one — `--context 512` becomes a ceiling, not a demand.
     context = min(args.context, len(df) - args.horizon - 1)
     anchors = list(range(context, len(df) - args.horizon + 1, step))[-args.windows :]

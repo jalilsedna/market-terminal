@@ -4,7 +4,7 @@ Two pieces:
 - Sector rotation/breadth: 1d/1w/1m % change for the 11 SPDR sector ETFs,
   ranked — the rotation read behind the index futures (a free stand-in for the
   spec's compare.groups heatmap, which this OpenBB version doesn't expose).
-- A pass-through equity screener (yfinance) with normalized rows.
+- A pass-through equity screener (FMP) with normalized rows.
 
 Services never import OpenBB directly — they call `obb_layer/`.
 """

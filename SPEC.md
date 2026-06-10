@@ -63,24 +63,25 @@ actually use, mapped to our needs. Free providers cover ~80% of this; paid keys
 
 | Need | OpenBB endpoint(s) | Providers | Notes / caveats |
 |---|---|---|---|
-| **Futures price (GC, NQ, YM, ES, NG…)** | `obb.derivatives.futures.historical` | yfinance | Continuation symbols (e.g. `GC=F`, `NQ=F`, `YM=F`). **Daily reliable; intraday is short-window + active-contract only.** EOD context, not signals. |
-| **Futures term structure / contango-backwardation** | `obb.derivatives.futures.curve` | cboe (VIX only), yfinance, deribit | Real edge for GC/NG roll context. CBOE = VIX term structure. |
-| **Futures reference / instruments / stats** | `obb.derivatives.futures.instruments`, `.info` | deribit (crypto), yfinance | Crypto-heavy; thin for CME metals/index. |
-| **FX (EUR, GBP underlying 6E/6B)** | `obb.currency.price.historical`, `.snapshots`, `.reference_rates`, `.search` | yfinance, fmp, ecb | Prefer **spot FX** (EURUSD, GBPUSD) for macro context — cleaner than the CME FX-futures series. |
+| **Futures price (GC, NQ, YM, ES, NG…)** | FMP REST (`obb_layer/fmp_market.py`) | fmp | Continuation symbols mapped to FMP tickers (`GC=F`→`GCUSD`, `NQ=F`→`^NDX`). EOD context, not signals. |
+| **Futures term structure / contango-backwardation** | FMP commodities + OpenBB cboe | fmp (GC/CL/NG), cboe (VIX) | Real edge for GC/NG roll context. CBOE = VIX term structure. |
+| **Futures reference / instruments / stats** | `obb.derivatives.futures.instruments`, `.info` | deribit (crypto) | Crypto-heavy; thin for CME metals/index. |
+| **FX (EUR, GBP underlying 6E/6B)** | `obb.currency.price.historical`, `.snapshots`, `.reference_rates`, `.search` | fmp, ecb, tiingo, polygon | Prefer **spot FX** (EURUSD, GBPUSD) for macro context — cleaner than the CME FX-futures series. |
 | **COT positioning (the futures trader's edge)** | `obb.regulators.cftc.cot`, `.cot_search` | cftc | Commitment of Traders. Free, weekly. High-value for 6E/6B/GC/NQ/YM net-positioning. |
 | **Macro calendar (FOMC, CPI, NFP, ECB, BoE)** | `obb.economy.calendar` | fmp, tradingeconomics(*), nasdaq | Drives the "what moves my contracts today" view. |
 | **Macro indicators / series** | `obb.economy.indicators`, `.cpi`, `.gdp`, `.fred_series`, `.interest_rates`, `.money_measures`, `.survey.*` | fred, bls, econdb, federal-reserve | FRED is the workhorse (free key). DXY, yields, CPI, unemployment, PMIs. |
 | **Rates / yield curve (risk-on/off context for NQ/YM)** | `obb.fixedincome.government.yield_curve`, `.treasury_rates`, `obb.fixedincome.rate.*` | federal-reserve, fred | 2s10s, front-end repricing → index futures context. |
-| **Indices (^GSPC, ^NDX, ^DJI snapshots & constituents)** | `obb.index.price.historical`, `.constituents`, `obb.equity.market_snapshots` | yfinance, cboe, fmp | Cash-index context behind NQ/YM. |
+| **Indices (^GSPC, ^NDX, ^DJI snapshots & constituents)** | `obb.index.price.historical`, `.constituents`, `obb.equity.market_snapshots` | fmp, cboe, tiingo, polygon | Cash-index context behind NQ/YM. |
 | **Equity screener (sector rotation, breadth)** | `obb.equity.screener`, `obb.equity.compare.groups` | finviz, fmp, nasdaq | Finviz preset `.ini` files in `~/OpenBBUserData/finviz/presets`. `compare.groups` = sector/industry performance heatmap. |
 | **News (world + company/sector)** | `obb.news.world`, `obb.news.company` | benzinga, fmp, biztoc, tiingo | Benzinga best for tradable headlines (needs key); biztoc free. |
 | **Commodities (gold spot, energy)** | `obb.commodity.price.*`, `obb.commodity.petroleum_status_report` | fmp, eia | Gold spot vs GC futures basis; EIA for energy. |
 
 (*) `tradingeconomics` requires a paid key; default the calendar to `fmp` or `nasdaq`.
 
-**Provider key strategy:** start 100% on free providers (yfinance, fred, cftc,
-bls, econdb, federal-reserve, ecb, biztoc, finviz). Add FMP first if you want
-better calendar + fundamentals; add Benzinga only if news latency matters. Keys
+**Provider key strategy:** **FMP** is the primary market-data key (`FMP_API_KEY`).
+Free macro/COT (fred, cftc, bls, econdb, federal-reserve, ecb) need no key.
+Add Tiingo/Polygon for EOD-chain resilience; Benzinga only if news latency
+matters. Keys
 go in env/config files — OpenBB Hub is being retired, so don't depend on it.
 
 ## 4. Modules / Views
@@ -164,7 +165,7 @@ half-wired views.
   views (e.g. future + COT + spot proxy in one call), our caching/normalization, and
   our watchlist logic. If a view is a 1:1 proxy to a single OpenBB endpoint, call
   OpenBB's REST directly and don't wrap it. Avoid rebuilding the router layer.
-- **Latency/granularity is the central risk.** yfinance EOD is fine; intraday is
+- **Latency/granularity is the central risk.** FMP EOD is fine; intraday is
   short-window and unreliable for live use. **Do not** let any view imply
   tradeable intraday signals — that belongs to NinjaTrader/MT. Label data freshness
   explicitly in responses.
@@ -174,7 +175,7 @@ half-wired views.
 - **Rate limits & caching.** Free providers throttle. Cache by (endpoint, params)
   with per-data-type TTLs: intraday/quote ~minutes, EOD ~daily, COT ~weekly, macro
   series ~daily. This is mandatory infra, not an optimization — build it in Phase 0.
-- **Symbol mapping is fragile.** CME contracts ↔ yfinance continuation symbols ↔
+- **Symbol mapping is fragile.** CME contracts ↔ FMP tickers ↔
   spot proxies must live in one explicit config map, validated by the probe script,
   not scattered string literals.
 - **Keys & secrets.** Env/config-file only (Hub is being retired). Keep the repo

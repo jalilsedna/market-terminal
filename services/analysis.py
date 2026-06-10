@@ -331,8 +331,8 @@ def _ts_interpret(code: str, now: dict, flip: str | None, trend: str | None) -> 
 
 def term_structure_signal(lookback_days: int = 7) -> dict:
     """Detect contango↔backwardation flips and steepening across the tracked
-    curves (now vs ~`lookback_days` ago). VIX is the reliable read; the yfinance
-    commodity curves degrade where unavailable.
+    curves (now vs ~`lookback_days` ago). VIX is the reliable read; FMP commodity
+    curves degrade where unavailable.
     """
     from datetime import date as _date
     from datetime import timedelta

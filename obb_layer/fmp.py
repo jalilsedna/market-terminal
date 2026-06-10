@@ -58,11 +58,12 @@ _PATHS = {
     "ratings": "ratings-snapshot",
     "earnings": "earnings",
     "dividends": "dividends",
-    # I — commodities (term structure B3)
+    # I — commodities + market data (B3 term structure, EOD/intraday)
     "commodities_list": "commodities-list",
     "batch_commodity_quotes": "batch-commodity-quotes",
-    "commodity_eod_full": "historical-price-eod/full",
+    "historical_eod_full": "historical-price-eod/full",
     "commodity_quote": "quote",
+    "stock_news": "news/stock",
 }
 
 
@@ -220,10 +221,37 @@ def commodity_quote(symbol: str) -> Any:
 
 
 @cached("eod")
-def commodity_eod_full(symbol: str, *, from_: str | None = None, to: str | None = None) -> Any:
+def historical_eod_full(symbol: str, *, from_: str | None = None, to: str | None = None) -> Any:
     params: dict[str, Any] = {"symbol": symbol}
     if from_ is not None:
         params["from"] = from_
     if to is not None:
         params["to"] = to
-    return _get(_PATHS["commodity_eod_full"], **params)
+    return _get(_PATHS["historical_eod_full"], **params)
+
+
+def commodity_eod_full(symbol: str, *, from_: str | None = None, to: str | None = None) -> Any:
+    """Alias — commodities use the same EOD-full endpoint as equities/FX."""
+    return historical_eod_full(symbol, from_=from_, to=to)
+
+
+@cached("eod")
+def historical_chart(
+    symbol: str,
+    interval: str = "1hour",
+    *,
+    from_: str | None = None,
+    to: str | None = None,
+) -> Any:
+    """Intraday OHLCV bars (`1min`, `5min`, `1hour`, …)."""
+    params: dict[str, Any] = {"symbol": symbol}
+    if from_ is not None:
+        params["from"] = from_
+    if to is not None:
+        params["to"] = to
+    return _get(f"historical-chart/{interval}", **params)
+
+
+@cached("news")
+def stock_news(symbols: str, limit: int = 50) -> Any:
+    return _get(_PATHS["stock_news"], symbols=symbols, limit=limit)

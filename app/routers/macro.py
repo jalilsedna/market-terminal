@@ -25,6 +25,6 @@ def macro_dashboard() -> Envelope:
     data = macro.build_dashboard()
     return Envelope(
         data=data,
-        provider="mixed (yfinance, fred, federal_reserve, fmp)",
+        provider="mixed (fmp, fred, federal_reserve)",
         freshness="research context — EOD/daily; not a tradeable signal",
     )

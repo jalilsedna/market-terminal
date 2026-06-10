@@ -48,4 +48,4 @@ def term_structure_signal(
 ) -> Envelope:
     """Contango↔backwardation flips + steepening across the curves (now vs ~Nd ago)."""
     return Envelope(data=analysis.term_structure_signal(lookback_days),
-                    provider="derived (cboe/yfinance)", freshness=_FRESHNESS)
+                    provider="derived (cboe/fmp)", freshness=_FRESHNESS)

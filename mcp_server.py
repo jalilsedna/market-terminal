@@ -301,7 +301,7 @@ def main() -> None:
     import logging
     import sys
 
-    for _noisy in ("asyncio", "yfinance"):
+    for _noisy in ("asyncio",):
         logging.getLogger(_noisy).setLevel(logging.CRITICAL)
 
     # Warm OpenBB on the main thread before serving: FastMCP runs sync tools in a

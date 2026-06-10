@@ -17,7 +17,7 @@ from cache import store as cache_store
 from config import get_settings
 
 _DEFAULT_DB_PATH = "cache/data/terminal.db"
-_STURDY_PROVIDERS = ("tiingo", "polygon", "fmp")  # steadier than yfinance
+_STURDY_PROVIDERS = ("fmp", "tiingo", "polygon")
 
 
 def report(user: str | None = None, role: str | None = None) -> dict:
@@ -35,7 +35,7 @@ def report(user: str | None = None, role: str | None = None) -> dict:
           "open — set AUTH_TOKEN / ADMIN_PASSWORD before exposing publicly" if not s.auth_enabled else "")
     sturdy = any(p in chain for p in _STURDY_PROVIDERS)
     check("sturdy EOD provider in chain", sturdy,
-          f"chain={chain}" if sturdy else "add tiingo/polygon to EOD_PROVIDERS (yfinance throttles)")
+          f"chain={chain}" if sturdy else "set FMP_API_KEY and/or add tiingo/polygon to EOD_PROVIDERS")
     check("database writable", dbs.get("writable", False), dbs.get("error", ""))
     check("database on a persistent volume", dbs["path"] != _DEFAULT_DB_PATH,
           "DB_PATH is the default cache/ path — point it at a mounted volume so data survives redeploys"

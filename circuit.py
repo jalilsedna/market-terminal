@@ -1,6 +1,6 @@
 """Per-call circuit breaker for provider fetches.
 
-Free data providers (cboe, CFTC, yfinance, FRED) intermittently rate-limit or
+Free data providers (cboe, CFTC, FMP, FRED) intermittently rate-limit or
 return malformed responses under load. Without a breaker, every page refresh and
 pre-cache cycle keeps hammering a failing endpoint — which both *perpetuates*
 the rate-limit and lets confusing provider-side errors crash through on repeat

@@ -1,11 +1,8 @@
 """OpenBB data functions for V1 — Macro Dashboard (SPEC.md §4 V1).
 
 Thin wrappers over OpenBB: fetch → normalize to plain record-dicts → cache.
-All endpoints/params here were confirmed against live OpenBB 4.4.1 by the
-Phase-0 probe (`obb_layer/probe.py`). No domain logic lives here — derived
-metrics (% change, 2s10s, latest tiles) are computed in `services/macro.py`.
-
-Per CLAUDE.md, this module is part of the only layer that touches OpenBB.
+FX and index history use the EOD provider chain (FMP first). FRED / Fed paths
+unchanged.
 """
 
 from __future__ import annotations
@@ -16,22 +13,23 @@ from cache.store import cached
 from circuit import guarded
 from obb_layer.client import get_obb
 from obb_layer.normalize import to_records
+from obb_layer.providers import eod_with_fallback
 
 
 @cached("eod")
 @guarded()
 def fx_history(pair: str) -> list[dict]:
-    """Daily OHLCV for a spot FX pair (e.g. 'EURUSD'). Provider: yfinance."""
-    obb = get_obb()
-    return to_records(obb.currency.price.historical(symbol=pair, provider="yfinance"))
+    """Daily OHLCV for a spot FX pair (e.g. 'EURUSD')."""
+    return eod_with_fallback(
+        get_obb().currency.price.historical, pair, asset="forex",
+    )
 
 
 @cached("eod")
 @guarded()
 def index_history(symbol: str) -> list[dict]:
-    """Daily OHLCV for a cash index (e.g. '^NDX', '^DJI'). Provider: yfinance."""
-    obb = get_obb()
-    return to_records(obb.index.price.historical(symbol=symbol, provider="yfinance"))
+    """Daily OHLCV for a cash index (e.g. '^NDX', '^DJI')."""
+    return eod_with_fallback(get_obb().index.price.historical, symbol)
 
 
 @cached("macro")
@@ -52,14 +50,7 @@ def yield_curve() -> list[dict]:
 
 @guarded()
 def economic_calendar(days_ahead: int = 7) -> list[dict]:
-    """Upcoming economic calendar for the next `days_ahead` days.
-
-    Deliberately uses ONLY the FMP provider: the Phase-0 probe showed FRED's
-    calendar times out and TradingEconomics is paid. With a free FMP key this
-    fails fast with a 402 (paid endpoint); the caller treats that as a degraded
-    panel rather than a hard error. Not cached — it either fails fast or returns
-    a small, time-sensitive window.
-    """
+    """Upcoming economic calendar for the next `days_ahead` days (FMP only)."""
     obb = get_obb()
     today = date.today()
     obbject = obb.economy.calendar(

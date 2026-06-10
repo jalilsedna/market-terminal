@@ -38,14 +38,14 @@ Set in Railway → **Variables** (mirror locally in `.env`, which is gitignored)
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | bootstrap admin for `/login` | always works, even with no DB users |
 | `SESSION_SECRET` | signs the browser cookie | keep stable, or all sessions log out |
 | `DB_PATH` | SQLite file location | **point at the mounted volume** → `/data/terminal.db` (§3) |
-| `EOD_PROVIDERS` | equity/ETF provider fallback chain | e.g. `tiingo,polygon,yfinance` (§5) |
+| `EOD_PROVIDERS` | EOD provider fallback chain | default `fmp,tiingo,polygon` (§5) |
 | `TIINGO_API_KEY` | sturdier equity/ETF data | pairs with `EOD_PROVIDERS` |
 | `POLYGON_API_KEY` | Polygon/Massive data (massive.com = Polygon rebrand) | a `massive.com` key works as-is; in the chain **and** powers the Movers tab (free Grouped Daily); unset → Movers off |
 | `REGISTRATION_OPEN` | open `/register` self-signup | default **false** — admin creates users instead |
 | `PUBLIC_BASE_URL` | informational (docs / Alice config) | `https://<app>.up.railway.app` |
 | `PRECACHE_INTERVAL_MIN` | cache-warm + snapshot cadence | `0` disables the scheduler |
 | `FRED_API_KEY` | Macro tiles + Dollar/FX (free key) | unset → those panels degrade |
-| `FMP_API_KEY` | economic **calendar** + **world-news** wire + the **Fundamentals** brain (H) | paid; auto-upgrades when set; see `docs/fmp.md` |
+| `FMP_API_KEY` | **primary market data** + calendar + news + fundamentals brain (H) | required for prices/news/curves; see `docs/fmp.md` |
 | `BENZINGA_API_KEY` / `TIINGO_API_KEY` / … | optional provider keys | **read-only data keys only** |
 | `TV_WEBHOOK_SECRET` | enables the TradingView webhook (`/webhook/tradingview`) | unset → webhook off; see `docs/tradingview.md` |
 
@@ -94,20 +94,15 @@ Passwords are PBKDF2-SHA256 hashed (stdlib) — never stored in the clear.
 
 ## 5. Data reliability (provider fallback)
 
-Equity/ETF panels (incl. the 11-ETF Sector Rotation hotspot and custom
-equity/ETF instruments) walk the `EOD_PROVIDERS` chain until one returns data,
-so a yfinance throttle/401 falls back instead of degrading. Recommended:
-`EOD_PROVIDERS=tiingo,yfinance` + a free `TIINGO_API_KEY`.
+Equity/ETF/crypto/FX panels walk the `EOD_PROVIDERS` chain until one returns
+data (default `fmp,tiingo,polygon`). Futures use direct FMP REST. Set
+`FMP_API_KEY` first; add `TIINGO_API_KEY` / `POLYGON_API_KEY` for resilience.
 
-A fallback chain fails **silently** — a bad key just drops to yfinance. Prove
-it's really serving:
+A fallback chain fails **silently** — prove it's really serving:
 
 ```bash
 python -m scripts.probe_providers      # hits each provider individually for AAPL
 ```
-
-Crypto/FX/futures stay on yfinance (provider-specific symbol formats; extending
-the chain to them needs a symbol-mapping layer — ROADMAP B-next).
 
 ## 6. Routine ops
 
@@ -180,6 +175,6 @@ so most of the table below is answered in one call.
 | `/health` shows `auth_enabled:false` on public | `AUTH_TOKEN`/`ADMIN_PASSWORD` unset — set them |
 | API returns 401 with the right-looking token | Railway `AUTH_TOKEN` ≠ client token; re-check both ends |
 | A panel shows "unavailable" | Provider throttle/egress block — circuit breaker tripped; try Tiingo (§5) |
-| Equity panels flaky | Set `EOD_PROVIDERS=tiingo,yfinance` + key, verify with the probe (§5) |
+| Equity panels flaky | Set `FMP_API_KEY`, verify `EOD_PROVIDERS`, run the probe (§5) |
 | Charts empty under History | Not enough days of snapshots yet — they accrue daily |
 | First request after deploy hangs ~minutes | OpenBB static-package rebuild on first boot — expected once |

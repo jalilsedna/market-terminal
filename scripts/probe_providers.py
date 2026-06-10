@@ -1,8 +1,8 @@
 """Prove the EOD provider chain actually serves data (ROADMAP B4).
 
-A fallback chain (`EOD_PROVIDERS=tiingo,yfinance`) fails *silently*: if the
+A fallback chain (`EOD_PROVIDERS=fmp,tiingo,polygon`) fails *silently*: if the
 Tiingo key is wrong or the provider 401s, the chain just falls through to
-yfinance and the panel still renders — so you'd never notice you aren't getting
+the next provider and the panel still renders — so you'd never notice you aren't getting
 the reliability you configured. This probe hits each provider in the chain
 *individually* for a known-portable symbol (AAPL/SPY) and reports which ones
 actually return rows, so you can confirm Tiingo is live and not being skipped.

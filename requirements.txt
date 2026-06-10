@@ -15,15 +15,12 @@ openbb-cboe==1.6.1
 # AI client (Phase 3; see mcp_server.py).
 mcp==1.27.2
 
-# Provider extensions — start on free providers (see SPEC.md §3).
-# These ship with the `openbb` meta-package by default; listed here for clarity
-# and so the lockfile records intent. Uncomment/add paid providers as needed.
-# openbb-yfinance
+# Provider extensions (see SPEC.md §3). Listed for clarity / lockfile intent.
 # openbb-fred
 # openbb-cftc
 # openbb-econdb
 # openbb-federal-reserve
-# openbb-fmp          # paid key — better calendar + fundamentals
+# openbb-fmp          # FMP — primary market data + fundamentals (FMP_API_KEY)
 # openbb-benzinga     # paid key — low-latency news
 
 # --- Web framework ---

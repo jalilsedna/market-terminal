@@ -29,7 +29,7 @@ def test_uses_first_provider_that_returns_rows():
 
 
 def test_single_provider_passthrough():
-    assert providers.eod_with_fallback(lambda **kw: [{"x": 1}], "SYM", providers=["yfinance"]) == [
+    assert providers.eod_with_fallback(lambda **kw: [{"x": 1}], "SYM", providers=["fmp"]) == [
         {"x": 1}
     ]
 
@@ -54,11 +54,11 @@ def test_passes_through_kwargs():
         return [{"ok": 1}]
 
     providers.eod_with_fallback(
-        route, "AAPL", start_date="2020-01-01", interval="1d", providers=["yfinance"]
+        route, "AAPL", start_date="2020-01-01", interval="1d", providers=["fmp"]
     )
     assert seen == {
         "symbol": "AAPL",
-        "provider": "yfinance",
+        "provider": "fmp",
         "start_date": "2020-01-01",
         "interval": "1d",
     }
@@ -70,15 +70,15 @@ def test_asset_mapping_per_provider():
 
     def route(symbol=None, provider=None, **kw):
         seen.append((provider, symbol))
-        return [{"ok": 1}] if provider == "yfinance" else []  # only yfinance serves
+        return [{"ok": 1}] if provider == "fmp" else []  # only fmp serves
 
     providers.eod_with_fallback(
-        route, "BTC-USD", asset="crypto", providers=["polygon", "tiingo", "yfinance"]
+        route, "BTC-USD", asset="crypto", providers=["polygon", "tiingo", "fmp"]
     )
     assert seen == [
         ("polygon", "X:BTCUSD"),
         ("tiingo", "btcusd"),
-        ("yfinance", "BTC-USD"),
+        ("fmp", "BTCUSD"),
     ]
 
 
@@ -90,17 +90,17 @@ def test_asset_skips_unmapped_provider():
         return []
 
     providers.eod_with_fallback(
-        route, "BTC-USD", asset="crypto", providers=["mystery", "yfinance"]
+        route, "BTC-USD", asset="crypto", providers=["mystery", "fmp"]
     )
-    assert seen == [("yfinance", "BTC-USD")]  # 'mystery' has no mapping → skipped
+    assert seen == [("fmp", "BTCUSD")]  # 'mystery' has no mapping → skipped
 
 
 def test_chain_parsing(monkeypatch):
-    monkeypatch.setenv("EOD_PROVIDERS", "tiingo, yfinance ,")
+    monkeypatch.setenv("EOD_PROVIDERS", "fmp, tiingo ,")
     import config
 
     config.get_settings.cache_clear()
     try:
-        assert config.get_settings().eod_provider_chain == ["tiingo", "yfinance"]
+        assert config.get_settings().eod_provider_chain == ["fmp", "tiingo"]
     finally:
         config.get_settings.cache_clear()
