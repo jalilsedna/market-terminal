@@ -47,6 +47,7 @@ Set in Railway → **Variables** (mirror locally in `.env`, which is gitignored)
 | `FRED_API_KEY` | Macro tiles + Dollar/FX (free key) | unset → those panels degrade |
 | `FMP_API_KEY` | unlocks the economic **calendar** + a real **world-news** wire | paid; News auto-upgrades when set |
 | `BENZINGA_API_KEY` / `TIINGO_API_KEY` / … | optional provider keys | **read-only data keys only** |
+| `TV_WEBHOOK_SECRET` | enables the TradingView webhook (`/webhook/tradingview`) | unset → webhook off; see `docs/tradingview.md` |
 
 Do **not** set `HOST`/`PORT` — Railway injects `$PORT`. Never put broker /
 trade / withdrawal keys here; this service is research-only.

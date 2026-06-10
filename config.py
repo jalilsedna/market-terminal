@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     # Default is OpenAlice's dev UI. Execution lives there, never in this repo.
     alice_url: str = "http://localhost:5173"
 
+    # --- TradingView webhooks (ROADMAP G3) ---
+    # Shared secret for the /webhook/tradingview ingest endpoint. TradingView
+    # alerts can't send custom auth headers, so the webhook is OUTSIDE the Bearer
+    # gate and authenticated by this secret instead (in the URL `?token=` or the
+    # JSON body's `token` field). Unset → the webhook is DISABLED (404). Generate
+    # with `openssl rand -hex 16` and put it in the TradingView alert URL.
+    tv_webhook_secret: str | None = None
+
     # --- Data providers (ROADMAP B4 — reliability) ---
     # Comma-separated EOD provider fallback chain for the equity/ETF routes (where
     # symbols are consistent across providers, e.g. AAPL/SPY). The fetchers try
