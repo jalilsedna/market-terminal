@@ -455,11 +455,95 @@ const ASSET_PLACEHOLDER = {
   etf: "type SPY, QQQ, GLD…",
 };
 
-function _bindSymbolAutocomplete(addFn) {
-  const input = $("#c-symbol");
-  const list = $("#c-suggest");
-  const assetSel = $("#c-asset");
+let _registryCache = null;
+let _registryCacheAt = 0;
+
+async function _loadRegistry() {
+  if (_registryCache && Date.now() - _registryCacheAt < 30000) return _registryCache;
+  const env = await fetchJSON("/instruments");
+  _registryCache = (env.data || {}).instruments || [];
+  _registryCacheAt = Date.now();
+  return _registryCache;
+}
+
+function _acTokenAt(value, pos) {
+  const before = value.slice(0, pos ?? value.length);
+  const start = before.lastIndexOf(",") + 1;
+  return {
+    prefix: value.slice(0, start),
+    token: before.slice(start).trimStart(),
+    end: pos ?? value.length,
+  };
+}
+
+function _acInsert(input, pick, multiComma) {
+  if (!multiComma) {
+    input.value = pick;
+    return;
+  }
+  const { prefix, token, end } = _acTokenAt(input.value, input.selectionStart);
+  const lead = prefix && !prefix.endsWith(",") && !prefix.endsWith(", ") ? prefix + ", " : prefix;
+  const rest = input.value.slice(end);
+  const tail = rest.startsWith(",") ? rest : (rest ? ", " + rest.trim() : "");
+  input.value = lead + pick + tail;
+}
+
+async function _acSearchHits(assets, query) {
+  const q = (query || "").trim();
+  if (!q) return [];
+  const reg = await _loadRegistry();
+  const assetSet = new Set(assets);
+  const seen = new Set();
+  const out = [];
+  for (const i of reg) {
+    if (!assetSet.has(i.asset)) continue;
+    const sym = (i.symbol || "").toUpperCase();
+    const blob = `${sym} ${(i.label || "")} ${i.id}`.toUpperCase();
+    if (!blob.includes(q.toUpperCase()) && !sym.startsWith(q.toUpperCase())) continue;
+    seen.add(sym);
+    out.push({
+      symbol: i.symbol,
+      name: i.label || i.symbol,
+      pick: i.symbol,
+      tracked: true,
+      badge: "tracked",
+    });
+  }
+  for (const asset of assets) {
+    try {
+      const r = await fetchJSON(
+        "/instruments/search?asset=" + encodeURIComponent(asset) + "&query=" + encodeURIComponent(q) + "&limit=20"
+      );
+      for (const h of (r.data || {}).results || []) {
+        const sym = (h.symbol || "").toUpperCase();
+        if (seen.has(sym)) continue;
+        seen.add(sym);
+        out.push({
+          symbol: h.symbol,
+          name: h.name || "",
+          pick: h.symbol,
+          tracked: false,
+          badge: "catalog",
+        });
+      }
+    } catch (e) { /* degrade */ }
+  }
+  return out.slice(0, 25);
+}
+
+/** Type-ahead symbol picker — registry + catalog, shared across Registry and Brain fields. */
+function _bindInstrumentAutocomplete(opts) {
+  const input = typeof opts.input === "string" ? $(opts.input) : opts.input;
+  const list = typeof opts.list === "string" ? $(opts.list) : opts.list;
   if (!input || !list) return;
+
+  const getAssets = () => {
+    if (opts.assets) return opts.assets;
+    const a = typeof opts.asset === "function" ? opts.asset() : opts.asset;
+    return a ? [a] : ["equity"];
+  };
+  const multiComma = !!opts.multiComma;
+  const requireTracked = !!opts.requireTracked;
 
   let hits = [];
   let activeIdx = -1;
@@ -468,35 +552,44 @@ function _bindSymbolAutocomplete(addFn) {
   const hide = () => { list.classList.add("hidden"); activeIdx = -1; };
   const show = () => list.classList.remove("hidden");
 
+  const applyPick = (h) => {
+    if (!h) return;
+    if (requireTracked && !h.tracked) {
+      if (opts.onUntracked) opts.onUntracked(h);
+      return;
+    }
+    _acInsert(input, h.pick, multiComma);
+    hide();
+    if (opts.onPick) opts.onPick(h, input);
+  };
+
   const render = () => {
     if (!hits.length) {
-      list.innerHTML = '<div class="ac-empty">no matches — check asset class & spelling</div>';
+      list.innerHTML = '<div class="ac-empty">no matches — check spelling or add in Registry</div>';
       show();
       return;
     }
     list.innerHTML = hits.map((h, i) =>
       `<button type="button" class="ac-item${i === activeIdx ? " active" : ""}" data-idx="${i}">
         <span class="sym">${esc(h.symbol)}</span><span class="nm">${esc(h.name || "")}</span>
+        <span class="dim" style="margin-left:6px;font-size:11px">${esc(h.badge || "")}</span>
       </button>`).join("");
     list.querySelectorAll(".ac-item").forEach((btn) => {
       btn.addEventListener("mousedown", (ev) => {
         ev.preventDefault();
-        const h = hits[Number(btn.dataset.idx)];
-        if (h) { input.value = h.symbol; hide(); addFn(assetSel.value, h.symbol); }
+        applyPick(hits[Number(btn.dataset.idx)]);
       });
     });
     show();
   };
 
+  const queryToken = () => (multiComma ? _acTokenAt(input.value, input.selectionStart).token : input.value.trim());
+
   const fetchHits = async () => {
-    const q = input.value.trim();
-    const asset = assetSel.value;
+    const q = queryToken();
     if (q.length < 1) { hits = []; hide(); return; }
     try {
-      const r = await fetchJSON(
-        "/instruments/search?asset=" + encodeURIComponent(asset) + "&query=" + encodeURIComponent(q) + "&limit=20"
-      );
-      hits = (r.data || {}).results || [];
+      hits = await _acSearchHits(getAssets(), q);
       activeIdx = hits.length ? 0 : -1;
       render();
     } catch (e) {
@@ -509,7 +602,7 @@ function _bindSymbolAutocomplete(addFn) {
     clearTimeout(timer);
     timer = setTimeout(fetchHits, 200);
   });
-  input.addEventListener("focus", () => { if (input.value.trim()) fetchHits(); });
+  input.addEventListener("focus", () => { if (queryToken()) fetchHits(); });
   input.addEventListener("blur", () => setTimeout(hide, 150));
   input.addEventListener("keydown", (ev) => {
     if (ev.key === "ArrowDown") {
@@ -522,23 +615,44 @@ function _bindSymbolAutocomplete(addFn) {
       activeIdx = Math.max(activeIdx - 1, 0);
       render();
     } else if (ev.key === "Enter") {
-      ev.preventDefault();
-      if (activeIdx >= 0 && hits[activeIdx]) {
-        input.value = hits[activeIdx].symbol;
-        hide();
-        addFn(assetSel.value, hits[activeIdx].symbol);
-      } else {
-        addFn(assetSel.value, input.value.trim());
+      if (hits.length && activeIdx >= 0) {
+        ev.preventDefault();
+        applyPick(hits[activeIdx]);
+      } else if (opts.onEnter) {
+        ev.preventDefault();
+        opts.onEnter(input);
       }
     } else if (ev.key === "Escape") hide();
   });
+  if (opts.onAssetChange) {
+    const prev = opts.onAssetChange;
+    opts.onAssetChange = () => { prev(); hits = []; hide(); if (queryToken()) fetchHits(); };
+  }
+}
+
+function _bindSymbolAutocomplete(addFn) {
+  const input = $("#c-symbol");
+  const list = $("#c-suggest");
+  const assetSel = $("#c-asset");
+  if (!input || !list || !assetSel) return;
+  _bindInstrumentAutocomplete({
+    input,
+    list,
+    asset: () => assetSel.value,
+    onPick: (h) => addFn(assetSel.value, h.symbol),
+    onEnter: (inp) => addFn(assetSel.value, inp.value.trim()),
+  });
   assetSel.addEventListener("change", () => {
     input.placeholder = ASSET_PLACEHOLDER[assetSel.value] || "type to search…";
-    hits = [];
-    hide();
-    if (input.value.trim()) fetchHits();
   });
   input.placeholder = ASSET_PLACEHOLDER[assetSel.value] || "type to search…";
+}
+
+function _acFieldHtml(inputId, listId, placeholder) {
+  return `<div class="ac-wrap">
+    <input id="${inputId}" class="inp" autocomplete="off" spellcheck="false" placeholder="${esc(placeholder)}" />
+    <div id="${listId}" class="ac-list hidden"></div>
+  </div>`;
 }
 
 async function loadInstruments() {
@@ -568,7 +682,7 @@ async function loadInstruments() {
     const sym = (symbol || "").trim();
     if (!sym) return;
     $("#c-msg").textContent = "adding…";
-    try { await apiSend("/instruments", "POST", { asset, symbol: sym }); await reload(); }
+    try { await apiSend("/instruments", "POST", { asset, symbol: sym }); _registryCache = null; await reload(); }
     catch (e) { const m = $("#c-msg"); if (m) m.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
   };
   _bindSymbolAutocomplete(add);
@@ -1105,9 +1219,9 @@ async function loadMarketBrain(asset) {
   const { html, labels } = await _assetInstrumentOptions(asset, "");
   sec.innerHTML =
     panel(`${title} screen — rank conviction`, `
-      <div class="sub mb-sm">Leave blank to rank every tracked ${asset} symbol in your registry.</div>
+      <div class="sub mb-sm">Leave blank to rank every tracked ${asset} symbol in your registry. Type to search tracked symbols (add in Registry first).</div>
       <div class="addbar">
-        <input id="${prefix}-scr-input" class="inp" placeholder="optional: comma-separated registry ids" />
+        ${_acFieldHtml(`${prefix}-scr-input`, `${prefix}-scr-suggest`, ASSET_PLACEHOLDER[asset] + " (optional)")}
         <button id="${prefix}-scr-go" class="btn">Screen</button>
       </div>
       <div id="${prefix}-scr-body" style="margin-top:12px"><div class="sub dim">Run a screen to rank ${asset} symbols by conviction.</div></div>`)
@@ -1138,7 +1252,24 @@ async function loadMarketBrain(asset) {
     } catch (e) { scrBody.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
   };
   document.getElementById(`${prefix}-scr-go`).addEventListener("click", screen);
-  document.getElementById(`${prefix}-scr-input`).addEventListener("keydown", (ev) => { if (ev.key === "Enter") screen(); });
+  document.getElementById(`${prefix}-scr-input`).addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && !listVisible(`${prefix}-scr-suggest`)) screen();
+  });
+  _bindInstrumentAutocomplete({
+    input: `#${prefix}-scr-input`,
+    list: `#${prefix}-scr-suggest`,
+    asset,
+    multiComma: true,
+    requireTracked: true,
+    onUntracked: (h) => {
+      scrBody.innerHTML = `<div class="err">Add <b>${esc(h.symbol)}</b> in Registry first, then screen.</div>`;
+    },
+  });
+}
+
+function listVisible(listId) {
+  const el = document.getElementById(listId);
+  return el && !el.classList.contains("hidden");
 }
 
 async function loadCryptoBrain() { return loadMarketBrain("crypto"); }
@@ -1163,7 +1294,7 @@ async function loadFundamentals() {
   sec.innerHTML =
     panel("Brain Screen — rank conviction", `
       <div class="addbar">
-        <input id="scr-input" class="inp" placeholder="tickers e.g. AAPL,MSFT,NVDA (blank = tracked equities/ETFs)" />
+        ${_acFieldHtml("scr-input", "scr-suggest", "type AAPL, MSFT… (blank = tracked equities/ETFs)")}
         <button id="scr-go" class="btn">Screen</button>
       </div>
       <div id="scr-body" style="margin-top:12px"><div class="sub dim">Run a screen to rank the universe by conviction.</div></div>`)
@@ -1171,7 +1302,7 @@ async function loadFundamentals() {
       <div class="sub mb-sm">Pick an equity or ETF from your registry. You can also type any US ticker below for a one-off lookup.</div>
       <select id="fund-pick" class="btn">${html}</select>
       <div class="addbar mt-sm">
-        <input id="fund-input" class="inp" placeholder="or type any ticker (e.g. AAPL)" />
+        ${_acFieldHtml("fund-input", "fund-suggest", "or type to search any ticker")}
         <button id="fund-go" class="btn">Load</button>
       </div>
       <div id="fund-body" style="margin-top:12px"></div>`);
@@ -1193,7 +1324,16 @@ async function loadFundamentals() {
   }
 
   $("#fund-go").addEventListener("click", () => loadSymbol($("#fund-input").value));
-  $("#fund-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") loadSymbol($("#fund-input").value); });
+  $("#fund-input").addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && !listVisible("fund-suggest")) loadSymbol($("#fund-input").value);
+  });
+  _bindInstrumentAutocomplete({
+    input: "#fund-input",
+    list: "#fund-suggest",
+    assets: ["equity", "etf"],
+    onPick: (h) => loadSymbol(h.symbol),
+    onEnter: (inp) => loadSymbol(inp.value.trim()),
+  });
 
   const scrBody = $("#scr-body");
   const screen = async () => {
@@ -1207,7 +1347,15 @@ async function loadFundamentals() {
     } catch (e) { scrBody.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
   };
   $("#scr-go").addEventListener("click", screen);
-  $("#scr-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") screen(); });
+  $("#scr-input").addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && !listVisible("scr-suggest")) screen();
+  });
+  _bindInstrumentAutocomplete({
+    input: "#scr-input",
+    list: "#scr-suggest",
+    assets: ["equity", "etf"],
+    multiComma: true,
+  });
 }
 
 function _loadFor(view) {
