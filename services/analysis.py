@@ -213,13 +213,13 @@ def brief(instrument: str) -> dict:
     }
 
     # Overall macro context.
-    reg = {}
+    macro_ctx: dict[str, Any] = {}
     try:
         r = regime()
-        reg = {"regime": r.get("regime"), "score": r.get("score")}
+        macro_ctx = {"regime": r.get("regime"), "score": r.get("score")}
     except Exception:  # noqa: BLE001
         pass
-    out["regime"] = reg or None
+    out["regime"] = macro_ctx or None
 
     # Price / momentum.
     price = {}
@@ -275,8 +275,8 @@ def brief(instrument: str) -> dict:
         bits.append(f"{cot['positioning']}" + (f" ({pctl:.0f}th pct 1y)" if pctl is not None else ""))
     if cot.get("weekly_shift") and cot["weekly_shift"] not in ("n/a", "flat w/w"):
         bits.append(cot["weekly_shift"])
-    if reg.get("regime"):
-        bits.append(f"macro regime {reg['regime']}")
+    if macro_ctx.get("regime"):
+        bits.append(f"macro regime {macro_ctx['regime']}")
     if price.get("change_1w_pct") is not None:
         bits.append(f"price {price['change_1w_pct']:+.2f}% 1w")
     if out.get("term_structure", {}) and out["term_structure"] and out["term_structure"].get("structure"):
