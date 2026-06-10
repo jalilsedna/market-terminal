@@ -24,6 +24,18 @@ data source** that OpenAlice *pulls from* over MCP. Nothing flows the other way:
 connectivity, or trade/transfer/withdrawal keys ever live in market-terminal. If
 you want execution, it belongs in OpenAlice, on its side.
 
+## When Claude Code hits its limit → use Cursor
+
+OpenAlice workspaces default to the **Claude Code** CLI (`claude`). When
+Anthropic usage caps (429 / *rate limit*), **switch the workspace to Cursor
+Agent** — the `market-terminal` MCP feed is the same in both CLIs.
+
+**Fast path:** in the workspace terminal, run `agent` (install:
+`curl https://cursor.com/install -fsS | bash`, then `agent login`).
+
+Full setup (fallback script, persona text for Alice, MCP check):
+**[`docs/openalice-cursor-fallback.md`](openalice-cursor-fallback.md)**.
+
 ## How OpenAlice consumes MCP servers
 
 OpenAlice is built on the Claude Agent SDK and wires MCP servers into each agent

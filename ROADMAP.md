@@ -42,6 +42,10 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       `claude` login, the 60s UTA timeout edit (`scripts/guardian/dev.ts`, lives
       only in the OpenAlice clone), mirrored-networking `.wslconfig`, run/verify
       steps, and a troubleshooting table.
+- [x] **A5b — Claude limit → Cursor fallback.** `docs/openalice-cursor-fallback.md`
+      + `scripts/openalice-claude-or-cursor.sh`: when Claude Code caps, continue
+      in Cursor Agent (`agent`) with the same workspace MCP / market-terminal feed;
+      persona snippet for `data/brain/persona.md` on the OpenAlice host.
 - [ ] **A6 — Resolve Claude Code's `/doctor` "MCP" warning** in the WSL agent.
 - [x] **A6b — Operational `/doctor` endpoint** (app self-diagnostic). Auth-gated
       `GET /doctor` reports provider config + the EOD chain, SQLite/volume state

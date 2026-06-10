@@ -51,6 +51,26 @@ spawned agent inherits the session:
 claude        # then follow the login prompt
 ```
 
+## 4b. Cursor Agent CLI (fallback when Claude limits out)
+
+When Claude Code hits its usage cap, continue in the **same workspace** with
+Cursor — market-terminal MCP still works.
+
+```bash
+curl https://cursor.com/install -fsS | bash
+agent login
+agent status
+```
+
+Optional auto-fallback script (from this repo):
+
+```bash
+chmod +x ~/market-terminal/scripts/openalice-claude-or-cursor.sh
+```
+
+See **`docs/openalice-cursor-fallback.md`** (persona snippet for Alice, MCP
+verify, Railway vs local URLs).
+
 ## 5. The 60s UTA timeout edit (OpenAlice clone only)
 
 On first boot the guardian sometimes fails with *"UTA failed to come up within
@@ -121,4 +141,5 @@ live. Paper execution (Alpaca paper account in the UTA) is covered in
 | `node-pty` → `not found: make` | no build toolchain | `sudo apt install -y build-essential` |
 | `UTA failed to come up within 15s` | slow cold start | bump timeout to `60_000` (step 5) |
 | agent can't reach `127.0.0.1:8001` | no mirrored networking | `.wslconfig` `networkingMode=mirrored` + `wsl --shutdown` |
+| Claude **rate limit** / 429 | Anthropic quota exhausted | run `agent` in workspace, or `scripts/openalice-claude-or-cursor.sh` — see `docs/openalice-cursor-fallback.md` |
 | Alpaca paper order **rejected** | market closed (market order) | use limit + extended-hours, or wait for the open |

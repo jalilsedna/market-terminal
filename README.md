@@ -121,8 +121,10 @@ trade trigger.
 
 **Feeding an execution agent (e.g. OpenAlice):** market-terminal stays
 research-only and acts as an MCP data source the agent *pulls from*. See
-[`docs/openalice.md`](./docs/openalice.md) and
-[`docs/openalice-wsl-setup.md`](./docs/openalice-wsl-setup.md).
+[`docs/openalice.md`](./docs/openalice.md),
+[`docs/openalice-wsl-setup.md`](./docs/openalice-wsl-setup.md), and
+[`docs/openalice-cursor-fallback.md`](./docs/openalice-cursor-fallback.md) (Claude
+Code limit → Cursor Agent).
 
 ## Tests
 
