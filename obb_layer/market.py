@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from cache.store import cached
 from circuit import guarded
-from obb_layer.client import get_obb
 from obb_layer import fmp_market
+from obb_layer.client import get_obb
 from obb_layer.providers import eod_with_fallback
 
 

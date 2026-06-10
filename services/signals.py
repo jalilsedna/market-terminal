@@ -428,10 +428,16 @@ def _enrich_candidate(ticker: str) -> tuple[int, int, list[str], dict]:
     return c_pts, s_pts, c_trigs + s_trigs, c_det.get("earnings", {})
 
 
-def daily_hitlist(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2.0) -> dict:
+def daily_hitlist(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2.0,
+                  min_price: float = 5.0, min_dollar_volume: float = 25_000_000.0) -> dict:
     """Market-wide morning scanner: today's movers, enriched with catalyst +
     smart-money signals, ranked into the most tradeable names with a directional
     lean. Needs FMP (signals) + POLYGON_API_KEY (whole-market movers feed).
+
+    The liquidity floor (`min_price`/`min_dollar_volume`) is deliberately tighter
+    than the raw movers feed's $1 / $5M defaults: a micro-cap can spike 30% and
+    clear $5M of dollar-volume on one day, so the loose floor surfaces untradeable
+    penny names. Day-trading wants real depth, hence ~$5 / ~$25M here.
     Research context, never a trade trigger."""
     from config import get_settings
     if not get_settings().fmp_enabled:
@@ -440,7 +446,7 @@ def daily_hitlist(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2
 
     from services import movers as movers_svc
     try:
-        m = movers_svc.movers(top_n=25)
+        m = movers_svc.movers(top_n=25, min_price=min_price, min_dollar_volume=min_dollar_volume)
     except Exception as exc:  # noqa: BLE001 — movers needs POLYGON_API_KEY
         return {"enabled": True, "hitlist": [], "count": 0,
                 "error": f"movers feed unavailable ({type(exc).__name__}) — set POLYGON_API_KEY",
@@ -462,6 +468,7 @@ def daily_hitlist(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2
         rows.append({
             "ticker": ticker,
             "day_dir": c.get("day_dir"),
+            "price": c.get("close"),
             "change_1d_pct": move,
             "dollar_volume": c.get("dollar_volume"),
             "bias": sc["bias"],
@@ -482,6 +489,7 @@ def daily_hitlist(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2
         "count": len(ranked),
         "long_count": sum(1 for r in ranked if r["bias"] == "long"),
         "short_count": sum(1 for r in ranked if r["bias"] == "short"),
+        "liquidity_floor": {"min_price": min_price, "min_dollar_volume": min_dollar_volume},
         "hitlist": ranked,
         "method": "Whole-market movers (EOD) enriched with analyst rating changes, "
                   "earnings proximity, and insider flow; ranked by confluence + "

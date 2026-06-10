@@ -136,18 +136,18 @@ def test_rank_hitlist_orders_confluence_then_conviction():
 
 
 def test_daily_hitlist_composition(monkeypatch):
+    import config
     from obb_layer import fmp
     from services import movers as movers_svc
-    import config
 
     monkeypatch.setenv("FMP_API_KEY", "k")
     config.get_settings.cache_clear()
 
-    monkeypatch.setattr(movers_svc, "movers", lambda top_n=25: {
+    monkeypatch.setattr(movers_svc, "movers", lambda top_n=25, **kw: {
         "as_of": "2026-06-10",
-        "gainers": [{"ticker": "AAA", "change_1d_pct": 9.0, "dollar_volume": 9e8}],
-        "losers": [{"ticker": "BBB", "change_1d_pct": -7.0, "dollar_volume": 6e8}],
-        "most_active": [{"ticker": "CCC", "change_1d_pct": 0.5, "dollar_volume": 2e9}],
+        "gainers": [{"ticker": "AAA", "change_1d_pct": 9.0, "close": 50.0, "dollar_volume": 9e8}],
+        "losers": [{"ticker": "BBB", "change_1d_pct": -7.0, "close": 40.0, "dollar_volume": 6e8}],
+        "most_active": [{"ticker": "CCC", "change_1d_pct": 0.5, "close": 30.0, "dollar_volume": 2e9}],
     })
     # AAA: bullish catalyst; BBB: nothing; CCC below min_move filtered out.
     def grades(t, limit=6):
@@ -177,8 +177,8 @@ def test_daily_hitlist_composition(monkeypatch):
 
 
 def test_daily_hitlist_degrades_without_movers(monkeypatch):
-    from services import movers as movers_svc
     import config
+    from services import movers as movers_svc
 
     monkeypatch.setenv("FMP_API_KEY", "k")
     config.get_settings.cache_clear()
@@ -209,8 +209,8 @@ def test_trade_setup_degrades_without_key(monkeypatch):
 
 def test_trade_setup_composition(monkeypatch):
     """End-to-end composition with all FMP calls mocked (no network)."""
-    from obb_layer import fmp
     import config
+    from obb_layer import fmp
 
     monkeypatch.setenv("FMP_API_KEY", "test-key")
     config.get_settings.cache_clear()
