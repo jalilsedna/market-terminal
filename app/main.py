@@ -129,6 +129,7 @@ from app.routers import (
     doctor,
     fundamentals,
     history,
+    instruments,
     macro,
     news,
     screener,
@@ -140,6 +141,7 @@ from app.routers import (
 
 app.include_router(macro.router)
 app.include_router(cot.router)
+app.include_router(instruments.router)
 app.include_router(watchlist.router)
 app.include_router(news.router)
 app.include_router(term_structure.router)

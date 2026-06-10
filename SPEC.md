@@ -2,9 +2,12 @@
 
 ## 1. Purpose & Non-Goals
 
-A private, single-user research and analytics terminal for discretionary futures
-day trading (6E, 6B, GC, NQ, YM). It aggregates macro, market-data, positioning,
-fundamentals (of futures underlyings/sectors), and news into a few focused views.
+A private, single-user research and analytics terminal for multi-asset
+discretionary trading. Users track any combination of forex, futures, crypto,
+equity, and ETF symbols in a unified registry (starts empty). It aggregates
+macro, market-data, positioning (where CFTC applies), fundamentals, and news
+into focused views. Discovery: Movers/Screener for broad markets; Alpaca search
+for US equities Alice can trade (read-only).
 
 **Non-goals (hard boundaries):**
 - **Execution is delegated, not done here.** Order entry, position management,

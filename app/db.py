@@ -26,7 +26,7 @@ _SCHEMA = (
     "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
     """CREATE TABLE IF NOT EXISTS watchlist (
            id TEXT PRIMARY KEY, asset TEXT NOT NULL, symbol TEXT NOT NULL,
-           label TEXT, added_at TEXT NOT NULL)""",
+           label TEXT, meta TEXT, added_at TEXT NOT NULL)""",
     """CREATE TABLE IF NOT EXISTS snapshots (
            series TEXT NOT NULL, ts TEXT NOT NULL, value TEXT NOT NULL)""",
     "CREATE INDEX IF NOT EXISTS ix_snap_series_ts ON snapshots (series, ts)",
@@ -53,6 +53,9 @@ def _db():
         conn.execute("PRAGMA journal_mode=WAL")
         for stmt in _SCHEMA:
             conn.execute(stmt)
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(watchlist)").fetchall()}
+        if "meta" not in cols:
+            conn.execute("ALTER TABLE watchlist ADD COLUMN meta TEXT")
         conn.row_factory = sqlite3.Row
         yield conn
         conn.commit()
@@ -82,17 +85,31 @@ def kv_set(key: str, value: Any) -> None:
 def watchlist_list() -> list[dict]:
     with _db() as conn:
         rows = conn.execute(
-            "SELECT id, asset, symbol, label FROM watchlist ORDER BY added_at"
+            "SELECT id, asset, symbol, label, meta FROM watchlist ORDER BY added_at"
         ).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get("meta"):
+            try:
+                d["meta"] = json.loads(d["meta"])
+            except json.JSONDecodeError:
+                d["meta"] = {}
+        else:
+            d["meta"] = {}
+        out.append(d)
+    return out
 
 
-def watchlist_add(item_id: str, asset: str, symbol: str, label: str) -> None:
+def watchlist_add(
+    item_id: str, asset: str, symbol: str, label: str, meta: dict | None = None
+) -> None:
+    meta_json = json.dumps(meta or {})
     with _db() as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO watchlist (id, asset, symbol, label, added_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (item_id, asset, symbol, label, _now()),
+            "INSERT OR IGNORE INTO watchlist (id, asset, symbol, label, meta, added_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (item_id, asset, symbol, label, meta_json, _now()),
         )
 
 

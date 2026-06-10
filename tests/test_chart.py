@@ -4,34 +4,44 @@ from __future__ import annotations
 
 import re
 
+import pytest
 
-def test_every_instrument_has_a_tv_symbol():
-    from obb_layer.symbols import WATCHLIST
 
-    # EXCHANGE:ROOT1! continuous-futures form, e.g. COMEX:GC1!, CME_MINI:NQ1!.
+def test_template_tv_symbols_are_valid():
+    from obb_layer.symbols import INSTRUMENT_TEMPLATES
+
     pat = re.compile(r"^[A-Z_]+:[A-Z0-9]+!$")
-    for code, inst in WATCHLIST.items():
+    for code, inst in INSTRUMENT_TEMPLATES.items():
         assert inst.tv_symbol, f"{code} missing tv_symbol"
-        assert pat.match(inst.tv_symbol), f"{code} tv_symbol '{inst.tv_symbol}' not EXCHANGE:ROOT! form"
+        assert pat.match(inst.tv_symbol), f"{code} tv_symbol '{inst.tv_symbol}' invalid"
 
 
-def test_tv_symbols_are_unique():
-    from obb_layer.symbols import WATCHLIST
-
-    syms = [i.tv_symbol for i in WATCHLIST.values()]
-    assert len(syms) == len(set(syms))
-
-
-def test_chart_symbols_endpoint_shape():
+def test_chart_symbols_endpoint_empty_registry(store):
     from app.routers.chart import chart_symbols
 
     env = chart_symbols()
     assert env.ok is True
     assert env.provider == "tradingview"
+    assert env.data["picks"] == []
+
+
+def test_chart_symbols_from_registry(store):
+    from app.routers.chart import chart_symbols
+
+    store.add("futures", "GC=F", label="Gold", meta={"tv_symbol": "COMEX:GC1!", "code": "GC"})
+    env = chart_symbols()
     picks = env.data["picks"]
-    assert len(picks) == 5  # the futures watchlist
-    for p in picks:
-        assert set(p) == {"code", "name", "tv_symbol"}
-    # GC maps to COMEX gold continuous
-    gc = next(p for p in picks if p["code"] == "GC")
-    assert gc["tv_symbol"] == "COMEX:GC1!"
+    assert len(picks) == 1
+    assert picks[0]["tv_symbol"] == "COMEX:GC1!"
+
+
+@pytest.fixture
+def store(tmp_path, monkeypatch):
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "terminal.db"))
+    import config
+
+    config.get_settings.cache_clear()
+    from services import custom_store
+
+    yield custom_store
+    config.get_settings.cache_clear()

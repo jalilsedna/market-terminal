@@ -112,6 +112,13 @@ class Settings(BaseSettings):
     kronos_horizon_default: int = 30  # bars to forecast
     kronos_samples: int = 30          # sampled paths reduced to a median + band
 
+    # --- Alpaca (read-only — tradable universe for instrument discovery) ---
+    # Same paper/live keys OpenAlice uses for execution, but this terminal only
+    # calls read-only endpoints (asset catalog). Never places orders here.
+    alpaca_api_key: str | None = None
+    alpaca_api_secret: str | None = None
+    alpaca_api_base: str = "https://paper-api.alpaca.markets"
+
     # --- FMP fundamentals brain (ROADMAP H) ---
     # The terminal's bottom-up engine. FMP is consumed via REST through
     # obb_layer/fmp.py (NOT FMP's MCP — that's a proxy over these same endpoints;
@@ -145,6 +152,11 @@ class Settings(BaseSettings):
         return bool(self.fmp_api_key)
 
     @property
+    def alpaca_enabled(self) -> bool:
+        """Whether Alpaca asset discovery is configured."""
+        return bool(self.alpaca_api_key and self.alpaca_api_secret)
+
+    @property
     def movers_enabled(self) -> bool:
         """Whether the whole-market Movers screener can run — it needs the Polygon
         (Massive) key for the free Grouped Daily endpoint."""
@@ -166,6 +178,7 @@ class Settings(BaseSettings):
             "tiingo": bool(self.tiingo_api_key),
             "polygon": bool(self.polygon_api_key),
             "eia": bool(self.eia_api_key),
+            "alpaca": self.alpaca_enabled,
         }
 
 

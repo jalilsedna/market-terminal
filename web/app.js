@@ -91,20 +91,30 @@ function renderMacro(env) {
   return `<div class="grid">${out.join("")}</div>`;
 }
 
-function renderWatchlist(env) {
-  const d = env.data || {};
-  const rows = Object.values(d).map((i) => {
-    if (!i.ok) return `<tr><td>${esc(i.code)}</td><td colspan="6" class="err">${esc(i.error)}</td></tr>`;
+function _instrumentRows(insts) {
+  const items = Object.values(insts || {});
+  if (!items.length) {
+    return `<tr><td colspan="8" class="dim">No instruments yet — add forex, futures, crypto, equity, or ETF symbols below. Try Alpaca search for US equities.</td></tr>`;
+  }
+  return items.map((i) => {
+    if (!i.ok) {
+      return `<tr><td>${esc(i.id || i.code || "")} <span class="dim">${esc(i.asset || "")}</span></td><td colspan="6" class="err">${esc(i.error)}</td><td></td></tr>`;
+    }
     const f = i.future || {};
-    const p = i.proxy || {};
-    const proxy = p.ok === false ? '<span class="dim">—</span>' : `${esc(p.name)}: ${num(p.close, 4)} ${pct(p.change_1d_pct)}`;
+    const last = f.close != null ? f.close : i.last;
+    const c1 = f.change_1d_pct != null ? f.change_1d_pct : i.change_1d_pct;
+    const c1w = f.change_1w_pct != null ? f.change_1w_pct : i.change_1w_pct;
+    const c1m = f.change_1m_pct != null ? f.change_1m_pct : i.change_1m_pct;
+    const atr = i.atr_14 != null ? `${num(i.atr_14, 4)} <span class="dim">(${num(i.atr_14_pct, 2)}%)</span>` : '<span class="dim">—</span>';
+    const vol = i.vol_annualized != null ? num(i.vol_annualized * 100, 1) + "%" : '<span class="dim">—</span>';
+    const regime = i.regime ? _volPill(i.regime) : '<span class="dim">—</span>';
+    const label = i.code || i.symbol;
     return `<tr>
-      <td>${esc(i.code)} <span class="dim">${esc(i.name)}</span></td>
-      <td>${num(f.close, 4)}</td><td>${pct(f.change_1d_pct)}</td><td>${pct(f.change_1w_pct)}</td><td>${pct(f.change_1m_pct)}</td>
-      <td>${num(i.atr_14, 4)} <span class="dim">(${num(i.atr_14_pct, 2)}%)</span></td>
-      <td style="text-align:left">${proxy}</td></tr>`;
+      <td>${esc(label)} <span class="dim">${esc(i.name || i.label || "")} · ${esc(i.asset)}</span></td>
+      <td>${num(last, 4)}</td><td>${pct(c1)}</td><td>${pct(c1w)}</td><td>${pct(c1m)}</td>
+      <td>${atr}</td><td>${vol}</td><td>${regime}</td>
+      <td><button class="btn rm" data-id="${esc(i.id)}" title="remove">✕</button></td></tr>`;
   }).join("");
-  return panel("Watchlist — futures + spot proxy", `<table><thead><tr><th>Instrument</th><th>Close</th><th>1d</th><th>1w</th><th>1m</th><th>ATR(14)</th><th>Proxy</th></tr></thead><tbody>${rows}</tbody></table>`);
 }
 
 function renderCot(env) {
@@ -232,7 +242,7 @@ function renderVolatility(env) {
     <div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>`;
 }
 
-const RENDERERS = { macro: renderMacro, watchlist: renderWatchlist, cot: renderCot, term: renderTerm, volatility: renderVolatility, sectors: renderSectors, movers: renderMovers, news: renderNews };
+const RENDERERS = { macro: renderMacro, cot: renderCot, term: renderTerm, volatility: renderVolatility, sectors: renderSectors, movers: renderMovers, news: renderNews };
 
 // ---- loading + tabs --------------------------------------------------------
 async function loadView(view) {
@@ -352,21 +362,39 @@ async function loadAnalysis() {
     `<table><thead><tr><th>Instrument</th><th>NC net</th><th>1y %ile</th><th>Positioning</th><th>Weekly shift</th><th>Bias</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="exec-help dim">${esc(cot.method || "")}</div>`);
 
-  const briefPanel = panel("Instrument Brief — what's moving this contract", `
-    <select id="brief-pick" class="btn">${["6E", "6B", "GC", "NQ", "YM"].map((k) => `<option${k === "GC" ? " selected" : ""}>${k}</option>`).join("")}</select>
-    <div id="brief-body" style="margin-top:10px"></div>`);
+  const briefOpts = await _instrumentOptions("");
+  const briefPanel = panel("Instrument Brief — what's moving this symbol", `
+    <select id="brief-pick" class="btn">${briefOpts}</select>
+    <div id="brief-body" class="mt-md"></div>`);
 
-  sec.innerHTML = `<div class="grid" style="grid-template-columns:1fr">${briefPanel}${regimePanel}${cotPanel}</div>
-    <div class="exec-help dim" style="margin-top:8px">${esc(regime.disclaimer || cot.disclaimer || "")}</div>`;
+  sec.innerHTML = `<div class="grid grid-1">${briefPanel}${regimePanel}${cotPanel}</div>
+    <div class="exec-help dim mt-sm">${esc(regime.disclaimer || cot.disclaimer || "")}</div>`;
 
   const pick = document.getElementById("brief-pick");
-  if (pick) pick.addEventListener("change", () => loadBrief(pick.value));
-  loadBrief(pick ? pick.value : "GC");
+  if (pick && pick.value) {
+    pick.addEventListener("change", () => loadBrief(pick.value));
+    loadBrief(pick.value);
+  } else if (document.getElementById("brief-body")) {
+    document.getElementById("brief-body").innerHTML = '<div class="dim">Add instruments in the Registry tab first.</div>';
+  }
 }
 
-// My Watchlist tab (ROADMAP C6): add/remove arbitrary instruments across asset
-// classes; each row shows price + change + the vol/regime read. Mutating calls
-// (POST/DELETE) go through apiSend.
+async function _instrumentOptions(selectedId) {
+  try {
+    const env = await fetchJSON("/instruments");
+    const list = (env.data || {}).instruments || [];
+    if (!list.length) return '<option value="">— add instruments first —</option>';
+    return list.map((i) => {
+      const id = i.id;
+      const lbl = i.label || i.symbol;
+      return `<option value="${esc(id)}"${id === selectedId ? " selected" : ""}>${esc(lbl)} (${esc(i.asset)})</option>`;
+    }).join("");
+  } catch (e) {
+    return '<option value="">unavailable</option>';
+  }
+}
+
+// Instrument registry: add/remove any asset class; Alpaca search for US equities.
 async function apiSend(path, method, body) {
   const opts = { method, headers: {} };
   if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
@@ -376,52 +404,60 @@ async function apiSend(path, method, body) {
   return r.json();
 }
 
-const CUSTOM_ASSETS = ["crypto", "forex", "equity", "etf", "futures"];
+const ASSET_CLASSES = ["futures", "crypto", "forex", "equity", "etf"];
 
-function _customRows(insts) {
-  if (!insts.length) return `<tr><td colspan="7" class="dim">Nothing yet — add one above (e.g. crypto <b>BTC-USD</b>, equity <b>AAPL</b>, etf <b>SPY</b>, forex <b>EURUSD</b>).</td></tr>`;
-  return insts.map((v) => {
-    const body = v.ok === false
-      ? `<td colspan="5" class="err">${esc(v.error || "n/a")}</td>`
-      : `<td>${num(v.last, 4)}</td><td>${pct(v.change_1d_pct)}</td><td>${pct(v.change_1w_pct)}</td>
-         <td>${v.vol_annualized != null ? num(v.vol_annualized * 100, 1) + "%" : '<span class="dim">—</span>'}</td>
-         <td>${v.regime ? _volPill(v.regime) : '<span class="dim">—</span>'}</td>`;
-    return `<tr><td>${esc(v.label || v.symbol)} <span class="dim">${esc(v.asset)}</span></td>${body}
-      <td><button class="btn rm" data-id="${esc(v.id)}" title="remove">✕</button></td></tr>`;
-  }).join("");
-}
-
-async function loadCustom() {
-  const sec = $("#view-custom");
+async function loadInstruments() {
+  const sec = $("#view-watchlist");
   let env;
-  try { env = await fetchJSON("/custom"); }
+  try { env = await fetchJSON("/watchlist"); }
   catch (e) { sec.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; return; }
   const d = env.data || {};
-  const opts = CUSTOM_ASSETS.map((a) => `<option value="${a}">${a}</option>`).join("");
-  sec.innerHTML = panel("My Watchlist — add/remove any asset", `
+  const opts = ASSET_CLASSES.map((a) => `<option value="${a}">${a}</option>`).join("");
+  sec.innerHTML = panel("Instrument registry — track any asset", `
+    <div class="sub mb-sm">Add forex, futures, crypto, equity, or ETF symbols. Panels (COT, vol, news) apply per capability.</div>
     <div class="addbar">
       <select id="c-asset" class="btn">${opts}</select>
-      <input id="c-symbol" class="inp" placeholder="symbol (BTC-USD, AAPL, EURUSD, GC=F)" />
+      <input id="c-symbol" class="inp" placeholder="symbol (EURUSD, GC=F, BTC-USD, AAPL)" />
       <button id="c-add" class="btn">+ Add</button>
+      <input id="alp-search" class="inp inp-narrow" placeholder="Alpaca search" />
+      <button id="alp-go" class="btn">Search</button>
       <span id="c-msg" class="dim"></span>
     </div>
-    <table style="margin-top:10px"><thead><tr><th>Instrument</th><th>Last</th><th>1d</th><th>1w</th><th>Vol</th><th>Regime</th><th></th></tr></thead>
-      <tbody>${_customRows(d.instruments || [])}</tbody></table>
-    <div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")} · saved per-instance (resets on redeploy unless a volume is attached).</div>`);
+    <div id="alp-results" class="sub mb-sm"></div>
+    <table class="mt-md"><thead><tr><th>Instrument</th><th>Last</th><th>1d</th><th>1w</th><th>1m</th><th>ATR</th><th>Vol</th><th>Regime</th><th></th></tr></thead>
+      <tbody>${_instrumentRows(d.instruments)}</tbody></table>
+    <div class="exec-help dim mt-sm">${esc(d.disclaimer || "")} · persisted in SQLite (attach a volume on Railway).</div>`);
 
-  const reload = () => loadCustom();
-  const add = async () => {
-    const asset = $("#c-asset").value, symbol = $("#c-symbol").value.trim();
+  const reload = () => loadInstruments();
+  const add = async (asset, symbol) => {
     if (!symbol) return;
     $("#c-msg").textContent = "adding…";
-    try { await apiSend("/custom", "POST", { asset, symbol }); await reload(); }
+    try { await apiSend("/instruments", "POST", { asset, symbol }); await reload(); }
     catch (e) { const m = $("#c-msg"); if (m) m.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
   };
-  $("#c-add").addEventListener("click", add);
-  $("#c-symbol").addEventListener("keydown", (ev) => { if (ev.key === "Enter") add(); });
+  $("#c-add").addEventListener("click", () => add($("#c-asset").value, $("#c-symbol").value.trim()));
+  $("#c-symbol").addEventListener("keydown", (ev) => { if (ev.key === "Enter") $("#c-add").click(); });
   sec.querySelectorAll(".rm").forEach((b) => b.addEventListener("click", async () => {
-    try { await apiSend("/custom/" + encodeURIComponent(b.dataset.id), "DELETE"); await reload(); } catch (e) { /* ignore */ }
+    try { await apiSend("/instruments/" + encodeURIComponent(b.dataset.id), "DELETE"); await reload(); } catch (e) { /* */ }
   }));
+  $("#alp-go").addEventListener("click", async () => {
+    const q = ($("#alp-search").value || "").trim();
+    const box = $("#alp-results");
+    box.textContent = "searching…";
+    try {
+      const r = await fetchJSON("/instruments/search?query=" + encodeURIComponent(q));
+      const hits = (r.data || {}).results || [];
+      if (!hits.length) { box.innerHTML = '<span class="dim">no results (is Alpaca configured?)</span>'; return; }
+      box.innerHTML = hits.map((h) =>
+        `<button type="button" class="btn pill-gap alp-pick" data-asset="${esc(h.terminal_asset)}" data-sym="${esc(h.symbol)}">${esc(h.symbol)}</button>`
+      ).join(" ");
+      box.querySelectorAll(".alp-pick").forEach((btn) => btn.addEventListener("click", () => {
+        $("#c-asset").value = btn.dataset.asset;
+        $("#c-symbol").value = btn.dataset.sym;
+        add(btn.dataset.asset, btn.dataset.sym);
+      }));
+    } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  });
 }
 
 // Focus tab (ROADMAP C4): one instrument → its volatility + the full "what's
@@ -454,13 +490,17 @@ async function loadFocusOne(code) {
 
 async function loadFocus() {
   const sec = $("#view-focus");
-  const codes = ["GC", "NQ", "6E", "6B", "YM"];
+  const opts = await _instrumentOptions("");
   sec.innerHTML = panel("Instrument Focus — one symbol, everything",
-    `<select id="focus-pick" class="btn">${codes.map((k) => `<option${k === "GC" ? " selected" : ""}>${k}</option>`).join("")}</select>
-     <div id="focus-body" style="margin-top:12px"></div>`);
+    `<select id="focus-pick" class="btn">${opts}</select>
+     <div id="focus-body" class="mt-md"></div>`);
   const pick = document.getElementById("focus-pick");
-  if (pick) pick.addEventListener("change", () => loadFocusOne(pick.value));
-  loadFocusOne(pick ? pick.value : "GC");
+  if (pick && pick.value) {
+    pick.addEventListener("change", () => loadFocusOne(pick.value));
+    loadFocusOne(pick.value);
+  } else {
+    $("#focus-body").innerHTML = '<div class="dim">Add instruments in the Registry tab first.</div>';
+  }
 }
 
 // Chart tab: embeds TradingView's Advanced Chart widget (its full TA toolset).
@@ -563,8 +603,7 @@ const VIEW_TITLES = {
   analysis: "Analysis",
   news: "News",
   focus: "Focus",
-  watchlist: "Watchlist",
-  custom: "My Watchlist",
+  watchlist: "Registry",
   chart: "Chart",
   cot: "COT",
   term: "Term Structure",
@@ -850,7 +889,7 @@ function _loadFor(view) {
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
-  if (view === "custom") return loadCustom();
+  if (view === "watchlist") return loadInstruments();
   if (view === "admin") return loadAdmin();
   if (view === "history") return loadHistory();
   if (view === "chart") return loadChart();

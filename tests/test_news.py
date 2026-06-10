@@ -29,15 +29,22 @@ def test_world_provider_priority(clear_settings):
     assert svc._world_provider() == "fmp"
 
 
-def test_world_headline_tags_macro_and_instrument():
+def test_world_headline_tags_macro_and_instrument(tmp_path, monkeypatch):
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "terminal.db"))
+    import config
+
+    config.get_settings.cache_clear()
+    from services import instruments as reg
     from services import news as svc
 
+    reg.add("futures", "GC=F")
     h = svc._world_headline({
         "title": "Gold rallies as the Fed signals a rate cut",
         "text": "bullion up on dovish FOMC", "url": "u1", "date": "2026-06-09", "site": "wire",
     })
     assert "macro" in h["tags"] and "GC" in h["tags"]
     assert h["source"] == "wire"
+    config.get_settings.cache_clear()
 
 
 def test_feed_uses_world_wire_when_key_set(clear_settings, monkeypatch):
@@ -63,29 +70,35 @@ def test_feed_uses_world_wire_when_key_set(clear_settings, monkeypatch):
     assert out["headlines"][0]["title"] == "Dollar climbs"  # newest first
 
 
-def test_feed_falls_back_to_proxy_without_key(clear_settings, monkeypatch):
+def test_feed_falls_back_to_proxy_without_key(clear_settings, monkeypatch, tmp_path):
     import config
     from obb_layer import news as obb_news
+    from services import instruments as reg
     from services import news as svc
 
-    config.get_settings.cache_clear()  # no news keys
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "t.db"))
+    config.get_settings.cache_clear()
+    reg.add("equity", "AAPL")
 
     def fake_company(symbol, provider="yfinance", limit=50):
         return [{"title": f"{symbol} news", "url": f"u-{symbol}", "date": "2026-06-09"}]
 
     monkeypatch.setattr(obb_news, "company_news", fake_company)
     out = svc.feed(limit=10)
-    assert out["filter"] == "watchlist"
+    assert out["filter"] == "registry"
     assert out["count"] >= 1
 
 
-def test_feed_falls_back_when_world_wire_errors(clear_settings, monkeypatch):
+def test_feed_falls_back_when_world_wire_errors(clear_settings, monkeypatch, tmp_path):
     import config
     from obb_layer import news as obb_news
+    from services import instruments as reg
     from services import news as svc
 
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "t.db"))
     clear_settings.setenv("FMP_API_KEY", "f")
     config.get_settings.cache_clear()
+    reg.add("equity", "AAPL")
 
     def boom(provider="fmp", limit=100):
         raise RuntimeError("402 paywalled")
@@ -96,4 +109,4 @@ def test_feed_falls_back_when_world_wire_errors(clear_settings, monkeypatch):
     monkeypatch.setattr(obb_news, "world_news", boom)
     monkeypatch.setattr(obb_news, "company_news", fake_company)
     out = svc.feed(limit=10)
-    assert out["filter"] == "watchlist"  # gracefully degraded to proxy
+    assert out["filter"] == "registry"  # gracefully degraded to proxy

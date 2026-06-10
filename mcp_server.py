@@ -25,6 +25,7 @@ from services import analysis as analysis_svc
 from services import brain as brain_svc
 from services import cot as cot_svc
 from services import fundamentals as fundamentals_svc
+from services import instruments as instruments_svc
 from services import macro as macro_svc
 from services import movers as movers_svc
 from services import news as news_svc
@@ -63,16 +64,52 @@ def macro_dashboard() -> dict:
 
 @mcp.tool()
 def watchlist_summary() -> dict:
-    """The fixed futures watchlist (6E, 6B, GC, NQ, YM): last EOD OHLCV, 1d/1w/1m
-    % change, ATR(14), and each future's spot/cash proxy for a sanity check."""
+    """All tracked instruments in the registry: EOD price, 1d/1w/1m % change, ATR
+    (futures), vol/regime read. Registry starts empty — add symbols via
+    `instruments_add` or the web UI."""
     return _safe(watchlist_svc.watchlist)
+
+
+@mcp.tool()
+def instruments_list() -> dict:
+    """List tracked instruments with capability flags (price, vol, COT, news, etc.)."""
+    items = [i.to_dict() for i in instruments_svc.list_all()]
+    return {"instruments": items, "count": len(items)}
+
+
+@mcp.tool()
+def instruments_add(asset: str, symbol: str, label: str | None = None) -> dict:
+    """Add an instrument to the registry. asset: futures|crypto|forex|equity|etf."""
+    try:
+        return instruments_svc.add(asset, symbol, label).to_dict()
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@mcp.tool()
+def instruments_remove(item_id: str) -> dict:
+    """Remove a tracked instrument by id (e.g. 'equity:AAPL')."""
+    instruments_svc.remove(item_id)
+    return {"ok": True, "removed": item_id}
+
+
+@mcp.tool()
+def instruments_search(query: str = "", limit: int = 30) -> dict:
+    """Search Alpaca's tradable US equity catalog (read-only). Requires Alpaca keys."""
+    from obb_layer import alpaca
+
+    try:
+        results = alpaca.list_assets(search=query or None, limit=limit)
+        return {"ok": True, "results": results}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"[:200]}
 
 
 @mcp.tool()
 def cot_positioning(instrument: str | None = None) -> dict:
     """Weekly CFTC Commitment of Traders positioning. With no argument, returns
-    all watchlist contracts; pass an instrument code ('GC', '6E', '6B', 'NQ',
-    'YM') for one. Reports non-commercial (large specs) vs commercial (hedgers)
+    all tracked futures with a COT code; pass an instrument id or code for one.
+    Reports non-commercial (large specs) vs commercial (hedgers)
     net positioning, the latest weekly change, and where current net sits within
     its 1-year and 3-year range."""
     if instrument:
@@ -129,8 +166,8 @@ def analysis_regime() -> dict:
 
 @mcp.tool()
 def analysis_brief(instrument: str) -> dict:
-    """"What's moving this contract" — a per-instrument synthesis (code like 'GC',
-    '6E', 'NQ') of the macro regime, COT positioning read, price/momentum, term
+    """"What's moving this symbol" — per-instrument synthesis (registry id or code)
+    of macro regime, COT (futures), price/momentum, term
     structure (where it exists), and tagged news, plus a one-line factual read.
     Research context, not a recommendation."""
     return _safe(analysis_svc.brief, instrument)
@@ -147,8 +184,8 @@ def analysis_term_structure(lookback_days: int = 7) -> dict:
 @mcp.tool()
 def volatility(instrument: str | None = None, horizon: int = 5) -> dict:
     """Realized volatility, **regime** (calm/normal/elevated/stressed vs ~3y
-    history), and a short-horizon vol forecast for a watchlist instrument ('GC',
-    '6E', 'NQ', 'YM', '6B') — or the whole watchlist if omitted. Forecast is EWMA
+    history), and a short-horizon vol forecast for one tracked instrument (by id)
+    — or the whole registry if omitted. Forecast is EWMA
     (validated best on daily futures), with HAR-RV alongside. Research context for
     sizing / regime awareness — not a trade trigger."""
     if instrument:
