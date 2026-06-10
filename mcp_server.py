@@ -22,7 +22,9 @@ from mcp.server.fastmcp import FastMCP
 
 from services import alerts as alerts_svc
 from services import analysis as analysis_svc
+from services import brain as brain_svc
 from services import cot as cot_svc
+from services import fundamentals as fundamentals_svc
 from services import macro as macro_svc
 from services import movers as movers_svc
 from services import news as news_svc
@@ -162,6 +164,26 @@ def market_movers(top: int = 20) -> dict:
     caps each list. Requires POLYGON_API_KEY; research context, not a trade
     trigger."""
     return _safe(movers_svc.movers, top_n=top)
+
+
+@mcp.tool()
+def fundamentals(ticker: str) -> dict:
+    """Per-stock **fundamentals** (FMP): profile, valuation (P/E, P/S, P/B, EV/EBITDA,
+    FCF & div yield), quality (Piotroski, Altman-Z, ROE/ROIC, margins, D/E), growth,
+    DCF fair value, analyst target/upside, next earnings, peers. Equities/ETFs only.
+    Research context, not advice."""
+    return _safe(fundamentals_svc.dashboard, ticker)
+
+
+@mcp.tool()
+def brain_verdict(ticker: str) -> dict:
+    """The terminal's **synthesized conviction** for a stock — fuses bottom-up
+    fundamentals (valuation/quality/growth/analyst) with the top-down macro regime
+    into one verdict (constructive / neutral / cautious / insufficient) + a plain
+    summary + risk flags (earnings event-risk, distress). Use this as the
+    decision-level read; `fundamentals` for the underlying numbers. Research
+    synthesis, never a trade trigger."""
+    return _safe(brain_svc.verdict, ticker)
 
 
 @mcp.tool()
