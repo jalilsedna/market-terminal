@@ -208,10 +208,14 @@ sign into.
       **calendar** (B1) and a real **world-news wire** (B2, auto-detected provider
       chain). Follow-ups: surface FMP **fundamentals / ETF holdings / earnings** as
       terminal panels + MCP tools (fills the EEM-holdings gap Alice hit).
-- [ ] **G2 — UI/UX design pass.** Make the terminal look like a product: a
-      semantic color system (up/down, vol regimes, risk-on/off, alert states),
-      numeric/typography hierarchy, Bloomberg-style density, consistent panels/
-      tables/states, sparklines. CSS-token refactor, no behaviour change.
+- [x] **G2 — UI/UX design pass.** *(shipped)* `web/styles.css` refactored into a
+      documented **semantic token system** (surfaces, text, direction green/red/
+      amber + soft tints, vol-regime/risk tokens, radius/shadow scale). Polish:
+      **tabular-nums** for aligned figures, tinted pills, zebra + accent-hover
+      tables, gradient tiles/top-bar, refined panels/tabs/buttons, focus-visible
+      states, custom scrollbars, view fade-in. **No HTML/JS change** — every class
+      name preserved, so it's a pure visual refresh. (Follow-up: align the
+      login/register pages to the same tokens.)
 - [ ] **G3 — TradingView integration.** (a) `/webhook/tradingview` endpoint that
       ingests Pine **alert/strategy webhooks** → stores → surfaces in UI → exposes
       as an MCP tool so Alice sees TV signals. (b) Manual **Pine→Python** ports of
