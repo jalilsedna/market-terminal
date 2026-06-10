@@ -86,7 +86,8 @@ free 5/min limit, so it reuses the same `POLYGON_API_KEY`.
   errors). So adding any of those keys upgrades News automatically; removing them
   degrades gracefully.
 
-## Still open (B3)
-- **B3 — Commodity term-structure curves (GC/CL/NG):** yfinance 401s; only VIX
-  works. Needs a dedicated futures-curve source (Polygon-paid futures, or a
-  specialist like Barchart/CME).
+## B3 — Commodity term structure (GC/CL/NG)
+- **Source:** FMP `commodities-list` + `batch-commodity-quotes` (or EOD full on
+  historical dates). Requires `FMP_API_KEY`; VIX stays on OpenBB CBOE.
+- **Limitation:** FMP exposes listed contract months, not a dedicated CME curve
+  endpoint — sufficient for contango/backwardation research context.

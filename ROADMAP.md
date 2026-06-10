@@ -69,8 +69,9 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       tagged with macro themes + watchlist instruments, and **falls back to the
       free yfinance per-instrument proxy** when no key (or the wire errors). No
       config flip — add a key and it switches. CI-tested (`tests/test_news.py`).
-- [ ] **B3 — GC/CL/NG futures curves (V5).** yfinance 401s; only VIX works.
-      Needs another source for commodity term structure.
+- [x] **B3 — GC/CL/NG futures curves (V5).** FMP `commodities-list` + batch
+      quotes (`obb_layer/fmp_curve.py`); VIX unchanged on CBOE. Needs
+      `FMP_API_KEY`.
 - [~] **B4 — Provider reliability.** Shipped a configurable **EOD provider
       fallback chain** (`EOD_PROVIDERS`, `obb_layer/providers.py`): equity/ETF
       fetchers — incl. the sector-rotation 11-ETF fan-out + custom equity/ETF —

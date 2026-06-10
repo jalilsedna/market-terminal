@@ -58,6 +58,11 @@ _PATHS = {
     "ratings": "ratings-snapshot",
     "earnings": "earnings",
     "dividends": "dividends",
+    # I — commodities (term structure B3)
+    "commodities_list": "commodities-list",
+    "batch_commodity_quotes": "batch-commodity-quotes",
+    "commodity_eod_full": "historical-price-eod/full",
+    "commodity_quote": "quote",
 }
 
 
@@ -194,3 +199,31 @@ def earnings(symbol: str, limit: int = 8) -> Any:
 @cached("calendar")
 def dividends(symbol: str, limit: int = 4) -> Any:
     return _get(_PATHS["dividends"], symbol=symbol, limit=limit)
+
+
+# --- Commodities (B3 term structure) ---------------------------------------- #
+@cached("reference")
+def commodities_list() -> Any:
+    """All tradable commodity symbols with trade-month metadata."""
+    return _get(_PATHS["commodities_list"])
+
+
+@cached("quote")
+def batch_commodity_quotes() -> Any:
+    """Live quotes for all commodities (join against commodities_list)."""
+    return _get(_PATHS["batch_commodity_quotes"])
+
+
+@cached("quote")
+def commodity_quote(symbol: str) -> Any:
+    return _get(_PATHS["commodity_quote"], symbol=symbol)
+
+
+@cached("eod")
+def commodity_eod_full(symbol: str, *, from_: str | None = None, to: str | None = None) -> Any:
+    params: dict[str, Any] = {"symbol": symbol}
+    if from_ is not None:
+        params["from"] = from_
+    if to is not None:
+        params["to"] = to
+    return _get(_PATHS["commodity_eod_full"], **params)
