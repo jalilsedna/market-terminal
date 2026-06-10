@@ -61,9 +61,9 @@ async def lifespan(_app: FastAPI):
     # Quiet transient-failure noise from provider HTTP layers. Our services
     # already catch these and degrade the affected panel, but OpenBB's FRED
     # client dumps large asyncio tracebacks ("Future exception was never
-    # retrieved") and yfinance prints "possibly delisted" on any network blip /
-    # rate limit. Silence theirs; our own logs are untouched.
-    for _noisy in ("asyncio", "yfinance"):
+    # retrieved") on any network blip / rate limit. Silence theirs; our own logs
+    # are untouched.
+    for _noisy in ("asyncio",):
         logging.getLogger(_noisy).setLevel(logging.CRITICAL)
 
     from app.precache import start as start_precache

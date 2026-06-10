@@ -1,18 +1,11 @@
 """Provider fallback for EOD fetches (ROADMAP B4 — reliability).
 
-yfinance throttles / 401s often. Where a symbol is portable across providers
-(equity, ETF — e.g. AAPL, SPY), we try a configurable provider **chain**
-(`settings.eod_provider_chain`) until one returns data, so a single flaky
-provider falls back instead of degrading the panel.
+Where a symbol is portable across providers (equity, ETF, FX, crypto), we try a
+configurable provider **chain** (`settings.eod_provider_chain`) until one returns
+data. Default chain is FMP-first (`fmp,tiingo,polygon`).
 
-Safe by design: it tries each provider, skips failures, and uses the first that
-yields rows — so with the default chain (["yfinance"]) behaviour is unchanged, and
-adding e.g. "tiingo,yfinance" only *adds* resilience.
-
-Crypto/FX are also covered now (ROADMAP B-next): pass `asset="crypto"|"forex"`
-and each provider gets its own symbol format via `obb_layer/symbol_map.py`
-(e.g. our `BTC-USD` → Polygon `X:BTCUSD`, Tiingo `btcusd`). Futures keep yfinance
-(continuation-contract roots aren't portable). Equity/ETF pass through unmapped.
+Futures continuation symbols use direct FMP REST (`obb_layer/fmp_market.py`) —
+they are not in this chain.
 
 Pure except for the route it's handed, so the chain logic is unit-tested.
 """

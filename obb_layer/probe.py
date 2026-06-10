@@ -152,36 +152,36 @@ def build_probes(obb: Any) -> list[tuple[str, str, Callable[[], Any]]]:
     """The (label, SPEC-need, call) specs to probe. Free providers preferred."""
     probes: list[tuple[str, str, Callable[[], Any]]] = []
 
-    # --- Futures EOD (SPEC §3: futures price) ---
+    from obb_layer import market
+
+    # --- Futures EOD (SPEC §3: futures price) — FMP REST ---
     for _code, inst in INSTRUMENT_TEMPLATES.items():
         probes.append((
-            f"futures.historical {inst.yf_symbol}",
+            f"futures.historical {inst.futures_symbol}",
             "futures price (EOD)",
-            lambda s=inst.yf_symbol: obb.derivatives.futures.historical(
-                symbol=s, provider="yfinance"
-            ),
+            lambda s=inst.futures_symbol: market.futures_history(s),
         ))
 
-    # --- Spot/cash proxies (SPEC §3: FX + indices) ---
+    # --- Spot/cash proxies (SPEC §3: FX + indices) — EOD chain (FMP first) ---
     probes.append((
         "currency.historical EURUSD",
         "FX spot proxy (6E)",
-        lambda: obb.currency.price.historical(symbol="EURUSD", provider="yfinance"),
+        lambda: market.fx_history("EURUSD"),
     ))
     probes.append((
         "currency.historical GBPUSD",
         "FX spot proxy (6B)",
-        lambda: obb.currency.price.historical(symbol="GBPUSD", provider="yfinance"),
+        lambda: market.fx_history("GBPUSD"),
     ))
     probes.append((
         "index.historical ^NDX",
         "index cash proxy (NQ)",
-        lambda: obb.index.price.historical(symbol="^NDX", provider="yfinance"),
+        lambda: market.proxy_history("^NDX"),
     ))
     probes.append((
         "index.historical ^DJI",
         "index cash proxy (YM)",
-        lambda: obb.index.price.historical(symbol="^DJI", provider="yfinance"),
+        lambda: market.proxy_history("^DJI"),
     ))
 
     # --- COT / positioning (SPEC §3 / V4). Top-level `cftc` router in OpenBB

@@ -6,7 +6,6 @@ from obb_layer.symbol_map import map_symbol
 
 
 def test_crypto_mapping_per_provider():
-    assert map_symbol("crypto", "BTC-USD", "yfinance") == "BTC-USD"
     assert map_symbol("crypto", "BTC-USD", "polygon") == "X:BTCUSD"
     assert map_symbol("crypto", "BTC-USD", "tiingo") == "btcusd"
     assert map_symbol("crypto", "BTC-USD", "fmp") == "BTCUSD"
@@ -15,7 +14,6 @@ def test_crypto_mapping_per_provider():
 
 
 def test_forex_mapping_per_provider():
-    assert map_symbol("forex", "EURUSD", "yfinance") == "EURUSD"
     assert map_symbol("forex", "EURUSD", "polygon") == "C:EURUSD"
     assert map_symbol("forex", "EURUSD", "tiingo") == "eurusd"
     assert map_symbol("forex", "EURUSD", "fmp") == "EURUSD"
@@ -37,4 +35,4 @@ def test_unparseable_symbol_returns_none():
 def test_equity_and_etf_pass_through():
     assert map_symbol("equity", "AAPL", "tiingo") == "AAPL"
     assert map_symbol("etf", "SPY", "polygon") == "SPY"
-    assert map_symbol("", "AAPL", "yfinance") == "AAPL"
+    assert map_symbol("", "AAPL", "fmp") == "AAPL"

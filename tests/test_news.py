@@ -80,7 +80,7 @@ def test_feed_falls_back_to_proxy_without_key(clear_settings, monkeypatch, tmp_p
     config.get_settings.cache_clear()
     reg.add("equity", "AAPL")
 
-    def fake_company(symbol, provider="yfinance", limit=50):
+    def fake_company(symbol, provider="fmp", limit=50):
         return [{"title": f"{symbol} news", "url": f"u-{symbol}", "date": "2026-06-09"}]
 
     monkeypatch.setattr(obb_news, "company_news", fake_company)
@@ -103,7 +103,7 @@ def test_feed_falls_back_when_world_wire_errors(clear_settings, monkeypatch, tmp
     def boom(provider="fmp", limit=100):
         raise RuntimeError("402 paywalled")
 
-    def fake_company(symbol, provider="yfinance", limit=50):
+    def fake_company(symbol, provider="fmp", limit=50):
         return [{"title": f"{symbol} news", "url": f"u-{symbol}", "date": "2026-06-09"}]
 
     monkeypatch.setattr(obb_news, "world_news", boom)

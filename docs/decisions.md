@@ -74,7 +74,7 @@ no v2 exists. Bigger models don't fix daily price/direction (Rahimikia tested
 larger ones). ~55% FX is near the ceiling for this model class on daily bars.
 
 ### E.6 — Hourly FX test: also no lift
-Tested Kronos on **hourly** FX (its native cadence). Limitation: yfinance only
+Tested Kronos on **hourly** FX (its native cadence). Limitation: provider
 returns ~1 month of hourly (500 bars) — too shallow for a deep context. On that
 thin data, EURUSD hourly directional was **~47% (below coin)** — *worse* than
 daily's 60%, not better. Frequency was not the unlock (within free-data limits).
@@ -119,6 +119,6 @@ proven, defensible skill.
   GitHub Actions: a fast lint+test job and a full-stack import-smoke job so an
   OpenBB bump can't silently break a view. ruff-clean tree.
 - **Data caveat (B).** Forecasts (and views) are only as good as the input bars;
-  yfinance throttles, daily history is shallow (~1y default / ~2y intraday cap),
+  provider rate limits; daily history depth varies by asset and plan,
   and commodity curves 401. Trustworthy data (roadmap B) gates trustworthy
   forecasts.

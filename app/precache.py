@@ -76,7 +76,7 @@ def warm_all() -> None:
 
     Views are warmed *sequentially* — each view already fans out its own
     provider calls in parallel. Warming all six at once would multiply into
-    ~30+ simultaneous yfinance calls and trip Yahoo's rate limiting (seen as
+    ~30+ simultaneous provider calls and trip rate limiting (seen as
     news returning EmptyDataError for every ticker); one view at a time keeps
     the burst bounded while staying fast.
     """

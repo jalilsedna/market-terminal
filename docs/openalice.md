@@ -133,6 +133,9 @@ signals. The agent interprets them; the terminal only reports.
 `cot_search`, `term_structure`, `sector_rotation`, `market_movers` (whole-market
 gainers/losers/most-active via Flat Files), `market_news`.
 
+**Data provider:** all market prices, news, and fundamentals flow through **FMP**
+(`FMP_API_KEY` on the terminal). Yahoo Finance is not used.
+
 **Fundamentals brain (2):** `fundamentals` (per-stock FMP: profile, valuation,
 quality scores, growth, DCF, analyst, earnings, peers) and `brain_verdict` (the
 **synthesized conviction** — bottom-up fundamentals fused with the top-down macro

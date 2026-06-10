@@ -15,11 +15,11 @@ from dataclasses import dataclass
 class InstrumentTemplate:
     code: str           # shorthand (e.g. "6E") when applicable
     name: str
-    yf_symbol: str      # yfinance continuation symbol (futures)
+    futures_symbol: str  # CME continuation symbol (e.g. GC=F)
     proxy_symbol: str   # spot/cash proxy to sanity-check the futures series
     proxy_name: str
     cot_code: str       # CFTC contract market code (futures COT)
-    news_symbol: str    # liquid ETF proxy for free yfinance news
+    news_symbol: str    # liquid ETF proxy for FMP company news
     tv_symbol: str      # TradingView continuous-futures symbol
 
 
@@ -41,7 +41,7 @@ def template_for(asset: str, symbol: str) -> dict:
     sym = symbol.strip().upper()
     asset = (asset or "").lower().strip()
     for t in INSTRUMENT_TEMPLATES.values():
-        if asset == "futures" and sym in (t.code, t.yf_symbol.upper(), t.yf_symbol.upper().replace("=F", "")):
+        if asset == "futures" and sym in (t.code, t.futures_symbol.upper(), t.futures_symbol.upper().replace("=F", "")):
             return {
                 "code": t.code,
                 "name": t.name,
@@ -51,7 +51,7 @@ def template_for(asset: str, symbol: str) -> dict:
                 "proxy_name": t.proxy_name,
                 "tv_symbol": t.tv_symbol,
             }
-        if t.code == sym or t.yf_symbol.upper() == sym:
+        if t.code == sym or t.futures_symbol.upper() == sym:
             return {
                 "code": t.code,
                 "name": t.name,

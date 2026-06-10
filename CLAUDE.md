@@ -69,7 +69,7 @@ config.py   loads keys/settings from .env
 - Treat every number as research context, not a trade trigger. Label data
   freshness explicitly.
 - Keep symbol mapping in explicit config maps, never scattered literals: the
-  futures map (`obb_layer/symbols.py` — CME ↔ yfinance ↔ spot proxy ↔ TradingView)
+  futures map (`obb_layer/symbols.py` — CME ↔ FMP ↔ spot proxy ↔ TradingView)
   and the per-provider crypto/FX formats (`obb_layer/symbol_map.py`).
 - Provider reliability is a chain: equity/ETF and crypto/FX fetchers fall back
   across `EOD_PROVIDERS` (`obb_layer/providers.py`); add new providers there.

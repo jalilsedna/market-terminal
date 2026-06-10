@@ -129,8 +129,8 @@ def search(asset: str, query: str = "", *, limit: int = 25) -> list[dict]:
     if asset == "futures":
         seen_sym: set[str] = set()
         for t in INSTRUMENT_TEMPLATES.values():
-            if _match(q, t.yf_symbol, t.name) or _match(q, t.code, t.name):
-                sym = t.yf_symbol
+            if _match(q, t.futures_symbol, t.name) or _match(q, t.code, t.name):
+                sym = t.futures_symbol
                 if sym not in seen_sym:
                     out.append(_hit(sym, t.name, "futures"))
                     seen_sym.add(sym)

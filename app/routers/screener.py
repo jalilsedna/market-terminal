@@ -26,9 +26,9 @@ def sectors() -> Envelope:
     try:
         data = screener.sector_rotation()
     except Exception as exc:  # noqa: BLE001 — total failure → degraded envelope
-        return Envelope(ok=False, provider="yfinance", freshness=_FRESHNESS,
+        return Envelope(ok=False, provider="fmp", freshness=_FRESHNESS,
                         error=f"{type(exc).__name__}: {exc}"[:200])
-    return Envelope(data=data, provider="yfinance", freshness=_FRESHNESS)
+    return Envelope(data=data, provider="fmp", freshness=_FRESHNESS)
 
 
 @router.get("/movers", response_model=Envelope)
@@ -59,7 +59,7 @@ def screen(
     volume_min: float | None = Query(None),
     limit: int = Query(50, ge=1, le=500),
 ) -> Envelope:
-    """Run the yfinance equity screener with the given filters."""
+    """Run the FMP equity screener with the given filters."""
     try:
         data = screener.run_screen(
             sector=sector, industry=industry, exchange=exchange,
@@ -68,6 +68,6 @@ def screen(
             volume_min=volume_min, limit=limit,
         )
     except Exception as exc:  # noqa: BLE001 — provider failure → degraded envelope
-        return Envelope(ok=False, provider="yfinance", freshness=_FRESHNESS,
+        return Envelope(ok=False, provider="fmp", freshness=_FRESHNESS,
                         error=f"{type(exc).__name__}: {exc}"[:200])
-    return Envelope(data=data, provider="yfinance", freshness=_FRESHNESS)
+    return Envelope(data=data, provider="fmp", freshness=_FRESHNESS)

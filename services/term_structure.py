@@ -15,13 +15,12 @@ from typing import Any
 
 from obb_layer import term_structure as ts
 
-# code -> (display name, curve symbol, provider). GC + energy via yfinance; the
-# VIX fear gauge via cboe (SPEC §4 V5).
+# code -> (display name, curve symbol, provider). GC + energy via FMP; VIX via cboe.
 CURVE_SPECS: dict[str, tuple[str, str, str]] = {
-    "GC": ("Gold (GC=F)", "GC=F", "yfinance"),
-    "CL": ("WTI Crude (CL=F)", "CL=F", "yfinance"),
-    "NG": ("Natural Gas (NG=F)", "NG=F", "yfinance"),
-    "VIX": ("VIX (fear gauge)", "VX_EOD", "cboe"),  # cboe accepts VX_EOD / VX_AM
+    "GC": ("Gold (GC)", "GC", "fmp"),
+    "CL": ("WTI Crude (CL)", "CL", "fmp"),
+    "NG": ("Natural Gas (NG)", "NG", "fmp"),
+    "VIX": ("VIX (fear gauge)", "VX_EOD", "cboe"),
 }
 
 

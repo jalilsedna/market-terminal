@@ -37,7 +37,7 @@ def instruments_dashboard() -> Envelope:
     """Full dashboard: prices, changes, vol/regime per instrument."""
     from services import watchlist as wl
 
-    return Envelope(data=wl.watchlist(), provider="yfinance", freshness=_FRESHNESS)
+    return Envelope(data=wl.watchlist(), provider="fmp", freshness=_FRESHNESS)
 
 
 @router.post("", response_model=Envelope)

@@ -2,7 +2,7 @@
 
 The views aggregate many independent, network-bound provider calls (per
 instrument, per sector ETF, per news ticker). Running them sequentially is slow
-(yfinance is several seconds per call); since they're I/O-bound, a thread pool
+(EOD fetches are several seconds per call); since they're I/O-bound, a thread pool
 overlaps the waits. Workers are capped to stay friendly to provider rate limits.
 """
 
@@ -15,7 +15,7 @@ from typing import TypeVar
 T = TypeVar("T")
 R = TypeVar("R")
 
-# Conservative cap: free providers (yfinance especially) throttle bursts, so a
+# Conservative cap: providers throttle bursts, so a
 # gentle degree of parallelism overlaps the I/O waits without tripping limits.
 MAX_WORKERS = 4
 

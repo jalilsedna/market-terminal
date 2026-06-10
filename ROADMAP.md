@@ -66,25 +66,24 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
 - [x] **B2 — World news.** The News feed now **auto-upgrades to a real world wire**
       (`news.world`) when a news-provider key is set — FMP / Benzinga / Tiingo /
       Intrinio, picked in that priority order (`services/news.py:_world_provider`),
-      tagged with macro themes + watchlist instruments, and **falls back to the
-      free yfinance per-instrument proxy** when no key (or the wire errors). No
+      tagged with macro themes + watchlist instruments, and **falls back to FMP
+      per-instrument company news** when no world wire (or the wire errors). No
       config flip — add a key and it switches. CI-tested (`tests/test_news.py`).
-- [ ] **B3 — GC/CL/NG futures curves (V5).** yfinance 401s; only VIX works.
-      Needs another source for commodity term structure.
+- [x] **B3 — GC/CL/NG futures curves (V5).** FMP `commodities-list` + batch
+      quotes (`obb_layer/fmp_curve.py`); VIX unchanged on CBOE. Needs
+      `FMP_API_KEY`.
 - [~] **B4 — Provider reliability.** Shipped a configurable **EOD provider
       fallback chain** (`EOD_PROVIDERS`, `obb_layer/providers.py`): equity/ETF
       fetchers — incl. the sector-rotation 11-ETF fan-out + custom equity/ETF —
-      try each provider until one returns data, so a yfinance throttle falls back
-      (add a free Tiingo key + `EOD_PROVIDERS=tiingo,yfinance`). Safe-by-default
-      (chain = yfinance, unchanged); `/health` shows the chain. See
-      `docs/data-providers.md`.
+      try each provider until one returns data (`EOD_PROVIDERS=fmp,tiingo,polygon`
+      by default). `/health` shows the chain. See `docs/data-providers.md`.
 - [x] **B-next — Crypto/FX in the fallback chain.** A per-provider
       **symbol-mapping layer** (`obb_layer/symbol_map.py`) rewrites the canonical
       symbol for each provider (`BTC-USD` → Polygon `X:BTCUSD` / Tiingo `btcusd`;
       `EURUSD` → Polygon `C:EURUSD`), so `crypto_history`/`fx_history` now ride the
       same `eod_with_fallback` chain as equity/ETF (unmapped providers are
-      skipped). Pure + CI-tested (`tests/test_symbol_map.py`). Futures stay
-      yfinance (continuation roots aren't portable).
+      skipped). Pure + CI-tested (`tests/test_symbol_map.py`). Futures use
+      direct FMP REST (`obb_layer/fmp_market.py`).
 
 ## C. Skeleton → product
 - [x] **C1 — Tests + CI.** `tests/` covers the auth gate (session/token/expiry +

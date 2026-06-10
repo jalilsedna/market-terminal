@@ -1,7 +1,7 @@
 """News Feed — merged headlines tagged to tracked instruments.
 
-World wire when a news-provider key is set; otherwise free per-instrument
-yfinance company news on symbols in the registry. Services never import OpenBB directly.
+World wire when a news-provider key is set; otherwise per-instrument FMP company
+news on symbols in the registry. Services never import OpenBB directly.
 """
 
 from __future__ import annotations
@@ -185,7 +185,7 @@ def _proxy_feed(limit: int, targets: dict[str, reg.TrackedInstrument], provider:
     }
 
 
-def feed(*, limit: int = 50, instrument: str | None = None, provider: str = "yfinance") -> dict:
+def feed(*, limit: int = 50, instrument: str | None = None, provider: str = "fmp") -> dict:
     """Merged, tagged, deduped news feed (newest first)."""
     if instrument:
         inst = reg.resolve(instrument)

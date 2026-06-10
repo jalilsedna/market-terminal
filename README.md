@@ -139,7 +139,7 @@ so an OpenBB bump can't silently break a panel.
 ## Secrets
 
 All keys live in `.env`, which is **gitignored and never committed** (only
-read-only data-provider keys belong here). Start on free providers (yfinance,
-fred, cftc, …) — no keys required. Add paid keys (FMP, Benzinga, …) only when a
-view needs them. Do not depend on OpenBB Hub. On Railway, the same variables are
+read-only data-provider keys belong here). **FMP** is the primary market-data key
+(`FMP_API_KEY`). Free macro/COT (FRED, CFTC) need no key. Add Tiingo/Polygon/
+Benzinga keys only when you want extra resilience or features. Do not depend on OpenBB Hub. On Railway, the same variables are
 set in the service's environment, never in the repo.

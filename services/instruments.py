@@ -137,7 +137,7 @@ def seed_defaults() -> int:
         tmpl = INSTRUMENT_TEMPLATES.get(code)
         if not tmpl:
             continue
-        add("futures", tmpl.yf_symbol, tmpl.name)
+        add("futures", tmpl.futures_symbol, tmpl.name)
         added += 1
     return added
 

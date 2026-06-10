@@ -1,25 +1,19 @@
 """Per-provider symbol mapping (ROADMAP B-next).
 
-Equity/ETF tickers are portable across providers (AAPL is AAPL everywhere), so
-the B4 fallback chain worked for them directly. Crypto and FX are not: the same
-pair is written differently per provider, e.g. our canonical `BTC-USD` is
-`X:BTCUSD` on Polygon, `btcusd` on Tiingo; `EURUSD` is `C:EURUSD` on Polygon.
+Equity/ETF tickers are portable across providers (AAPL is AAPL everywhere). Crypto
+and FX are not: the same pair is written differently per provider, e.g. our
+canonical `BTC-USD` is `X:BTCUSD` on Polygon, `btcusd` on Tiingo, `BTCUSD` on FMP.
 
 This module is the **one explicit place** that translates our canonical symbol
 into each provider's format (CLAUDE.md: keep symbol mapping in one map, not
-scattered literals), so the fallback chain can be extended to crypto/FX. Pure —
-unit-tested in CI.
-
-`map_symbol(asset, symbol, provider)` returns the provider-specific symbol, or
-`None` when we don't have a mapping for that provider (the caller then skips it
-rather than sending a malformed symbol).
+scattered literals).
 """
 
 from __future__ import annotations
 
 # Providers we know how to address for crypto/FX. Anything else → skip (None).
-_CRYPTO_PROVIDERS = {"yfinance", "polygon", "tiingo", "fmp"}
-_FX_PROVIDERS = {"yfinance", "polygon", "tiingo", "fmp"}
+_CRYPTO_PROVIDERS = {"polygon", "tiingo", "fmp"}
+_FX_PROVIDERS = {"polygon", "tiingo", "fmp"}
 
 
 def _split_crypto(symbol: str) -> tuple[str, str] | None:
@@ -58,7 +52,6 @@ def map_symbol(asset: str, symbol: str, provider: str) -> str | None:
             return None
         base, quote = parts
         return {
-            "yfinance": f"{base}-{quote}",
             "polygon": f"X:{base}{quote}",
             "tiingo": f"{base}{quote}".lower(),
             "fmp": f"{base}{quote}",
@@ -72,7 +65,6 @@ def map_symbol(asset: str, symbol: str, provider: str) -> str | None:
             return None
         base, quote = parts
         return {
-            "yfinance": f"{base}{quote}",
             "polygon": f"C:{base}{quote}",
             "tiingo": f"{base}{quote}".lower(),
             "fmp": f"{base}{quote}",
