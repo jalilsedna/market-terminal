@@ -224,6 +224,18 @@ def brain_verdict(ticker: str) -> dict:
 
 
 @mcp.tool()
+def brain_screen(symbols: str | None = None, limit: int = 25) -> dict:
+    """Rank the terminal's **conviction** across a universe. Pass comma-separated
+    `symbols` (e.g. 'AAPL,MSFT,NVDA'), or omit to screen every tracked
+    fundamentals-capable instrument (equities/ETFs in the registry). Shares one
+    macro-regime read; returns compact rows sorted best→worst (constructive →
+    cautious). Use `brain_verdict` for one ticker's full breakdown. Research
+    synthesis, never a trade trigger."""
+    syms = [s for s in (symbols or "").split(",") if s.strip()] or None
+    return _safe(brain_svc.screen, symbols=syms, limit=limit)
+
+
+@mcp.tool()
 def tradingview_signals(limit: int = 50) -> dict:
     """Recent **TradingView** strategy/alert signals received via webhook (ticker,
     action, price, message; newest first). These are your TradingView Pine alerts

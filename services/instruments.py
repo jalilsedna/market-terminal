@@ -11,10 +11,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from obb_layer.symbols import template_for
+from obb_layer.symbols import INSTRUMENT_TEMPLATES, template_for
 from services import custom_store
 
 ASSET_CLASSES = custom_store.VALID_ASSETS
+
+# Reference futures seeded on first boot so the terminal isn't blank out of the
+# box (COT / term-structure / vol have something to read). Users can remove any
+# of them; the seed only runs when the registry is completely empty, so a
+# deliberate "remove all" survives a restart only until the registry empties.
+DEFAULT_SEED = ("6E", "6B", "GC", "NQ", "YM")
 
 # Per-asset capabilities (panels degrade when data unavailable).
 _BASE_CAPS: dict[str, set[str]] = {
@@ -116,6 +122,24 @@ def add(asset: str, symbol: str, label: str | None = None, meta: dict | None = N
 
 def remove(item_id: str) -> bool:
     return custom_store.remove(item_id)
+
+
+def seed_defaults() -> int:
+    """Seed the reference futures iff the registry is empty. Returns count added.
+
+    Idempotent and safe to call on every startup: it no-ops the moment there is
+    at least one tracked instrument, so user-added/removed state is preserved.
+    """
+    if custom_store.list_items():
+        return 0
+    added = 0
+    for code in DEFAULT_SEED:
+        tmpl = INSTRUMENT_TEMPLATES.get(code)
+        if not tmpl:
+            continue
+        add("futures", tmpl.yf_symbol, tmpl.name)
+        added += 1
+    return added
 
 
 def news_wire_targets() -> dict[str, TrackedInstrument]:

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services import analysis, fundamentals
+from services import analysis, fundamentals, instruments
 
 _VAL = {"cheap": 1, "fair": 0, "expensive": -1}
 _QUAL = {"strong": 1, "mixed": 0, "weak": -1}
@@ -64,20 +64,25 @@ def _summarize(symbol: str, conviction: str, labels: dict, read_verdict: str | N
     return line
 
 
-def verdict(symbol: str) -> dict:
-    """Fuse bottom-up fundamentals + top-down macro into one conviction result."""
+def _macro_regime() -> str | None:
+    try:
+        return (analysis.regime() or {}).get("regime")
+    except Exception:  # noqa: BLE001 — macro is one input; degrade without it
+        return None
+
+
+def _build(symbol: str, regime_label: str | None, *, include_fundamentals: bool) -> dict:
+    """Core synthesis for one symbol given an already-resolved macro regime.
+
+    Pulled out of `verdict()` so `screen()` can compute the macro regime once and
+    reuse it across the whole universe instead of re-deriving it per ticker.
+    """
     symbol = symbol.upper().strip()
     fund = fundamentals.dashboard(symbol)  # bottom-up (fault-tolerant inside)
     read = fund.get("read") or {}
     labels = read.get("labels") or {}
     flags = list(read.get("flags") or [])
     analyst_upside = (fund.get("analyst") or {}).get("upside")
-
-    try:
-        reg = analysis.regime()
-    except Exception:  # noqa: BLE001 — macro is one input; degrade without it
-        reg = {}
-    regime_label = reg.get("regime")
 
     bottom_up, analyst_pt = _score(labels, analyst_upside)
     macro = _macro_lean(regime_label)
@@ -89,7 +94,7 @@ def verdict(symbol: str) -> dict:
     if not has_fundamentals and analyst_upside is None:
         conviction = "insufficient"
 
-    return {
+    out = {
         "symbol": symbol,
         "conviction": conviction,
         "score": total,
@@ -102,6 +107,60 @@ def verdict(symbol: str) -> dict:
         },
         "flags": flags,
         "summary": _summarize(symbol, conviction, labels, read.get("verdict"), regime_label, flags),
-        "fundamentals": fund,
         "disclaimer": "Synthesized research conviction (fundamentals + macro) — not advice or a trade trigger.",
+    }
+    if include_fundamentals:
+        out["fundamentals"] = fund
+    return out
+
+
+def verdict(symbol: str) -> dict:
+    """Fuse bottom-up fundamentals + top-down macro into one conviction result."""
+    return _build(symbol, _macro_regime(), include_fundamentals=True)
+
+
+# Conviction ordering for ranking (best → worst); errors/insufficient sink.
+_RANK = {"constructive": 3, "neutral": 2, "cautious": 1, "insufficient": 0, "error": -1}
+
+
+def screen(symbols: list[str] | None = None, limit: int = 25) -> dict:
+    """Rank conviction across a universe.
+
+    With `symbols`, screens exactly those tickers. Without, screens every tracked
+    instrument that supports fundamentals (equities/ETFs in the registry). The
+    macro regime is computed once and shared. Rows are compact (no nested
+    fundamentals payload) — call `verdict()` for the full per-ticker breakdown.
+    """
+    if symbols:
+        tickers = [s.upper().strip() for s in symbols if s and s.strip()]
+    else:
+        tickers = [
+            i.symbol.upper()
+            for i in instruments.list_all()
+            if i.capabilities().get("fundamentals")
+        ]
+    # De-dupe while preserving order.
+    seen: set[str] = set()
+    tickers = [t for t in tickers if not (t in seen or seen.add(t))]
+
+    regime_label = _macro_regime()
+    rows: list[dict] = []
+    for ticker in tickers:
+        try:
+            rows.append(_build(ticker, regime_label, include_fundamentals=False))
+        except Exception as exc:  # noqa: BLE001 — one bad symbol must not sink the screen
+            rows.append({
+                "symbol": ticker,
+                "conviction": "error",
+                "score": None,
+                "error": f"{type(exc).__name__}: {exc}"[:160],
+            })
+
+    rows.sort(key=lambda r: (_RANK.get(r.get("conviction"), -1), r.get("score") or -99), reverse=True)
+    return {
+        "regime": regime_label,
+        "count": len(rows),
+        "universe": "explicit" if symbols else "registry",
+        "ranked": rows[: max(1, limit)],
+        "disclaimer": "Synthesized research conviction ranking (fundamentals + macro) — not advice or a trade trigger.",
     }

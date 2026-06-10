@@ -860,14 +860,42 @@ function renderFundamentals(env) {
     + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || fd.disclaimer || "")}</div>` + errs;
 }
 
+function renderBrainScreen(env) {
+  const d = env.data || {};
+  const rows = d.ranked || [];
+  if (!rows.length) return `<div class="sub dim">No fundamentals-capable instruments tracked. Add equities/ETFs in Watchlist, or screen explicit tickers above.</div>`;
+  const head = `<div class="sub" style="margin-bottom:6px">${rows.length} ranked · ${esc(d.universe || "")} universe · regime ${esc(d.regime || "—")}</div>`;
+  const body = rows.map((r) => {
+    const conv = r.conviction || "—";
+    const drivers = r.components
+      ? `<span class="dim">bu ${num(r.components.bottom_up, 0)} · an ${num(r.components.analyst, 0)} · mac ${num(r.components.macro, 0)}</span>`
+      : (r.error ? `<span class="dim">${esc(r.error)}</span>` : "");
+    return `<tr>
+      <td><b>${esc(r.symbol)}</b></td>
+      <td><span class="pill ${_CONV_CLASS[conv] || ""}">${esc(String(conv).toUpperCase())}</span></td>
+      <td style="text-align:right">${r.score == null ? "—" : num(r.score, 0)}</td>
+      <td class="sub">${esc(r.summary || "")} ${drivers}</td>
+    </tr>`;
+  }).join("");
+  return head + `<table style="margin-top:6px"><thead><tr><th>Symbol</th><th>Conviction</th><th style="text-align:right">Score</th><th>Read</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
 async function loadFundamentals() {
   const sec = $("#view-fundamentals");
-  sec.innerHTML = panel("Fundamentals — enter a ticker", `
-    <div class="addbar">
-      <input id="fund-input" class="inp" placeholder="ticker (e.g. AAPL, MSFT, NVDA)" value="AAPL" />
-      <button id="fund-go" class="btn">Load</button>
-    </div>
-    <div id="fund-body" style="margin-top:12px"></div>`);
+  sec.innerHTML =
+    panel("Brain Screen — rank conviction", `
+      <div class="addbar">
+        <input id="scr-input" class="inp" placeholder="tickers e.g. AAPL,MSFT,NVDA (blank = tracked equities/ETFs)" />
+        <button id="scr-go" class="btn">Screen</button>
+      </div>
+      <div id="scr-body" style="margin-top:12px"><div class="sub dim">Run a screen to rank the universe by conviction.</div></div>`)
+    + panel("Stock Brain — enter a ticker", `
+      <div class="addbar">
+        <input id="fund-input" class="inp" placeholder="ticker (e.g. AAPL, MSFT, NVDA)" value="AAPL" />
+        <button id="fund-go" class="btn">Load</button>
+      </div>
+      <div id="fund-body" style="margin-top:12px"></div>`);
+
   const body = $("#fund-body");
   const go = async () => {
     const t = ($("#fund-input").value || "").trim().toUpperCase();
@@ -881,6 +909,21 @@ async function loadFundamentals() {
   };
   $("#fund-go").addEventListener("click", go);
   $("#fund-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+
+  const scrBody = $("#scr-body");
+  const screen = async () => {
+    const syms = ($("#scr-input").value || "").trim();
+    scrBody.innerHTML = `<div class="loading">Screening…</div>`;
+    try {
+      const q = syms ? "?symbols=" + encodeURIComponent(syms) : "";
+      const env = await fetchJSON("/brain/screen" + q);
+      if (env.ok === false) { scrBody.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      scrBody.innerHTML = renderBrainScreen(env);
+    } catch (e) { scrBody.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#scr-go").addEventListener("click", screen);
+  $("#scr-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") screen(); });
+
   go();
 }
 

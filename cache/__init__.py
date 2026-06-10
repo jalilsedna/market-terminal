@@ -23,4 +23,6 @@ TTL_SECONDS = {
     "fundamentals": 24 * 60 * 60,
     "estimates": 12 * 60 * 60,
     "calendar": 6 * 60 * 60,
+    # Static reference data (e.g. the Alpaca asset catalog) — rarely changes.
+    "reference": 24 * 60 * 60,
 }

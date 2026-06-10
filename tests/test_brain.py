@@ -71,3 +71,67 @@ def test_verdict_degrades_when_macro_fails(monkeypatch):
     v = brain.verdict("AAPL")
     assert v["components"]["macro"] == 0  # macro input failed → 0, brain still produces a result
     assert v["conviction"] == "constructive"  # bottom-up 3 alone
+
+
+def _fund(labels, upside):
+    return lambda s: {"symbol": s, "read": {"verdict": "x", "labels": labels, "flags": []}, "analyst": {"upside": upside}}
+
+
+def test_screen_explicit_symbols_ranked(monkeypatch):
+    from services import analysis, brain, fundamentals
+
+    reads = {
+        "AAPL": ({"valuation": "cheap", "quality": "strong", "growth": "growing"}, 0.2),
+        "XYZ": ({"valuation": "expensive", "quality": "weak", "growth": "declining"}, -0.2),
+    }
+    monkeypatch.setattr(fundamentals, "dashboard",
+                        lambda s: _fund(*reads[s.upper()])(s))
+    monkeypatch.setattr(analysis, "regime", lambda: {"regime": "risk-on"})
+
+    out = brain.screen(symbols=["aapl", "xyz"])
+    assert out["count"] == 2 and out["universe"] == "explicit"
+    ranked = out["ranked"]
+    assert ranked[0]["symbol"] == "AAPL" and ranked[0]["conviction"] == "constructive"
+    assert ranked[-1]["symbol"] == "XYZ" and ranked[-1]["conviction"] == "cautious"
+    # Compact rows: no nested fundamentals payload in a screen.
+    assert "fundamentals" not in ranked[0]
+
+
+def test_screen_registry_universe_filters_to_fundamentals(monkeypatch):
+    from services import analysis, brain, fundamentals, instruments
+
+    class _Inst:
+        def __init__(self, symbol, fund):
+            self.symbol = symbol
+            self._fund = fund
+
+        def capabilities(self):
+            return {"fundamentals": self._fund}
+
+    monkeypatch.setattr(instruments, "list_all",
+                        lambda: [_Inst("AAPL", True), _Inst("GC=F", False)])
+    monkeypatch.setattr(fundamentals, "dashboard",
+                        lambda s: _fund({"valuation": "cheap", "quality": "strong", "growth": "growing"}, 0.2)(s))
+    monkeypatch.setattr(analysis, "regime", lambda: {"regime": "risk-on"})
+
+    out = brain.screen()
+    assert out["universe"] == "registry"
+    assert [r["symbol"] for r in out["ranked"]] == ["AAPL"]  # futures excluded
+
+
+def test_screen_bad_symbol_does_not_sink(monkeypatch):
+    from services import analysis, brain, fundamentals
+
+    def dash(s):
+        if s.upper() == "BAD":
+            raise RuntimeError("provider blew up")
+        return _fund({"valuation": "cheap", "quality": "strong", "growth": "growing"}, 0.2)(s)
+
+    monkeypatch.setattr(fundamentals, "dashboard", dash)
+    monkeypatch.setattr(analysis, "regime", lambda: {"regime": "risk-on"})
+
+    out = brain.screen(symbols=["AAPL", "BAD"])
+    by = {r["symbol"]: r for r in out["ranked"]}
+    assert by["AAPL"]["conviction"] == "constructive"
+    assert by["BAD"]["conviction"] == "error"
+    assert by["AAPL"]["score"] > (by["BAD"]["score"] or -99)  # errors sink to the bottom
