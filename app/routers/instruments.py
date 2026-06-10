@@ -74,16 +74,16 @@ def search_instruments(
         raise HTTPException(status_code=400, detail=f"unknown asset {asset!r}")
 
     results = symbol_search.search(asset, query, limit=limit)
-    provider = "alpaca" if asset in ("equity", "etf") else "catalog"
-    if asset in ("equity", "etf") and not get_settings().alpaca_enabled:
-        return Envelope(
-            ok=False,
-            data={"results": [], "query": query, "asset": asset},
-            error="Alpaca not configured — set ALPACA_API_KEY and ALPACA_API_SECRET",
-            freshness=_FRESHNESS,
+    if asset in ("equity", "etf"):
+        provider = "alpaca+catalog" if get_settings().alpaca_enabled else "catalog"
+        note = None if get_settings().alpaca_enabled else (
+            "Alpaca not configured — showing curated symbols; set ALPACA_API_KEY for full US universe"
         )
+    else:
+        provider = "catalog"
+        note = None
     return Envelope(
-        data={"results": results, "query": query, "asset": asset},
+        data={"results": results, "query": query, "asset": asset, "note": note},
         provider=provider,
         freshness=_FRESHNESS,
     )

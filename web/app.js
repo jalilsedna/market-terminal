@@ -509,11 +509,14 @@ async function _acSearchHits(assets, query) {
       badge: "tracked",
     });
   }
+  let searchNote = "";
   for (const asset of assets) {
     try {
       const r = await fetchJSON(
         "/instruments/search?asset=" + encodeURIComponent(asset) + "&query=" + encodeURIComponent(q) + "&limit=20"
       );
+      if (r.ok === false && r.error) searchNote = r.error;
+      if ((r.data || {}).note) searchNote = r.data.note;
       for (const h of (r.data || {}).results || []) {
         const sym = (h.symbol || "").toUpperCase();
         if (seen.has(sym)) continue;
@@ -526,7 +529,12 @@ async function _acSearchHits(assets, query) {
           badge: "catalog",
         });
       }
-    } catch (e) { /* degrade */ }
+    } catch (e) {
+      searchNote = e.message || "search failed";
+    }
+  }
+  if (!out.length && searchNote) {
+    return [{ _error: searchNote }];
   }
   return out.slice(0, 25);
 }
@@ -566,6 +574,11 @@ function _bindInstrumentAutocomplete(opts) {
   const render = () => {
     if (!hits.length) {
       list.innerHTML = '<div class="ac-empty">no matches — check spelling or add in Registry</div>';
+      show();
+      return;
+    }
+    if (hits[0]._error) {
+      list.innerHTML = `<div class="ac-empty err">${esc(hits[0]._error)}</div>`;
       show();
       return;
     }
