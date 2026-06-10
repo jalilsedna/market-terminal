@@ -776,7 +776,7 @@ function renderFundamentals(env) {
     ${flags ? `<div style="margin-top:6px">${flags}</div>` : ""}`) : "";
 
   const valuation = panel("Valuation", `<div class="tiles">
-    ${_fundTile("P/E", num(v.pe, 1))}${_fundTile("P/S", num(v.ps, 1))}${_fundTile("P/B", num(v.pb, 1))}
+    ${_fundTile("P/E", num(v.pe, 1), v.pe_median != null ? "5y med " + num(v.pe_median, 0) : "")}${_fundTile("P/S", num(v.ps, 1))}${_fundTile("P/B", num(v.pb, 1))}
     ${_fundTile("EV/EBITDA", num(v.ev_ebitda, 1))}${_fundTile("Div yield", _pctv(v.dividend_yield))}
     ${_fundTile("FCF yield", _pctv(v.fcf_yield))}</div>`);
 
