@@ -71,9 +71,22 @@ free 5/min limit, so it reuses the same `POLYGON_API_KEY`.
   give the same daily data in bulk but are **paid-tier** (free keys can list the
   bucket but not download), so we use the free Grouped Daily endpoint instead.
 
-## Still open (B1–B3)
-- **B1 — Economic calendar:** paywalled on FMP free; V1's calendar is degraded.
-- **B2 — World news:** FMP free paywalled; worked around with per-instrument
-  yfinance news.
+## News & calendar — unlock with a paid news/fundamentals key
+
+- **FMP (recommended):** a paid **FMP** key (`FMP_API_KEY`) unlocks two things with
+  no code change:
+  - **B1 — economic calendar:** `obb_layer.economic_calendar` already requests
+    `provider="fmp"`; the free tier 402s (degraded panel), a paid key fills it.
+  - **B2 — world news:** the News feed **auto-upgrades** to a real `news.world`
+    wire when a news key is present.
+- **News provider auto-selection:** `services/news.py` picks the first configured
+  provider in priority order — **FMP → Benzinga → Tiingo → Intrinio** — tags each
+  headline with macro themes + the watchlist instruments mentioned, and **falls
+  back to the free yfinance per-instrument proxy** when no key is set (or the wire
+  errors). So adding any of those keys upgrades News automatically; removing them
+  degrades gracefully.
+
+## Still open (B3)
 - **B3 — Commodity term-structure curves (GC/CL/NG):** yfinance 401s; only VIX
-  works. Needs a futures-curve source.
+  works. Needs a dedicated futures-curve source (Polygon-paid futures, or a
+  specialist like Barchart/CME).

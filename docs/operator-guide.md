@@ -44,7 +44,9 @@ Set in Railway → **Variables** (mirror locally in `.env`, which is gitignored)
 | `REGISTRATION_OPEN` | open `/register` self-signup | default **false** — admin creates users instead |
 | `PUBLIC_BASE_URL` | informational (docs / Alice config) | `https://<app>.up.railway.app` |
 | `PRECACHE_INTERVAL_MIN` | cache-warm + snapshot cadence | `0` disables the scheduler |
-| `FRED_API_KEY`, `FMP_API_KEY`, … | optional provider keys | **read-only data keys only** |
+| `FRED_API_KEY` | Macro tiles + Dollar/FX (free key) | unset → those panels degrade |
+| `FMP_API_KEY` | unlocks the economic **calendar** + a real **world-news** wire | paid; News auto-upgrades when set |
+| `BENZINGA_API_KEY` / `TIINGO_API_KEY` / … | optional provider keys | **read-only data keys only** |
 
 Do **not** set `HOST`/`PORT` — Railway injects `$PORT`. Never put broker /
 trade / withdrawal keys here; this service is research-only.

@@ -60,10 +60,15 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       Railway volume for watchlist persistence — see C2.)
 
 ## B. Data / provider gaps (documented, still open)
-- [ ] **B1 — Economic calendar.** Paywalled on FMP free tier; V1's calendar
-      panel is degraded. Needs a paid provider or alternative source.
-- [ ] **B2 — World news.** FMP free is paywalled; worked around with
-      per-instrument yfinance. Functional but not true world news.
+- [x] **B1 — Economic calendar.** `obb_layer.economic_calendar` already requests
+      `provider="fmp"`, so a **paid FMP key unlocks the calendar** with no code
+      change (free tier 402s → degraded panel). Set `FMP_API_KEY`.
+- [x] **B2 — World news.** The News feed now **auto-upgrades to a real world wire**
+      (`news.world`) when a news-provider key is set — FMP / Benzinga / Tiingo /
+      Intrinio, picked in that priority order (`services/news.py:_world_provider`),
+      tagged with macro themes + watchlist instruments, and **falls back to the
+      free yfinance per-instrument proxy** when no key (or the wire errors). No
+      config flip — add a key and it switches. CI-tested (`tests/test_news.py`).
 - [ ] **B3 — GC/CL/NG futures curves (V5).** yfinance 401s; only VIX works.
       Needs another source for commodity term structure.
 - [~] **B4 — Provider reliability.** Shipped a configurable **EOD provider
@@ -198,6 +203,24 @@ sign into.
 - [x] **D2 — Rotated `AUTH_TOKEN`** (shared in chat during setup); Railway env +
       Alice's `.mcp.json` updated to match (verified new→200, old→401).
 
+## G. Product plan (next phase — agreed roadmap)
+- [~] **G1 — FMP integration.** *(this PR)* Paid FMP key unlocks the economic
+      **calendar** (B1) and a real **world-news wire** (B2, auto-detected provider
+      chain). Follow-ups: surface FMP **fundamentals / ETF holdings / earnings** as
+      terminal panels + MCP tools (fills the EEM-holdings gap Alice hit).
+- [ ] **G2 — UI/UX design pass.** Make the terminal look like a product: a
+      semantic color system (up/down, vol regimes, risk-on/off, alert states),
+      numeric/typography hierarchy, Bloomberg-style density, consistent panels/
+      tables/states, sparklines. CSS-token refactor, no behaviour change.
+- [ ] **G3 — TradingView integration.** (a) `/webhook/tradingview` endpoint that
+      ingests Pine **alert/strategy webhooks** → stores → surfaces in UI → exposes
+      as an MCP tool so Alice sees TV signals. (b) Manual **Pine→Python** ports of
+      chosen strategies into a `signals/` module. *(Note: TradingView has no API to
+      auto-read saved Pine scripts — webhooks + manual ports are the real paths.)*
+- [ ] **G4 — Provider depth (budgeted).** Add Tiingo-paid (news/intraday) and/or
+      Polygon-paid (intraday/real-time + full flat files) as needs arise; Benzinga
+      only if low-latency news becomes critical. See `docs/data-providers.md`.
+
 ---
 
 **Status (current):** Deployed + authenticated on Railway (A8) with logout/session
@@ -208,9 +231,10 @@ instrument **Focus** screen (C4), **multi-asset watchlist** (C6), provider
 **fallback** for equity/ETF (B4), tests + CI green (C1), and a **SQLite
 persistence** foundation (C2).
 
-**Still open:** **B1/B2** (calendar/news — need paid keys) · **B3** (commodity
-curves) · the free `FRED_API_KEY` (lights up Macro tiles + Dollar/FX) · minor
-housekeeping (A6 Claude-Code CLI warning, C6 brief-threading).
+**Still open:** **B3** (commodity curves — needs a futures-curve source) · the
+**G-series product plan** (FMP fundamentals panels, UI/UX pass, TradingView
+webhooks, budgeted provider depth) · minor housekeeping (A6 Claude-Code CLI
+warning, C6 brief-threading). **B1/B2 now unlock with an FMP key.**
 
 **Done since:** **C2 history** (`/history`) → **C5 charts + alerts** (History ▸
 Alerts tab, `services/alerts.py`, `/alerts`, `alerts_status` MCP tool) and **F2**
