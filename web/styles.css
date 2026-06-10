@@ -1,125 +1,183 @@
-/* Market Terminal — dark research UI. Vanilla CSS, no build step. */
+/* Market Terminal — dark research UI (G2 design pass).
+   Vanilla CSS, no build step. One semantic token system drives every component;
+   class names are unchanged from before, so this is purely a visual refresh. */
+
 :root {
-  --bg: #0b0e14;
-  --panel: #131722;
-  --panel-2: #1a1f2e;
-  --border: #232938;
-  --text: #d4d9e3;
+  /* --- Surfaces (dark, layered for depth) --- */
+  --bg: #0a0d13;
+  --panel: #121620;
+  --panel-2: #1a1f2c;
+  --panel-3: #222838;
+  --border: #232a3a;
+  --border-strong: #313a4f;
+
+  /* --- Text --- */
+  --text: #d6dbe6;
+  --text-strong: #f2f5fa;
   --muted: #7a8294;
-  --green: #26a69a;
-  --red: #ef5350;
-  --amber: #ffb300;
+  --faint: #545d70;
+
+  /* --- Brand / accent --- */
   --accent: #4c8dff;
-  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --accent-soft: rgba(76, 141, 255, 0.14);
+
+  /* --- Semantic: direction --- */
+  --green: #2bb39b;
+  --red: #f0616a;
+  --amber: #f5b13d;
+  --green-soft: rgba(43, 179, 155, 0.14);
+  --red-soft: rgba(240, 97, 106, 0.14);
+  --amber-soft: rgba(245, 177, 61, 0.14);
+
+  /* --- Semantic: volatility regime / risk (documented palette) ---
+     calm→green, normal→muted, elevated→amber, stressed→red; risk-on→green,
+     risk-off→red. Renderers map these to the .pill / .up / .down classes below. */
+  --regime-calm: var(--green);
+  --regime-normal: var(--muted);
+  --regime-elevated: var(--amber);
+  --regime-stressed: var(--red);
+
+  /* --- Scale --- */
+  --radius: 7px;
+  --radius-sm: 5px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.18);
+  --mono: "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 13px/1.45 var(--mono);
+  -webkit-font-smoothing: antialiased;
 }
+/* Align all figures: tabular numerals everywhere numbers matter. */
+table, .tile, .value, .pct, .chart-head, .chart-axis { font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+
+/* Custom scrollbars (dark) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 6px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* Focus visibility (accessibility) */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Top bar */
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 10px 16px; background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
   position: sticky; top: 0; z-index: 10;
 }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 1px; }
-.logo { color: var(--accent); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-strong); }
+.logo { color: var(--accent); font-size: 16px; }
 .tag { font-weight: 400; color: var(--muted); font-size: 11px; letter-spacing: 0; }
 .controls { display: flex; align-items: center; gap: 14px; }
 .session { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .addbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .inp {
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 4px; padding: 5px 10px; font: inherit; min-width: 250px;
+  border-radius: var(--radius-sm); padding: 6px 10px; font: inherit; min-width: 250px;
+  transition: border-color .12s ease;
 }
+.inp::placeholder { color: var(--faint); }
 .inp:focus { outline: none; border-color: var(--accent); }
-.btn.rm { padding: 2px 9px; color: var(--muted); }
-.btn.rm:hover { border-color: var(--red); color: var(--red); }
 .clock { color: var(--muted); }
 .btn {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
-  padding: 5px 12px; border-radius: 4px; cursor: pointer; font: inherit;
+  padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; font: inherit;
+  transition: border-color .12s ease, color .12s ease, background .12s ease;
 }
-.btn:hover { border-color: var(--accent); color: #fff; }
+.btn:hover { border-color: var(--accent); color: var(--text-strong); background: var(--panel-3); }
+.btn:active { transform: translateY(1px); }
+.btn.rm { padding: 2px 9px; color: var(--muted); }
+.btn.rm:hover { border-color: var(--red); color: var(--red); background: var(--red-soft); }
 
 /* Tabs */
 .tabs { display: flex; gap: 2px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--border); overflow-x: auto; }
 .tab {
   background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted);
   padding: 9px 14px; cursor: pointer; font: inherit; white-space: nowrap;
+  transition: color .12s ease, border-color .12s ease;
 }
 .tab:hover { color: var(--text); }
-.tab.active { color: #fff; border-bottom-color: var(--accent); }
+.tab.active { color: var(--text-strong); border-bottom-color: var(--accent); }
 /* Execution tab sits to the right, visually set apart (it's the separate app). */
 .tab-exec { margin-left: auto; color: var(--amber); }
-.tab-exec.active { color: #fff; border-bottom-color: var(--amber); }
+.tab-exec.active { color: var(--text-strong); border-bottom-color: var(--amber); }
 
 /* Execution view: framed OpenAlice */
 .exec-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px;
   padding: 8px 12px; background: var(--panel); border: 1px solid var(--border);
-  border-radius: 6px; color: var(--muted); font-size: 12px; }
+  border-radius: var(--radius); color: var(--muted); font-size: 12px; }
 .exec-frame { width: 100%; height: calc(100vh - 220px); min-height: 420px; margin-top: 10px;
-  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
 .exec-help { margin-top: 8px; font-size: 11px; }
-.exec-help code { color: var(--text); }
+.exec-help code, .exec-card code { color: var(--text-strong); background: var(--panel-3); padding: 1px 5px; border-radius: 4px; }
 .exec-card { margin-top: 10px; padding: 18px 16px; background: var(--panel);
-  border: 1px solid var(--border); border-radius: 6px; max-width: 720px; }
-.exec-card h3 { margin: 0 0 8px; }
+  border: 1px solid var(--border); border-radius: var(--radius); max-width: 720px; box-shadow: var(--shadow); }
+.exec-card h3 { margin: 0 0 8px; color: var(--text-strong); }
 .exec-card p { margin: 8px 0; line-height: 1.5; }
-.exec-card code { color: var(--text); }
 
 /* Views */
 main { padding: 16px; max-width: 1400px; margin: 0 auto; }
 .view { display: none; }
-.view.active { display: block; }
+.view.active { display: block; animation: fade .15s ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 .loading { color: var(--muted); padding: 40px; text-align: center; }
 
 /* Grid + panels */
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
 .panel h3 { margin: 0; padding: 9px 12px; font-size: 12px; letter-spacing: .5px; color: var(--muted); background: var(--panel-2); border-bottom: 1px solid var(--border); text-transform: uppercase; }
 .panel .body { padding: 12px; overflow-x: auto; }
+.panel.bad { border-color: rgba(240, 97, 106, 0.35); }
 .panel.bad h3 { color: var(--red); }
+.sub { color: var(--muted); font-size: 12px; }
 
 /* Tiles */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-.tile { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
-.tile .label { color: var(--muted); font-size: 11px; }
-.tile .value { font-size: 20px; font-weight: 700; margin-top: 4px; }
+.tile { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+.tile .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+.tile .value { font-size: 20px; font-weight: 700; margin-top: 4px; color: var(--text-strong); }
 .tile .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
 /* Tables */
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
 th:first-child, td:first-child { text-align: left; }
-tbody tr:hover { background: var(--panel-2); }
+tbody tr { transition: background .1s ease; }
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.012); }
+tbody tr:hover { background: var(--accent-soft); }
+tbody tr:last-child td { border-bottom: none; }
 
 /* Color helpers */
 .up { color: var(--green); }
 .down { color: var(--red); }
 .dim { color: var(--muted); }
-.pill { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; border: 1px solid var(--border); }
-.pill.green { color: var(--green); border-color: var(--green); }
-.pill.red { color: var(--red); border-color: var(--red); }
-.pill.amber { color: var(--amber); border-color: var(--amber); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  border: 1px solid var(--border); color: var(--muted); background: var(--panel-3); }
+.pill.green { color: var(--green); border-color: rgba(43, 179, 155, 0.4); background: var(--green-soft); }
+.pill.red { color: var(--red); border-color: rgba(240, 97, 106, 0.4); background: var(--red-soft); }
+.pill.amber { color: var(--amber); border-color: rgba(245, 177, 61, 0.4); background: var(--amber-soft); }
 
 /* Range bar (COT extremes) */
-.bar { height: 8px; background: var(--panel-2); border-radius: 4px; position: relative; margin-top: 6px; }
+.bar { height: 8px; background: var(--panel-3); border-radius: 4px; position: relative; margin-top: 6px; }
 .bar > span { position: absolute; top: -2px; width: 4px; height: 12px; background: var(--accent); border-radius: 2px; }
 
 /* Sector rotation bars */
 .rot { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
 .rot .name { width: 180px; color: var(--text); }
-.rot .track { flex: 1; height: 16px; background: var(--panel-2); border-radius: 3px; position: relative; }
-.rot .fill { position: absolute; top: 0; height: 100%; border-radius: 3px; }
+.rot .track { flex: 1; height: 16px; background: var(--panel-3); border-radius: 3px; position: relative; }
+.rot .fill { position: absolute; top: 0; height: 100%; border-radius: 3px; transition: width .2s ease; }
 .rot .pct { width: 70px; text-align: right; }
 
 /* News */
 .news-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.news-item:last-child { border-bottom: none; }
 .news-item a { color: var(--text); text-decoration: none; }
 .news-item a:hover { color: var(--accent); }
 .news-meta { color: var(--muted); font-size: 11px; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -129,13 +187,13 @@ tbody tr:hover { background: var(--panel-2); }
 
 /* History ▸ Alerts (C5): triggered-count badge + inline SVG chart */
 .badge { display: inline-block; min-width: 16px; padding: 0 5px; margin-left: 4px; border-radius: 9px;
-  background: var(--red); color: #fff; font-size: 10px; line-height: 16px; text-align: center; vertical-align: middle; }
-.chart { width: 100%; height: 220px; background: var(--panel-2); border-radius: 4px; }
+  background: var(--red); color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; vertical-align: middle; }
+.chart { width: 100%; height: 220px; background: var(--panel-2); border-radius: var(--radius-sm); border: 1px solid var(--border); }
 .chart-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
 .chart-axis { display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px; }
 
 /* Chart tab (TradingView Advanced Chart embed) */
 .tv-chart { height: 72vh; min-height: 460px; width: 100%; margin-top: 10px;
-  border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .tv-chart iframe { border: 0; }
 .tv-pick { padding: 3px 9px; }
