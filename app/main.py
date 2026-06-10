@@ -126,6 +126,7 @@ from app.routers import (
     cot,
     custom,
     doctor,
+    fundamentals,
     history,
     macro,
     news,
@@ -150,6 +151,7 @@ app.include_router(alerts.router)
 app.include_router(chart.router)
 app.include_router(doctor.router)
 app.include_router(tradingview.router)
+app.include_router(fundamentals.router)
 
 
 from pathlib import Path
