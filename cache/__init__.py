@@ -16,4 +16,11 @@ TTL_SECONDS = {
     "eod": 24 * 60 * 60,
     "cot": 7 * 24 * 60 * 60,
     "macro": 24 * 60 * 60,
+    # FMP fundamentals (ROADMAP H): statements/ratios change quarterly, profiles
+    # rarely, estimates/calendars more often. Cached hard because Starter is
+    # rate-capped.
+    "profile": 7 * 24 * 60 * 60,
+    "fundamentals": 24 * 60 * 60,
+    "estimates": 12 * 60 * 60,
+    "calendar": 6 * 60 * 60,
 }

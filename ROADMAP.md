@@ -230,6 +230,29 @@ sign into.
       Polygon-paid (intraday/real-time + full flat files) as needs arise; Benzinga
       only if low-latency news becomes critical. See `docs/data-providers.md`.
 
+## H. FMP fundamental brain (100% of FMP → terminal, THEN Alice)
+Full FMP surface into the terminal brain first; Alice gets only the interpreted
+output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
+`docs/fmp.md`. Built fault-tolerant; Starter gates analyst (E)/13F (H).
+- [x] **H0 — Client foundation.** `obb_layer/fmp.py` (`_get` + cached endpoint fns,
+      key-sanitized errors, centralized paths), `fmp_base_url`/`fmp_enabled`, cache
+      TTLs (profile/fundamentals/estimates/calendar).
+- [x] **H1 — Core fundamentals view.** `services/fundamentals.py` →
+      `GET /fundamentals/{ticker}` → **Fundamentals tab**: profile, valuation
+      (P/E, P/S, P/B, EV/EBITDA, div & FCF yield), quality (Piotroski, Altman-Z,
+      ROE/ROIC, margins, D/E), growth, peers, revenue segmentation. Defensive field
+      extraction; CI-tested (`tests/test_fundamentals.py`).
+- [ ] **H2 — Valuation/analyst/calendars + interpreted READ.** DCF, analyst
+      estimates/grades/targets, earnings/dividends; `fundamental_read` verdict
+      (cheap/fair/expensive · quality · growth · DCF gap · analyst · earnings
+      proximity) folded into Focus.
+- [ ] **H3 — ETF holdings + ownership/alt-data** (holdings/sector/country, insider,
+      13F [gated], congress trades, ESG).
+- [ ] **H4 — Market/discovery/macro/news/filings** + a fundamental **screener**.
+- [ ] **H5 — Terminal BRAIN.** `services/brain.py` fuses fundamentals + analyst +
+      ownership + earnings with macro-regime/COT/vol into one ranked decision read.
+- [ ] **H6 — Expose to Alice (MCP)** — last; nothing FMP-derived to Alice before H5.
+
 ---
 
 **Status (current):** Deployed + authenticated on Railway (A8) with logout/session

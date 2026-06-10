@@ -112,6 +112,13 @@ class Settings(BaseSettings):
     kronos_horizon_default: int = 30  # bars to forecast
     kronos_samples: int = 30          # sampled paths reduced to a median + band
 
+    # --- FMP fundamentals brain (ROADMAP H) ---
+    # The terminal's bottom-up engine. FMP is consumed via REST through
+    # obb_layer/fmp.py (NOT FMP's MCP — that's a proxy over these same endpoints;
+    # REST lets us cache/normalize/interpret and keep Alice on the terminal's
+    # *interpreted* output only). `fmp_api_key` (below) authenticates it.
+    fmp_base_url: str = "https://financialmodelingprep.com/stable"
+
     # --- Provider API keys (optional; free providers need none) ---
     fmp_api_key: str | None = None
     fred_api_key: str | None = None
@@ -131,6 +138,11 @@ class Settings(BaseSettings):
         """The EOD provider fallback chain (parsed from `eod_providers`)."""
         chain = [p.strip() for p in self.eod_providers.split(",") if p.strip()]
         return chain or ["yfinance"]
+
+    @property
+    def fmp_enabled(self) -> bool:
+        """Whether the FMP fundamentals brain is configured (ROADMAP H)."""
+        return bool(self.fmp_api_key)
 
     @property
     def movers_enabled(self) -> bool:

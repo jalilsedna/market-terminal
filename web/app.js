@@ -735,7 +735,73 @@ async function refreshAlertBadge() {
   } catch (e) { /* no badge if unavailable */ }
 }
 
+// Fundamentals tab (ROADMAP H, Phase 1): per-ticker bottom-up view from FMP —
+// profile, valuation, quality/health, growth, peers.
+function _fmtBig(v) {
+  if (v === null || v === undefined) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e12) return "$" + (v / 1e12).toFixed(2) + "T";
+  if (a >= 1e9) return "$" + (v / 1e9).toFixed(2) + "B";
+  if (a >= 1e6) return "$" + (v / 1e6).toFixed(1) + "M";
+  return "$" + num(v, 0);
+}
+const _pctv = (v, d = 1) => (v === null || v === undefined ? "—" : num(v * 100, d) + "%");
+function _fundTile(label, value, sub) {
+  return `<div class="tile"><div class="label">${esc(label)}</div><div class="value">${value}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div>`;
+}
+
+function renderFundamentals(env) {
+  const d = env.data || {};
+  const p = d.profile || {}, v = d.valuation || {}, q = d.quality || {}, g = d.growth || {};
+  const head = `<div class="sub" style="margin-bottom:8px">
+    <b>${esc(p.name || d.symbol)}</b> <span class="dim">${esc(d.symbol)}</span> · ${esc(p.sector || "—")} / ${esc(p.industry || "—")}
+    · ${esc(p.exchange || "")} · mkt cap ${_fmtBig(p.market_cap)} · β ${num(p.beta, 2)}</div>`;
+  const valuation = panel("Valuation", `<div class="tiles">
+    ${_fundTile("P/E", num(v.pe, 1))}${_fundTile("P/S", num(v.ps, 1))}${_fundTile("P/B", num(v.pb, 1))}
+    ${_fundTile("EV/EBITDA", num(v.ev_ebitda, 1))}${_fundTile("Div yield", _pctv(v.dividend_yield))}
+    ${_fundTile("FCF yield", _pctv(v.fcf_yield))}</div>`);
+  const quality = panel("Quality & Health", `<div class="tiles">
+    ${_fundTile("Piotroski", num(q.piotroski, 0), "0–9, higher better")}
+    ${_fundTile("Altman Z", num(q.altman_z, 2), ">3 safe")}
+    ${_fundTile("ROE", _pctv(q.roe))}${_fundTile("ROIC", _pctv(q.roic))}
+    ${_fundTile("Net margin", _pctv(q.net_margin))}${_fundTile("Debt/Equity", num(q.debt_to_equity, 2))}</div>`);
+  const growth = panel("Growth (latest FY)", `<div class="tiles">
+    ${_fundTile("Revenue", _pctv(g.revenue))}${_fundTile("EPS", _pctv(g.eps))}
+    ${_fundTile("Net income", _pctv(g.net_income))}</div>`);
+  const peers = (d.peers || []).length
+    ? panel("Peers", (d.peers).map((s) => `<span class="pill" style="margin:2px">${esc(s)}</span>`).join(" ")) : "";
+  const desc = p.description ? panel("About", `<div class="sub">${esc(p.description)}</div>`) : "";
+  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">unavailable: ${esc(Object.keys(d.errors).join(", "))} (FMP tier / endpoint)</div>` : "";
+  return head + `<div class="grid" style="grid-template-columns:1fr">${valuation}${quality}${growth}${peers}${desc}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + errs;
+}
+
+async function loadFundamentals() {
+  const sec = $("#view-fundamentals");
+  sec.innerHTML = panel("Fundamentals — enter a ticker", `
+    <div class="addbar">
+      <input id="fund-input" class="inp" placeholder="ticker (e.g. AAPL, MSFT, NVDA)" value="AAPL" />
+      <button id="fund-go" class="btn">Load</button>
+    </div>
+    <div id="fund-body" style="margin-top:12px"></div>`);
+  const body = $("#fund-body");
+  const go = async () => {
+    const t = ($("#fund-input").value || "").trim().toUpperCase();
+    if (!t) return;
+    body.innerHTML = `<div class="loading">Loading ${esc(t)}…</div>`;
+    try {
+      const env = await fetchJSON("/fundamentals/" + encodeURIComponent(t));
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderFundamentals(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#fund-go").addEventListener("click", go);
+  $("#fund-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+  go();
+}
+
 function _loadFor(view) {
+  if (view === "fundamentals") return loadFundamentals();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();

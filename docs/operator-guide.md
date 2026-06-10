@@ -45,7 +45,7 @@ Set in Railway → **Variables** (mirror locally in `.env`, which is gitignored)
 | `PUBLIC_BASE_URL` | informational (docs / Alice config) | `https://<app>.up.railway.app` |
 | `PRECACHE_INTERVAL_MIN` | cache-warm + snapshot cadence | `0` disables the scheduler |
 | `FRED_API_KEY` | Macro tiles + Dollar/FX (free key) | unset → those panels degrade |
-| `FMP_API_KEY` | unlocks the economic **calendar** + a real **world-news** wire | paid; News auto-upgrades when set |
+| `FMP_API_KEY` | economic **calendar** + **world-news** wire + the **Fundamentals** brain (H) | paid; auto-upgrades when set; see `docs/fmp.md` |
 | `BENZINGA_API_KEY` / `TIINGO_API_KEY` / … | optional provider keys | **read-only data keys only** |
 | `TV_WEBHOOK_SECRET` | enables the TradingView webhook (`/webhook/tradingview`) | unset → webhook off; see `docs/tradingview.md` |
 
@@ -127,9 +127,13 @@ once (healthcheck timeout is 300s).
 ## 7. Using the terminal day to day
 
 Tabs: **Macro · Focus · Chart · Watchlist · My Watchlist · COT · Term Structure ·
-Volatility · Sectors · Movers · News · Analysis · History ▸ Alerts ·
+Volatility · Sectors · Movers · News · Analysis · Fundamentals · History ▸ Alerts ·
 Execution ▸ Alice · Admin**. Everything is **research context, never a trade
 trigger** — data is EOD/delayed/weekly and labelled with freshness.
+
+**Fundamentals** (needs `FMP_API_KEY`): per-ticker bottom-up view — profile,
+valuation, quality scores (Piotroski/Altman-Z), growth, peers, segmentation. The
+first slice of the FMP "brain" (ROADMAP H); see `docs/fmp.md`.
 
 **Movers** (needs `POLYGON_API_KEY`): whole-market top gainers/losers/most-active
 for the latest session, scanned across *every* US stock via the free Polygon/
