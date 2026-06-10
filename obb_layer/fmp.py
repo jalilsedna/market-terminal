@@ -51,6 +51,13 @@ _PATHS = {
     "financial_growth": "financial-growth",
     "revenue_geo": "revenue-geographic-segmentation",
     "revenue_product": "revenue-product-segmentation",
+    # H2 — valuation / analyst / calendars
+    "dcf": "discounted-cash-flow",
+    "analyst_estimates": "analyst-estimates",
+    "price_target": "price-target-consensus",
+    "ratings": "ratings-snapshot",
+    "earnings": "earnings",
+    "dividends": "dividends",
 }
 
 
@@ -156,3 +163,34 @@ def revenue_geo(symbol: str) -> Any:
 @cached("fundamentals")
 def revenue_product(symbol: str) -> Any:
     return _get(_PATHS["revenue_product"], symbol=symbol)
+
+
+# --- H2: valuation (DCF) / analyst / calendars ----------------------------- #
+@cached("estimates")
+def dcf(symbol: str) -> Any:
+    return _get(_PATHS["dcf"], symbol=symbol)
+
+
+@cached("estimates")
+def analyst_estimates(symbol: str, period: str = "annual", limit: int = 4) -> Any:
+    return _get(_PATHS["analyst_estimates"], symbol=symbol, period=period, limit=limit)
+
+
+@cached("estimates")
+def price_target_consensus(symbol: str) -> Any:
+    return _get(_PATHS["price_target"], symbol=symbol)
+
+
+@cached("estimates")
+def ratings_snapshot(symbol: str) -> Any:
+    return _get(_PATHS["ratings"], symbol=symbol)
+
+
+@cached("calendar")
+def earnings(symbol: str, limit: int = 8) -> Any:
+    return _get(_PATHS["earnings"], symbol=symbol, limit=limit)
+
+
+@cached("calendar")
+def dividends(symbol: str, limit: int = 4) -> Any:
+    return _get(_PATHS["dividends"], symbol=symbol, limit=limit)

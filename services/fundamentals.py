@@ -13,6 +13,7 @@ interpreted "fundamental read" verdict comes in Phase 2.
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
 from typing import Any
 
 from obb_layer import fmp
@@ -96,6 +97,92 @@ def _segments(rows: Any) -> dict | None:
     return seg or None
 
 
+def _ratio(numer: Any, denom: Any) -> float | None:
+    try:
+        return (float(numer) - float(denom)) / float(denom) if denom else None
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _dcf(rec: dict, price: Any) -> dict:
+    """DCF fair value + gap vs current price (gap>0 => undervalued)."""
+    fair = _pick(rec, "dcf", "equityValuePerShare", "discountedCashFlow")
+    return {"fair_value": fair, "gap": _ratio(fair, price)}
+
+
+def _analyst(pt: dict, ratings: dict, price: Any) -> dict:
+    """Consensus price target (+ implied upside) and rating snapshot."""
+    target = _pick(pt, "targetConsensus", "priceTargetConsensus", "targetMedian", "targetHigh")
+    rating = _pick(ratings, "rating", "ratingRecommendation") or _pick(pt, "consensus")
+    return {"target": target, "upside": _ratio(target, price), "rating": rating}
+
+
+def _next_earnings(rows: Any) -> dict:
+    """Next upcoming earnings date + days away, and the latest reported surprise."""
+    rows = rows if isinstance(rows, list) else []
+    today = datetime.now(UTC).date()
+    upcoming = []
+    for r in rows:
+        d = _pick(r, "date", "epsDate")
+        try:
+            dd = date.fromisoformat(str(d)[:10])
+        except (TypeError, ValueError):
+            continue
+        upcoming.append((dd, r))
+    upcoming.sort(key=lambda x: x[0])
+    nxt = next((x for x in upcoming if x[0] >= today), None)
+    last = next((x for x in reversed(upcoming) if x[0] < today), None)
+    return {
+        "next_date": nxt[0].isoformat() if nxt else None,
+        "days_away": (nxt[0] - today).days if nxt else None,
+        "last_eps_actual": _pick(last[1], "epsActual", "eps") if last else None,
+        "last_eps_estimate": _pick(last[1], "epsEstimated", "epsEstimate") if last else None,
+    }
+
+
+def _read(valuation: dict, quality: dict, growth: dict, dcf: dict, analyst: dict, earnings: dict) -> dict:
+    """Interpreted one-line fundamental verdict — research context, not advice."""
+    parts: list[str] = []
+    flags: list[str] = []
+
+    gap = dcf.get("gap")
+    valuation_label = None
+    if gap is not None:
+        valuation_label = "cheap" if gap > 0.15 else "expensive" if gap < -0.15 else "fair"
+        parts.append(f"{valuation_label} (DCF {gap:+.0%})")
+
+    pio, z = quality.get("piotroski"), quality.get("altman_z")
+    quality_label = None
+    if pio is not None:
+        quality_label = "strong" if pio >= 7 else "weak" if pio <= 3 else "mixed"
+        detail = f"Piotroski {int(pio)}" + (f", Z {z:.1f}" if isinstance(z, (int, float)) else "")
+        parts.append(f"{quality_label} quality ({detail})")
+        if isinstance(z, (int, float)) and z < 1.8:
+            flags.append(f"Altman-Z {z:.1f} — distress zone")
+
+    rg = growth.get("revenue")
+    growth_label = None
+    if rg is not None:
+        growth_label = "growing" if rg > 0.02 else "declining" if rg < -0.02 else "flat"
+        parts.append(f"{growth_label} (rev {rg:+.0%})")
+
+    up = analyst.get("upside")
+    if up is not None:
+        parts.append(f"analysts {up:+.0%}")
+
+    days = earnings.get("days_away")
+    if days is not None:
+        parts.append(f"earnings in {days}d")
+        if 0 <= days <= 14:
+            flags.append(f"earnings in {days}d — event risk")
+
+    return {
+        "verdict": " · ".join(parts) or "insufficient fundamental data",
+        "labels": {"valuation": valuation_label, "quality": quality_label, "growth": growth_label},
+        "flags": flags,
+    }
+
+
 def dashboard(symbol: str) -> dict:
     """Per-ticker fundamentals dashboard. Fault-tolerant: failed/gated FMP blocks
     land in `errors` rather than raising."""
@@ -122,6 +209,21 @@ def dashboard(symbol: str) -> dict:
     geo = grab("revenue_geo", lambda: fmp.revenue_geo(symbol))
     product = grab("revenue_product", lambda: fmp.revenue_product(symbol))
 
+    # H2 — valuation / analyst / calendars
+    dcf_rec = _first(grab("dcf", lambda: fmp.dcf(symbol)) or [])
+    pt_rec = _first(grab("price_target", lambda: fmp.price_target_consensus(symbol)) or [])
+    ratings_rec = _first(grab("ratings", lambda: fmp.ratings_snapshot(symbol)) or [])
+    earn_rows = grab("earnings", lambda: fmp.earnings(symbol)) or []
+    div_rec = _first(grab("dividends", lambda: fmp.dividends(symbol, limit=1)) or [])
+
+    price = _pick(profile, "price")
+    valuation = _valuation(ratios, metrics)
+    quality = _quality(ratios, metrics, scores)
+    growth_block = _growth(growth)
+    dcf = _dcf(dcf_rec, price)
+    analyst = _analyst(pt_rec, ratings_rec, price)
+    earnings_block = _next_earnings(earn_rows)
+
     peers = _first(peers_raw).get("peersList") if peers_raw else None
     if peers is None and isinstance(peers_raw, list):
         peers = [p.get("symbol") for p in peers_raw if isinstance(p, dict) and p.get("symbol")]
@@ -129,10 +231,15 @@ def dashboard(symbol: str) -> dict:
     return {
         "symbol": symbol,
         "enabled": True,
+        "read": _read(valuation, quality, growth_block, dcf, analyst, earnings_block),
         "profile": _profile(profile),
-        "valuation": _valuation(ratios, metrics),
-        "quality": _quality(ratios, metrics, scores),
-        "growth": _growth(growth),
+        "valuation": valuation,
+        "quality": quality,
+        "growth": growth_block,
+        "dcf": dcf,
+        "analyst": analyst,
+        "earnings": earnings_block,
+        "dividend": {"yield": _pick(div_rec, "yield", "dividendYield"), "amount": _pick(div_rec, "dividend", "adjDividend")},
         "peers": peers or [],
         "segmentation": {"geographic": _segments(geo), "product": _segments(product)},
         "errors": errors or None,
