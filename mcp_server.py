@@ -23,6 +23,8 @@ from mcp.server.fastmcp import FastMCP
 from services import alerts as alerts_svc
 from services import analysis as analysis_svc
 from services import brain as brain_svc
+from services import brain_crypto as brain_crypto_svc
+from services import brain_forex as brain_forex_svc
 from services import cot as cot_svc
 from services import fundamentals as fundamentals_svc
 from services import instruments as instruments_svc
@@ -233,6 +235,39 @@ def brain_screen(symbols: str | None = None, limit: int = 25) -> dict:
     synthesis, never a trade trigger."""
     syms = [s for s in (symbols or "").split(",") if s.strip()] or None
     return _safe(brain_svc.screen, symbols=syms, limit=limit)
+
+
+@mcp.tool()
+def crypto_brain_verdict(instrument: str) -> dict:
+    """**Crypto conviction** for a tracked symbol — fuses momentum (1w/1m), macro
+    regime, vol regime, and USD backdrop into constructive / neutral / cautious.
+    Pass a registry id (e.g. 'crypto:BTC-USD'). Research synthesis, not a trade
+    trigger."""
+    return _safe(brain_crypto_svc.verdict, instrument)
+
+
+@mcp.tool()
+def crypto_brain_screen(symbols: str | None = None, limit: int = 25) -> dict:
+    """Rank **crypto conviction** across the registry (or comma-separated refs).
+    Research synthesis, not a trade trigger."""
+    syms = [s for s in (symbols or "").split(",") if s.strip()] or None
+    return _safe(brain_crypto_svc.screen, symbols=syms, limit=limit)
+
+
+@mcp.tool()
+def forex_brain_verdict(instrument: str) -> dict:
+    """**Forex conviction** for a tracked pair — fuses pair momentum, macro regime,
+    vol regime, and USD moves into constructive / neutral / cautious. Pass a
+    registry id (e.g. 'forex:EURUSD'). Research synthesis, not a trade trigger."""
+    return _safe(brain_forex_svc.verdict, instrument)
+
+
+@mcp.tool()
+def forex_brain_screen(symbols: str | None = None, limit: int = 25) -> dict:
+    """Rank **forex conviction** across the registry (or comma-separated refs).
+    Research synthesis, not a trade trigger."""
+    syms = [s for s in (symbols or "").split(",") if s.strip()] or None
+    return _safe(brain_forex_svc.screen, symbols=syms, limit=limit)
 
 
 @mcp.tool()
