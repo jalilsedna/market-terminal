@@ -52,6 +52,27 @@ def test_dashboard_composition(monkeypatch):
     assert d["errors"] is None
 
 
+def test_stable_field_names_resolve(monkeypatch):
+    """FMP `stable` uses priceToEarningsRatio / debtToEquityRatio (verified live)."""
+    from obb_layer import fmp
+    from services import fundamentals as f
+
+    monkeypatch.setattr(fmp, "profile", lambda s: [{"companyName": "Apple"}])
+    monkeypatch.setattr(fmp, "ratios", lambda s, **k: [{
+        "priceToEarningsRatio": 33.5, "debtToEquityRatio": 1.87,
+    }])
+    for name in ("key_metrics", "income_growth"):
+        monkeypatch.setattr(fmp, name, lambda s, **k: [])
+    monkeypatch.setattr(fmp, "financial_scores", lambda s: [])
+    monkeypatch.setattr(fmp, "peers", lambda s: [])
+    monkeypatch.setattr(fmp, "revenue_geo", lambda s: None)
+    monkeypatch.setattr(fmp, "revenue_product", lambda s: None)
+
+    d = f.dashboard("AAPL")
+    assert d["valuation"]["pe"] == 33.5
+    assert d["quality"]["debt_to_equity"] == 1.87
+
+
 def test_dashboard_is_fault_tolerant(monkeypatch):
     from obb_layer import fmp
     from services import fundamentals as f
