@@ -453,6 +453,9 @@ main {
   overflow: hidden;
   box-shadow: var(--shadow);
 }
+/* Autocomplete dropdown extends below the input — don't clip it. */
+.panel:has(.ac-wrap) { overflow: visible; }
+.panel:has(.ac-wrap) .body { overflow: visible; }
 .panel h3 {
   margin: 0;
   padding: 9px 12px;

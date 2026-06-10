@@ -23,5 +23,17 @@ def test_futures_gc():
     assert any(h["symbol"] == "GC=F" for h in hits)
 
 
-def test_equity_without_alpaca_returns_empty(no_auth_env):
-    assert ss.search("equity", "AAPL") == []
+def test_equity_curated_without_alpaca(no_auth_env):
+    hits = ss.search("equity", "MSF")
+    assert any(h["symbol"] == "MSFT" for h in hits)
+
+
+def test_etf_curated_without_alpaca(no_auth_env):
+    hits = ss.search("etf", "QQ")
+    assert any(h["symbol"] == "QQQ" for h in hits)
+    assert all(h["asset"] == "etf" for h in hits)
+
+
+def test_equity_excludes_etfs_from_curated(no_auth_env):
+    hits = ss.search("equity", "SPY")
+    assert not any(h["symbol"] == "SPY" for h in hits)
