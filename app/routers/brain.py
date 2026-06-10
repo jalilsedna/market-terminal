@@ -11,11 +11,73 @@ from fastapi import APIRouter, Query
 
 from app.schemas import Envelope
 from config import get_settings
-from services import brain
+from services import brain, brain_crypto, brain_forex
 
 router = APIRouter(prefix="/brain", tags=["Brain"])
 
 _FRESHNESS = "synthesized conviction (fundamentals + macro) — research, not a trade trigger"
+_CRYPTO_FRESHNESS = "synthesized crypto conviction (momentum + macro + vol) — research, not a trade trigger"
+_FOREX_FRESHNESS = "synthesized forex conviction (momentum + macro + vol) — research, not a trade trigger"
+
+
+@router.get("/crypto/screen", response_model=Envelope)
+def crypto_brain_screen(
+    symbols: str | None = Query(None, description="Comma-separated registry refs; omit = all crypto"),
+    limit: int = Query(25, ge=1, le=200),
+) -> Envelope:
+    syms = [s for s in (symbols or "").split(",") if s.strip()] or None
+    try:
+        data = brain_crypto.screen(symbols=syms, limit=limit)
+    except ValueError as exc:
+        return Envelope(ok=False, provider="terminal-brain-crypto", freshness=_CRYPTO_FRESHNESS,
+                        error=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return Envelope(ok=False, provider="terminal-brain-crypto", freshness=_CRYPTO_FRESHNESS,
+                        error=f"{type(exc).__name__}: {exc}"[:200])
+    return Envelope(data=data, provider="terminal-brain-crypto", freshness=_CRYPTO_FRESHNESS)
+
+
+@router.get("/crypto/{instrument:path}", response_model=Envelope)
+def crypto_brain_view(instrument: str) -> Envelope:
+    try:
+        data = brain_crypto.verdict(instrument)
+    except ValueError as exc:
+        return Envelope(ok=False, provider="terminal-brain-crypto", freshness=_CRYPTO_FRESHNESS,
+                        error=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return Envelope(ok=False, provider="terminal-brain-crypto", freshness=_CRYPTO_FRESHNESS,
+                        error=f"{type(exc).__name__}: {exc}"[:200])
+    return Envelope(data=data, provider="terminal-brain-crypto", freshness=_CRYPTO_FRESHNESS)
+
+
+@router.get("/forex/screen", response_model=Envelope)
+def forex_brain_screen(
+    symbols: str | None = Query(None, description="Comma-separated registry refs; omit = all forex"),
+    limit: int = Query(25, ge=1, le=200),
+) -> Envelope:
+    syms = [s for s in (symbols or "").split(",") if s.strip()] or None
+    try:
+        data = brain_forex.screen(symbols=syms, limit=limit)
+    except ValueError as exc:
+        return Envelope(ok=False, provider="terminal-brain-forex", freshness=_FOREX_FRESHNESS,
+                        error=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return Envelope(ok=False, provider="terminal-brain-forex", freshness=_FOREX_FRESHNESS,
+                        error=f"{type(exc).__name__}: {exc}"[:200])
+    return Envelope(data=data, provider="terminal-brain-forex", freshness=_FOREX_FRESHNESS)
+
+
+@router.get("/forex/{instrument:path}", response_model=Envelope)
+def forex_brain_view(instrument: str) -> Envelope:
+    try:
+        data = brain_forex.verdict(instrument)
+    except ValueError as exc:
+        return Envelope(ok=False, provider="terminal-brain-forex", freshness=_FOREX_FRESHNESS,
+                        error=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return Envelope(ok=False, provider="terminal-brain-forex", freshness=_FOREX_FRESHNESS,
+                        error=f"{type(exc).__name__}: {exc}"[:200])
+    return Envelope(data=data, provider="terminal-brain-forex", freshness=_FOREX_FRESHNESS)
 
 
 @router.get("/screen", response_model=Envelope)

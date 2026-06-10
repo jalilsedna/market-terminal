@@ -764,6 +764,8 @@ const VIEW_TITLES = {
   sectors: "Sectors",
   movers: "Movers",
   fundamentals: "Stock Brain",
+  "crypto-brain": "Crypto Brain",
+  "forex-brain": "Forex Brain",
   history: "History & Alerts",
   execution: "Execution · Alice",
   admin: "Admin",
@@ -1033,6 +1035,115 @@ function renderBrainScreen(env) {
   return head + `<table style="margin-top:6px"><thead><tr><th>Symbol</th><th>Conviction</th><th style="text-align:right">Score</th><th>Read</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
+function renderMarketBrain(env) {
+  const d = env.data || {};
+  if (d.error && !d.conviction) {
+    return `<div class="err">${esc(d.error)}</div>`;
+  }
+  const conv = d.conviction;
+  const c = d.components || {};
+  const p = d.price || {};
+  const v = d.volatility || {};
+  const vr = v.regime || {};
+  const flags = (d.flags || []).map((x) => `<span class="pill amber" style="margin:2px">${esc(x)}</span>`).join(" ");
+  const hero = conv ? panel("Decision", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill ${_CONV_CLASS[conv] || ""}" style="font-size:13px">${esc(String(conv).toUpperCase())}</span>
+      <span style="font-size:14px"><b>${esc(d.summary || "")}</b></span></div>
+    <div class="sub" style="margin-top:8px">score ${num(d.score, 0)}
+      (momentum ${num(c.momentum, 0)} · macro ${num(c.macro, 0)} · vol ${num(c.vol, 0)} · usd ${num(c.usd, 0)})
+      · regime ${esc(c.macro_regime || "—")}</div>
+    ${flags ? `<div style="margin-top:6px">${flags}</div>` : ""}`) : "";
+  const pricePanel = panel("Price & momentum", `<div class="tiles">
+    ${_fundTile("Last", num(p.last, 4))}
+    ${_fundTile("1w", pct(p.change_1w_pct))}
+    ${_fundTile("1m", pct(p.change_1m_pct))}
+    ${_fundTile("Realized vol", p.vol_annualized != null ? num(p.vol_annualized * 100, 1) + "%" : "—", p.regime || "")}
+  </div>`);
+  const volPanel = v.ok ? panel("Volatility", `<div class="tiles">
+    ${_fundTile("Regime", _volPill(vr.regime), vr.percentile != null ? num(vr.percentile, 0) + "th pct ~3y" : "")}
+    ${_fundTile("Ann. vol", num((v.current_vol_annualized || 0) * 100, 1) + "%")}
+    ${_fundTile("EWMA forecast", num(((v.forecast || {}).ewma || 0) * 100, 1) + "%", num((v.forecast || {}).horizon_days, 0) + "d")}
+  </div><div class="sub" style="margin-top:6px">${esc(v.read || "")}</div>`) : "";
+  return hero + `<div class="grid" style="grid-template-columns:1fr">${pricePanel}${volPanel}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>`;
+}
+
+async function _assetInstrumentOptions(asset, selectedId) {
+  try {
+    const env = await fetchJSON("/instruments");
+    const list = ((env.data || {}).instruments || []).filter((i) => i.asset === asset);
+    if (!list.length) {
+      return { html: `<option value="">— add ${asset} symbols in Registry —</option>`, labels: {} };
+    }
+    const labels = {};
+    const html = list.map((i) => {
+      labels[i.id] = i.label || i.symbol;
+      return `<option value="${esc(i.id)}"${i.id === selectedId ? " selected" : ""}>${esc(labels[i.id])}</option>`;
+    }).join("");
+    return { html, labels };
+  } catch (e) {
+    return { html: '<option value="">unavailable</option>', labels: {} };
+  }
+}
+
+async function loadMarketBrainOne(prefix, id, label) {
+  const body = document.getElementById(`${prefix}-brain-body`);
+  if (!body) return;
+  body.innerHTML = `<div class="loading">Loading ${esc(label || id)}…</div>`;
+  try {
+    const env = await fetchJSON(`/brain/${prefix}/` + encodeURIComponent(id));
+    if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+    body.innerHTML = renderMarketBrain(env);
+  } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+}
+
+async function loadMarketBrain(asset) {
+  const prefix = asset;
+  const title = asset === "crypto" ? "Crypto Brain" : "Forex Brain";
+  const sec = $(`#view-${prefix}-brain`);
+  const { html, labels } = await _assetInstrumentOptions(asset, "");
+  sec.innerHTML =
+    panel(`${title} screen — rank conviction`, `
+      <div class="sub mb-sm">Leave blank to rank every tracked ${asset} symbol in your registry.</div>
+      <div class="addbar">
+        <input id="${prefix}-scr-input" class="inp" placeholder="optional: comma-separated registry ids" />
+        <button id="${prefix}-scr-go" class="btn">Screen</button>
+      </div>
+      <div id="${prefix}-scr-body" style="margin-top:12px"><div class="sub dim">Run a screen to rank ${asset} symbols by conviction.</div></div>`)
+    + panel(`${title} — per symbol`, `
+      <div class="sub mb-sm">Momentum (1w & 1m) + macro regime + vol + USD backdrop. Research context only.</div>
+      <select id="${prefix}-brain-pick" class="btn">${html}</select>
+      <div id="${prefix}-brain-body" class="mt-md"></div>`);
+
+  const pick = document.getElementById(`${prefix}-brain-pick`);
+  if (pick && pick.value) {
+    const load = () => loadMarketBrainOne(prefix, pick.value, labels[pick.value] || pick.value);
+    pick.addEventListener("change", load);
+    load();
+  } else if (document.getElementById(`${prefix}-brain-body`)) {
+    document.getElementById(`${prefix}-brain-body`).innerHTML =
+      `<div class="dim">Add ${asset} symbols in the Registry tab first.</div>`;
+  }
+
+  const scrBody = document.getElementById(`${prefix}-scr-body`);
+  const screen = async () => {
+    const syms = (document.getElementById(`${prefix}-scr-input`).value || "").trim();
+    scrBody.innerHTML = `<div class="loading">Screening…</div>`;
+    try {
+      const q = syms ? "?symbols=" + encodeURIComponent(syms) : "";
+      const env = await fetchJSON(`/brain/${prefix}/screen` + q);
+      if (env.ok === false) { scrBody.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      scrBody.innerHTML = renderBrainScreen(env);
+    } catch (e) { scrBody.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  document.getElementById(`${prefix}-scr-go`).addEventListener("click", screen);
+  document.getElementById(`${prefix}-scr-input`).addEventListener("keydown", (ev) => { if (ev.key === "Enter") screen(); });
+}
+
+async function loadCryptoBrain() { return loadMarketBrain("crypto"); }
+async function loadForexBrain() { return loadMarketBrain("forex"); }
+
 async function loadFundamentalsOne(symbol, label) {
   const body = $("#fund-body");
   if (!body) return;
@@ -1101,6 +1212,8 @@ async function loadFundamentals() {
 
 function _loadFor(view) {
   if (view === "fundamentals") return loadFundamentals();
+  if (view === "crypto-brain") return loadCryptoBrain();
+  if (view === "forex-brain") return loadForexBrain();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
