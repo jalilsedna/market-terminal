@@ -99,6 +99,101 @@ def test_fuse_long_short_neutral():
     assert flat["bias"] == "neutral" and flat["conviction"] == "low"
 
 
+def test_hitlist_candidates_dedupe_and_direction():
+    movers = {
+        "gainers": [{"ticker": "AAA", "change_1d_pct": 8.0, "dollar_volume": 9e8}],
+        "losers": [{"ticker": "BBB", "change_1d_pct": -6.0, "dollar_volume": 5e8}],
+        "most_active": [
+            {"ticker": "AAA", "change_1d_pct": 8.0, "dollar_volume": 9e8},  # dupe
+            {"ticker": "CCC", "change_1d_pct": -1.0, "dollar_volume": 2e9},
+        ],
+    }
+    c = sig.hitlist_candidates(movers)
+    by = {x["ticker"]: x for x in c}
+    assert set(by) == {"AAA", "BBB", "CCC"}
+    assert by["AAA"]["day_dir"] == "up"
+    assert by["BBB"]["day_dir"] == "down"
+    assert by["CCC"]["day_dir"] == "down"  # negative change → down
+
+
+def test_score_candidate_confluence():
+    up = sig.score_candidate(8.0, 1, 1)   # up move + positive catalyst/smart
+    assert up["bias"] == "long" and up["confluence"] is True and up["score"] == 4
+    down = sig.score_candidate(-6.0, -1, 0)
+    assert down["bias"] == "short" and down["confluence"] is True
+    divergent = sig.score_candidate(8.0, -1, -1)  # up move but bearish signals
+    assert divergent["confluence"] is False and divergent["bias"] == "neutral"
+
+
+def test_rank_hitlist_orders_confluence_then_conviction():
+    rows = [
+        {"ticker": "LOW", "score": 2, "confluence": False, "change_1d_pct": 3},
+        {"ticker": "TOP", "score": 4, "confluence": True, "change_1d_pct": 5},
+        {"ticker": "MID", "score": 2, "confluence": True, "change_1d_pct": 9},
+    ]
+    ranked = sig.rank_hitlist(rows)
+    assert [r["ticker"] for r in ranked] == ["TOP", "MID", "LOW"]
+
+
+def test_daily_hitlist_composition(monkeypatch):
+    from obb_layer import fmp
+    from services import movers as movers_svc
+    import config
+
+    monkeypatch.setenv("FMP_API_KEY", "k")
+    config.get_settings.cache_clear()
+
+    monkeypatch.setattr(movers_svc, "movers", lambda top_n=25: {
+        "as_of": "2026-06-10",
+        "gainers": [{"ticker": "AAA", "change_1d_pct": 9.0, "dollar_volume": 9e8}],
+        "losers": [{"ticker": "BBB", "change_1d_pct": -7.0, "dollar_volume": 6e8}],
+        "most_active": [{"ticker": "CCC", "change_1d_pct": 0.5, "dollar_volume": 2e9}],
+    })
+    # AAA: bullish catalyst; BBB: nothing; CCC below min_move filtered out.
+    def grades(t, limit=6):
+        if t == "AAA":
+            return [
+                {"analystRatingsStrongBuy": 9, "analystRatingsBuy": 6, "analystRatingsHold": 1,
+                 "analystRatingsSell": 0, "analystRatingsStrongSell": 0},
+                {"analystRatingsStrongBuy": 5, "analystRatingsBuy": 6, "analystRatingsHold": 3,
+                 "analystRatingsSell": 1, "analystRatingsStrongSell": 0},
+            ]
+        return []
+    monkeypatch.setattr(fmp, "grades_historical", grades)
+    monkeypatch.setattr(fmp, "earnings", lambda t, **k: [])
+    monkeypatch.setattr(fmp, "insider_statistics", lambda t: [])
+
+    try:
+        out = sig.daily_hitlist(limit=10, min_move_pct=2.0)
+        assert out["enabled"] is True
+        tickers = [r["ticker"] for r in out["hitlist"]]
+        assert "AAA" in tickers and "BBB" in tickers
+        assert "CCC" not in tickers  # 0.5% move below min_move_pct
+        aaa = next(r for r in out["hitlist"] if r["ticker"] == "AAA")
+        assert aaa["bias"] == "long" and aaa["confluence"] is True
+        assert out["hitlist"][0]["ticker"] == "AAA"  # confluence ranks first
+    finally:
+        config.get_settings.cache_clear()
+
+
+def test_daily_hitlist_degrades_without_movers(monkeypatch):
+    from services import movers as movers_svc
+    import config
+
+    monkeypatch.setenv("FMP_API_KEY", "k")
+    config.get_settings.cache_clear()
+
+    def boom(top_n=25):
+        raise RuntimeError("no polygon key")
+    monkeypatch.setattr(movers_svc, "movers", boom)
+    try:
+        out = sig.daily_hitlist()
+        assert out["hitlist"] == []
+        assert "movers feed unavailable" in out["error"]
+    finally:
+        config.get_settings.cache_clear()
+
+
 def test_trade_setup_degrades_without_key(monkeypatch):
     monkeypatch.delenv("FMP_API_KEY", raising=False)
     import config

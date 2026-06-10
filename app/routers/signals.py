@@ -30,3 +30,17 @@ def trade_setup_view(ticker: str) -> Envelope:
         return Envelope(ok=False, provider="fmp", freshness=_FRESHNESS,
                         error=f"{type(exc).__name__}: {exc}"[:200])
     return Envelope(data=data, provider="fmp", freshness=_FRESHNESS)
+
+
+@router.get("/hitlist", response_model=Envelope)
+def daily_hitlist_view(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2.0) -> Envelope:
+    """Market-wide morning scanner: today's movers ranked with a directional lean."""
+    if not get_settings().fmp_enabled:
+        return Envelope(ok=False, provider="fmp + polygon", freshness=_FRESHNESS,
+                        error="Hit-list needs an FMP key — set FMP_API_KEY.")
+    try:
+        data = signals.daily_hitlist(limit=limit, scan_depth=scan_depth, min_move_pct=min_move_pct)
+    except Exception as exc:  # noqa: BLE001 — total failure → degraded envelope
+        return Envelope(ok=False, provider="fmp + polygon", freshness=_FRESHNESS,
+                        error=f"{type(exc).__name__}: {exc}"[:200])
+    return Envelope(data=data, provider="fmp + polygon", freshness=_FRESHNESS)

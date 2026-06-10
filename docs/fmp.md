@@ -64,7 +64,15 @@ and likely **congress trades** are Ultimate. The fault-tolerant build shows
   (long/short/neutral) + `score` + `conviction`, plus an `in_play` participation
   read (relative volume) and concrete `triggers`. Fault-tolerant + tier-gated;
   pure scoring unit-tested (`tests/test_signals.py`). Research context, never an
-  auto-executed signal — it biases the order-flow execution (NinjaTrader).
+      auto-executed signal — it biases the order-flow execution (NinjaTrader).
+- **H9 — daily hit-list scanner** *(done)*: `services/signals.py:daily_hitlist()` →
+  `GET /signals/hitlist` + the `daily_hitlist` MCP tool. The opportunity finder:
+  takes the whole-market **movers** feed (Polygon/Massive Grouped Daily) and
+  enriches each candidate with catalyst (analyst rating change, earnings proximity)
+  + smart-money (insider flow), then ranks by **confluence** (catalyst agrees with
+  the day's move) + conviction + intensity — each with a long/short/neutral `bias`.
+  Needs FMP + `POLYGON_API_KEY`. Pure ranking/scoring unit-tested. Research context,
+  never auto-executed.
 
 ## Setup
 

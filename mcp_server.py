@@ -285,6 +285,18 @@ def trade_setup(ticker: str) -> dict:
 
 
 @mcp.tool()
+def daily_hitlist(limit: int = 15, min_move_pct: float = 2.0) -> dict:
+    """**Today's tradeable names** — a whole-market morning scan. Takes the day's
+    biggest movers / most-active US stocks and enriches each with catalyst (analyst
+    rating change, earnings proximity) + smart-money (insider flow) signals, then
+    ranks them by **confluence** (catalyst agrees with the move) + conviction +
+    intensity, each with a `bias` (long/short/neutral). The opportunity finder:
+    'what's in play today and which way'. Needs FMP + POLYGON_API_KEY. Research
+    context, NOT auto-executed trade signals."""
+    return _safe(signals_svc.daily_hitlist, limit=limit, min_move_pct=min_move_pct)
+
+
+@mcp.tool()
 def tradingview_signals(limit: int = 50) -> dict:
     """Recent **TradingView** strategy/alert signals received via webhook (ticker,
     action, price, message; newest first). These are your TradingView Pine alerts
