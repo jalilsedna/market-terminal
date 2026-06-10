@@ -417,6 +417,25 @@ async function _cotInstrumentOptions(selectedId) {
   }
 }
 
+async function _fundamentalsInstrumentOptions(selectedSymbol) {
+  try {
+    const env = await fetchJSON("/instruments");
+    const list = ((env.data || {}).instruments || []).filter((i) => i.capabilities && i.capabilities.fundamentals);
+    if (!list.length) {
+      return { html: '<option value="">— add equities/ETFs in Registry —</option>', labels: {} };
+    }
+    const labels = {};
+    const html = list.map((i) => {
+      const sym = (i.symbol || "").toUpperCase();
+      labels[sym] = i.label || sym;
+      return `<option value="${esc(sym)}"${sym === selectedSymbol ? " selected" : ""}>${esc(labels[sym])} (${esc(i.asset)})</option>`;
+    }).join("");
+    return { html, labels };
+  } catch (e) {
+    return { html: '<option value="">unavailable</option>', labels: {} };
+  }
+}
+
 // Instrument registry: add/remove any asset class; Alpaca search for US equities.
 async function apiSend(path, method, body) {
   const opts = { method, headers: {} };
@@ -1014,8 +1033,22 @@ function renderBrainScreen(env) {
   return head + `<table style="margin-top:6px"><thead><tr><th>Symbol</th><th>Conviction</th><th style="text-align:right">Score</th><th>Read</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
+async function loadFundamentalsOne(symbol, label) {
+  const body = $("#fund-body");
+  if (!body) return;
+  const t = (symbol || "").trim().toUpperCase();
+  if (!t) return;
+  body.innerHTML = `<div class="loading">Loading ${esc(label || t)}…</div>`;
+  try {
+    const env = await fetchJSON("/brain/" + encodeURIComponent(t));
+    if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+    body.innerHTML = renderFundamentals(env);
+  } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+}
+
 async function loadFundamentals() {
   const sec = $("#view-fundamentals");
+  const { html, labels } = await _fundamentalsInstrumentOptions("");
   sec.innerHTML =
     panel("Brain Screen — rank conviction", `
       <div class="addbar">
@@ -1023,26 +1056,33 @@ async function loadFundamentals() {
         <button id="scr-go" class="btn">Screen</button>
       </div>
       <div id="scr-body" style="margin-top:12px"><div class="sub dim">Run a screen to rank the universe by conviction.</div></div>`)
-    + panel("Stock Brain — enter a ticker", `
-      <div class="addbar">
-        <input id="fund-input" class="inp" placeholder="ticker (e.g. AAPL, MSFT, NVDA)" value="AAPL" />
+    + panel("Stock Brain — conviction + fundamentals", `
+      <div class="sub mb-sm">Pick an equity or ETF from your registry. You can also type any US ticker below for a one-off lookup.</div>
+      <select id="fund-pick" class="btn">${html}</select>
+      <div class="addbar mt-sm">
+        <input id="fund-input" class="inp" placeholder="or type any ticker (e.g. AAPL)" />
         <button id="fund-go" class="btn">Load</button>
       </div>
       <div id="fund-body" style="margin-top:12px"></div>`);
 
-  const body = $("#fund-body");
-  const go = async () => {
-    const t = ($("#fund-input").value || "").trim().toUpperCase();
+  const loadSymbol = (sym) => {
+    const t = (sym || "").trim().toUpperCase();
     if (!t) return;
-    body.innerHTML = `<div class="loading">Loading ${esc(t)}…</div>`;
-    try {
-      const env = await fetchJSON("/brain/" + encodeURIComponent(t));  // brain → verdict + fundamentals
-      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
-      body.innerHTML = renderFundamentals(env);
-    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+    const inp = $("#fund-input");
+    if (inp) inp.value = t;
+    loadFundamentalsOne(t, labels[t] || t);
   };
-  $("#fund-go").addEventListener("click", go);
-  $("#fund-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+
+  const pick = $("#fund-pick");
+  if (pick && pick.value) {
+    pick.addEventListener("change", () => loadSymbol(pick.value));
+    loadSymbol(pick.value);
+  } else if ($("#fund-body")) {
+    $("#fund-body").innerHTML = '<div class="dim">Add equities or ETFs in Registry, or enter a ticker above.</div>';
+  }
+
+  $("#fund-go").addEventListener("click", () => loadSymbol($("#fund-input").value));
+  $("#fund-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") loadSymbol($("#fund-input").value); });
 
   const scrBody = $("#scr-body");
   const screen = async () => {
@@ -1057,8 +1097,6 @@ async function loadFundamentals() {
   };
   $("#scr-go").addEventListener("click", screen);
   $("#scr-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") screen(); });
-
-  go();
 }
 
 function _loadFor(view) {
