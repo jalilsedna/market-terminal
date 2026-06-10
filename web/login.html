@@ -4,51 +4,24 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Market Terminal — Sign in</title>
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; min-height: 100vh; display: grid; place-items: center;
-      background: #0b0e14; color: #d7dce5;
-      font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
-    .card {
-      width: min(360px, 92vw); padding: 28px 26px;
-      background: #11151f; border: 1px solid #1f2633; border-radius: 10px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.4);
-    }
-    h1 { margin: 0 0 4px; font-size: 16px; letter-spacing: .5px; }
-    .sub { margin: 0 0 20px; color: #6b7689; font-size: 12px; }
-    label { display: block; margin: 14px 0 6px; color: #98a2b3; font-size: 12px; }
-    input {
-      width: 100%; padding: 10px 12px; border-radius: 7px;
-      background: #0b0e14; border: 1px solid #29313f; color: #e8edf5;
-      font: inherit;
-    }
-    input:focus { outline: none; border-color: #3b82f6; }
-    button {
-      width: 100%; margin-top: 22px; padding: 11px; border: 0; border-radius: 7px;
-      background: #2563eb; color: #fff; font: inherit; font-weight: 600;
-      cursor: pointer;
-    }
-    button:hover { background: #1d4ed8; }
-    .err { margin: 14px 0 0; padding: 9px 11px; border-radius: 7px;
-      background: #2a1416; border: 1px solid #5b1f23; color: #f4a7ac; font-size: 12px; }
-    .foot { margin-top: 18px; color: #4b5566; font-size: 11px; text-align: center; }
-  </style>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
-<body>
-  <form class="card" method="post" action="/login">
-    <h1>Market Terminal</h1>
-    <p class="sub">Research &amp; analytics · sign in to continue</p>
+<body class="auth-page">
+  <form class="auth-card" method="post" action="/login">
+    <div class="auth-brand">
+      <span class="logo">▌</span>
+      <span>MARKET TERMINAL</span>
+    </div>
+    <h1>Sign in</h1>
+    <p class="sub">Research &amp; analytics · read-only, no broker keys</p>
     <input type="hidden" name="next" value="__NEXT__" />
     <label for="username">Username</label>
     <input id="username" name="username" autocomplete="username" autofocus required />
     <label for="password">Password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required />
     <!--ERROR-->
-    <button type="submit">Sign in</button>
-    <p class="foot">No account? <a href="/register" style="color:#6b7689">Register</a> · Read-only research, no broker keys.</p>
+    <button type="submit" class="btn btn-primary">Sign in</button>
+    <p class="auth-foot">No account? <a href="/register">Register</a></p>
   </form>
 </body>
 </html>
