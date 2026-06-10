@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from cache.store import cached
 from services import cot as cot_svc
 from services import instruments as reg
 from services import macro as macro_svc
@@ -125,8 +126,18 @@ def _vote(leans: str) -> int:
     return {"risk-on": 1, "risk-off": -1}.get(leans, 0)
 
 
+@cached("regime")
 def regime() -> dict:
-    """Risk-on / risk-off read from VIX structure, sector breadth, dollar, index."""
+    """Risk-on / risk-off read from VIX structure, sector breadth, dollar, index.
+
+    Cached on a short TTL so every caller in the same window — the standalone
+    `analysis_regime` view AND the stock/crypto/forex brains' macro component —
+    reads ONE coherent regime. Without this, each caller recomputed from
+    independently-cached sub-inputs (sector rotation, VIX, macro dashboard) whose
+    TTLs expire at different times, so two calls minutes apart could land on
+    opposite sides of the ±2 threshold and the brains' conviction scores would
+    whipsaw on a stale-vs-fresh macro read rather than on new market data.
+    """
     signals: list[dict] = []
 
     # VIX term structure (fear gauge): backwardation = stress.

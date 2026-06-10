@@ -25,4 +25,9 @@ TTL_SECONDS = {
     "calendar": 6 * 60 * 60,
     # Static reference data (e.g. the Alpaca asset catalog) — rarely changes.
     "reference": 24 * 60 * 60,
+    # Synthesized risk-on/off regime — short TTL so the standalone view and the
+    # brains' macro component share ONE coherent read within a monitoring window
+    # (see services/analysis.regime). Long enough to span a full sweep, short
+    # enough to refresh intraday as the underlying sector/USD/index data moves.
+    "regime": 10 * 60,
 }

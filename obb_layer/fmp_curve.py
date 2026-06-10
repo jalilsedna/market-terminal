@@ -7,8 +7,9 @@ prices via ``batch-commodity-quotes`` / ``historical-price-eod/full``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date as date_type
-from typing import Any, Callable
+from typing import Any
 
 from obb_layer import fmp
 
