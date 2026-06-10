@@ -1,11 +1,7 @@
-"""V4 — COT / Positioning domain logic (SPEC.md §4 V4).
+"""COT / Positioning — weekly CFTC data for tracked futures with a cot_code.
 
-Turns raw weekly CFTC Commitment of Traders rows into the positioning summary a
-futures trader actually reads: commercial vs non-commercial **net** positioning,
-the latest weekly change, a multi-week trend, and where current net sits within
-its 1-year and 3-year range (extremes).
-
-Services never import OpenBB directly — they call `obb_layer/`.
+Only instruments in the registry that carry `meta.cot_code` appear in the
+dashboard. Use `cot_search` to discover codes when adding new contracts.
 """
 
 from __future__ import annotations
@@ -13,9 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 from obb_layer import cot
-from obb_layer.symbols import WATCHLIST
+from services import instruments as reg
 
-# Legacy-report position fields (confirmed on the CFTC COT model).
 NC_LONG = "non_commercial_positions_long_all"
 NC_SHORT = "non_commercial_positions_short_all"
 C_LONG = "commercial_positions_long_all"
@@ -43,7 +38,6 @@ def _net(row: dict, long_key: str, short_key: str) -> float | None:
 
 
 def _range_stats(series: list[float], current: float) -> dict | None:
-    """Min/max and where `current` sits within a window's range (0–100%)."""
     if not series:
         return None
     lo, hi = min(series), max(series)
@@ -52,7 +46,6 @@ def _range_stats(series: list[float], current: float) -> dict | None:
 
 
 def summarize(records: list[dict], trend_weeks: int = 12) -> dict:
-    """Build the positioning summary from oldest→newest weekly COT rows."""
     rows = [r for r in records if r.get("date")]
     if not rows:
         raise ValueError("no COT rows returned")
@@ -78,7 +71,7 @@ def summarize(records: list[dict], trend_weeks: int = 12) -> dict:
         "report_date": str(latest.get("date"))[:10],
         "open_interest": _num(latest.get(OPEN_INTEREST)),
         "history_weeks": len(rows),
-        "non_commercial": {  # large speculators
+        "non_commercial": {
             "long": _num(latest.get(NC_LONG)),
             "short": _num(latest.get(NC_SHORT)),
             "net": nc_net,
@@ -86,7 +79,7 @@ def summarize(records: list[dict], trend_weeks: int = 12) -> dict:
             "range_1y": _range_stats(nc_net_series[-WEEKS_1Y:], nc_net) if nc_net is not None else None,
             "range_3y": _range_stats(nc_net_series[-WEEKS_3Y:], nc_net) if nc_net is not None else None,
         },
-        "commercial": {  # hedgers
+        "commercial": {
             "long": _num(latest.get(C_LONG)),
             "short": _num(latest.get(C_SHORT)),
             "net": c_net,
@@ -94,18 +87,18 @@ def summarize(records: list[dict], trend_weeks: int = 12) -> dict:
             "range_1y": _range_stats(c_net_series[-WEEKS_1Y:], c_net) if c_net is not None else None,
             "range_3y": _range_stats(c_net_series[-WEEKS_3Y:], c_net) if c_net is not None else None,
         },
-        "non_reportable_net": nr_net,  # small traders
+        "non_reportable_net": nr_net,
         "trend": trend,
     }
 
 
 def positioning(*, instrument: str | None = None, code: str | None = None) -> dict:
-    """Summary for one contract, by watchlist shorthand (e.g. 'GC') or raw code."""
+    """Summary for one contract by registry id/code or raw CFTC code."""
     if instrument:
-        key = instrument.upper()
-        if key not in WATCHLIST:
-            raise ValueError(f"unknown instrument '{instrument}'; known: {', '.join(WATCHLIST)}")
-        resolved = WATCHLIST[key].cot_code
+        inst = reg.resolve(instrument)
+        resolved = inst.meta.get("cot_code")
+        if not resolved:
+            raise ValueError(f"{inst.label} has no cot_code — set meta when adding or use cot_search")
     elif code:
         resolved = code
     else:
@@ -116,24 +109,31 @@ def positioning(*, instrument: str | None = None, code: str | None = None) -> di
     return summary
 
 
-def _one(item) -> tuple[str, dict]:
-    key, inst = item
+def _one(inst: reg.TrackedInstrument) -> tuple[str, dict]:
+    if not inst.meta.get("cot_code"):
+        return inst.id, {
+            "ok": False,
+            "name": inst.label,
+            "error": "no cot_code metadata — use cot_search to find the CFTC code",
+        }
     try:
-        return key, {"ok": True, "name": inst.name, **positioning(instrument=key)}
-    except Exception as exc:  # noqa: BLE001 — one contract must not sink the view
-        return key, {"ok": False, "name": inst.name, "cot_code": inst.cot_code,
-                     "error": f"{type(exc).__name__}: {exc}"[:200]}
+        return inst.id, {"ok": True, "name": inst.label, "code": inst.code, **positioning(code=inst.meta["cot_code"])}
+    except Exception as exc:  # noqa: BLE001
+        return inst.id, {
+            "ok": False,
+            "name": inst.label,
+            "cot_code": inst.meta.get("cot_code"),
+            "error": f"{type(exc).__name__}: {exc}"[:200],
+        }
 
 
 def dashboard() -> dict:
-    """COT positioning across the whole watchlist; each contract fault-tolerant.
-
-    Fetched *sequentially*: CFTC's Socrata API rate-limits concurrent requests
-    (returns a 403 HTML block page under a burst), and it's only five calls.
-    """
-    return dict(_one(item) for item in WATCHLIST.items())
+    """COT for all tracked futures that have a cot_code (sequential — CFTC rate limits)."""
+    futures = [i for i in reg.list_all() if i.asset == "futures" and i.meta.get("cot_code")]
+    if not futures:
+        return {}
+    return dict(_one(inst) for inst in futures)
 
 
 def search(query: str) -> list[dict]:
-    """Discover/verify CFTC codes for a contract name."""
     return cot.cot_search(query)

@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from obb_layer.symbols import WATCHLIST
 from services import cot as cot_svc
+from services import instruments as reg
 from services import macro as macro_svc
 from services import news as news_svc
 from services import screener as screener_svc
@@ -195,17 +195,22 @@ def regime() -> dict:
 # --- Per-instrument brief ----------------------------------------------------
 
 def brief(instrument: str) -> dict:
-    """"What's moving this contract" — synthesis of regime, positioning, price,
-    term structure (where it exists), and tagged news for one watchlist symbol.
+    """"What's moving this instrument" — synthesis of regime, positioning, price,
+    term structure (where it exists), and tagged news for one tracked symbol.
 
     Each component is independent and fault-tolerant; a missing one is omitted
     rather than failing the brief. Rule-based synthesis — no recommendations.
     """
-    key = (instrument or "").upper()
-    if key not in WATCHLIST:
-        raise ValueError(f"unknown instrument '{instrument}'; known: {', '.join(WATCHLIST)}")
-    inst = WATCHLIST[key]
-    out: dict[str, Any] = {"code": key, "name": inst.name, "disclaimer": DISCLAIMER}
+    inst = reg.resolve(instrument)
+    out: dict[str, Any] = {
+        "id": inst.id,
+        "code": inst.code,
+        "asset": inst.asset,
+        "symbol": inst.symbol,
+        "name": inst.label,
+        "capabilities": inst.capabilities(),
+        "disclaimer": DISCLAIMER,
+    }
 
     # Overall macro context.
     reg = {}
@@ -219,31 +224,33 @@ def brief(instrument: str) -> dict:
     # Price / momentum.
     price = {}
     try:
-        w = watchlist_svc.instrument_summary(key)
-        f = w.get("future", {})
+        w = watchlist_svc.instrument_summary(inst.id)
+        f = w.get("future") or w
         price = {
-            "close": f.get("close"),
-            "change_1d_pct": f.get("change_1d_pct"),
-            "change_1w_pct": f.get("change_1w_pct"),
-            "change_1m_pct": f.get("change_1m_pct"),
+            "close": f.get("close") or w.get("last"),
+            "change_1d_pct": f.get("change_1d_pct") or w.get("change_1d_pct"),
+            "change_1w_pct": f.get("change_1w_pct") or w.get("change_1w_pct"),
+            "change_1m_pct": f.get("change_1m_pct") or w.get("change_1m_pct"),
             "atr_14_pct": w.get("atr_14_pct"),
         }
     except Exception:  # noqa: BLE001
         pass
     out["price"] = price or None
 
-    # COT positioning read for this contract.
+    # COT positioning read (futures with cot_code only).
     cot = {}
-    try:
-        cot = _cot_signal(cot_svc.positioning(instrument=key))
-    except Exception:  # noqa: BLE001
-        pass
+    if inst.capabilities().get("cot"):
+        try:
+            cot = _cot_signal(cot_svc.positioning(instrument=inst.id))
+        except Exception:  # noqa: BLE001
+            pass
     out["cot"] = cot or None
 
-    # Term structure (only contracts we carry a curve for, e.g. GC).
-    if key in getattr(ts_svc, "CURVE_SPECS", {}):
+    # Term structure (only when curve data exists for this root).
+    root = inst.code or inst.symbol.replace("=F", "")
+    if root in getattr(ts_svc, "CURVE_SPECS", {}):
         try:
-            t = ts_svc.curve(key)
+            t = ts_svc.curve(root)
             out["term_structure"] = {
                 "structure": t.get("structure"),
                 "front_back_spread_pct": t.get("front_back_spread_pct"),
@@ -253,7 +260,7 @@ def brief(instrument: str) -> dict:
 
     # Tagged news for this instrument (top few).
     try:
-        feed = news_svc.feed(instrument=key, limit=5)
+        feed = news_svc.feed(instrument=inst.id, limit=5)
         out["news"] = [
             {"date": h.get("date"), "title": h.get("title"), "source": h.get("source"), "url": h.get("url")}
             for h in (feed.get("headlines") or [])[:5]
@@ -274,7 +281,7 @@ def brief(instrument: str) -> dict:
         bits.append(f"price {price['change_1w_pct']:+.2f}% 1w")
     if out.get("term_structure", {}) and out["term_structure"] and out["term_structure"].get("structure"):
         bits.append(f"curve {out['term_structure']['structure']}")
-    out["read"] = f"{inst.name}: " + "; ".join(bits) + "." if bits else f"{inst.name}: insufficient data."
+    out["read"] = f"{inst.label}: " + "; ".join(bits) + "." if bits else f"{inst.label}: insufficient data."
 
     return out
 

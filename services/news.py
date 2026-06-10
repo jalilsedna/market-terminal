@@ -1,17 +1,7 @@
-"""V3 — News Feed domain logic (SPEC.md §4 V3).
+"""News Feed — merged headlines tagged to tracked instruments.
 
-Two modes, auto-selected by what keys are configured:
-
-* **World wire (preferred):** if a paid news provider key is set (FMP / Benzinga /
-  Tiingo / Intrinio), the feed is a real macro/markets wire via `news.world`,
-  deduped and tagged with macro themes + the watchlist instruments mentioned.
-* **Proxy fallback (keyless):** with no news key, OpenBB's *world* news 402s, so the
-  feed is assembled from free per-instrument `news.company` (yfinance) on liquid
-  ETF proxies (GLD/QQQ/DIA/FXE/FXB), merged and deduped.
-
-So the terminal degrades gracefully with no keys and *upgrades automatically* the
-moment a news key is added — no config flip. Per-instrument requests always use
-the free yfinance company-news path. Services never import OpenBB directly.
+World wire when a news-provider key is set; otherwise free per-instrument
+yfinance company news on symbols in the registry. Services never import OpenBB directly.
 """
 
 from __future__ import annotations
@@ -21,25 +11,14 @@ from collections.abc import Sequence
 from concurrency import parallel_map
 from config import get_settings
 from obb_layer import news
-from obb_layer.symbols import WATCHLIST
+from services import instruments as reg
 
-# Cross-instrument macro themes (tagged as "macro" when matched in title/excerpt).
 MACRO_KEYWORDS: list[str] = [
     "fed", "fomc", "powell", "interest rate", "rate cut", "rate hike", "inflation",
     "cpi", "pce", "treasury", "yield", "payroll", "nonfarm", "jobs report",
     "unemployment", "gdp", "recession", "tariff", "dollar", "central bank",
 ]
 
-# Light keyword map to tag world-wire headlines with our watchlist instruments.
-_INSTRUMENT_KEYWORDS: dict[str, list[str]] = {
-    "GC": ["gold", "bullion"],
-    "NQ": ["nasdaq", "tech stocks", "big tech"],
-    "YM": ["dow jones", "dow industrial"],
-    "6E": ["euro", "ecb", "eurozone"],
-    "6B": ["pound", "sterling", "boe", "bank of england"],
-}
-
-# Providers (in priority order) whose key unlocks OpenBB's *world* news.
 _WORLD_PROVIDERS: tuple[tuple[str, str], ...] = (
     ("fmp", "fmp_api_key"),
     ("benzinga", "benzinga_api_key"),
@@ -49,7 +28,6 @@ _WORLD_PROVIDERS: tuple[tuple[str, str], ...] = (
 
 
 def _world_provider() -> str | None:
-    """First configured world-news provider, or None → use the proxy feed."""
     settings = get_settings()
     for provider, attr in _WORLD_PROVIDERS:
         if getattr(settings, attr, None):
@@ -65,8 +43,32 @@ def _excerpt(item: dict) -> str | None:
     return item.get("excerpt") or item.get("text") or item.get("body")
 
 
-def _proxy_headline(item: dict, instrument: str) -> dict:
-    tags = [instrument]
+def _news_ticker(inst: reg.TrackedInstrument) -> str | None:
+    return inst.meta.get("news_symbol") or (
+        inst.symbol if inst.asset in ("equity", "etf", "crypto") else None
+    )
+
+
+def _keyword_map() -> dict[str, list[str]]:
+    """Build headline→instrument tags from the live registry."""
+    out: dict[str, list[str]] = {}
+    for inst in reg.list_all():
+        key = inst.code or inst.id
+        words = {inst.label.lower(), inst.symbol.lower(), key.lower()}
+        if inst.meta.get("name"):
+            words.add(str(inst.meta["name"]).lower())
+        if inst.asset == "futures":
+            words.add(inst.symbol.lower().replace("=f", ""))
+            if key == "GC":
+                words.update({"gold", "bullion"})
+        if inst.asset == "crypto" and "-" in inst.symbol:
+            words.add(inst.symbol.split("-")[0].lower())
+        out[key] = [w for w in words if len(w) >= 2]
+    return out
+
+
+def _proxy_headline(item: dict, tag: str) -> dict:
+    tags = [tag]
     blob = f"{item.get('title') or ''} {_excerpt(item) or ''}".lower()
     if _macro_tagged(blob):
         tags.append("macro")
@@ -81,13 +83,14 @@ def _proxy_headline(item: dict, instrument: str) -> dict:
 
 
 def _world_headline(item: dict) -> dict:
-    """Tag a world-wire item with 'macro' and any watchlist instruments mentioned."""
     excerpt = _excerpt(item)
     blob = f"{item.get('title') or ''} {excerpt or ''}".lower()
     tags: list[str] = []
     if _macro_tagged(blob):
         tags.append("macro")
-    tags += [code for code, kws in _INSTRUMENT_KEYWORDS.items() if any(k in blob for k in kws)]
+    for code, kws in _keyword_map().items():
+        if any(k in blob for k in kws):
+            tags.append(code)
     return {
         "date": str(item.get("date")) if item.get("date") else None,
         "title": item.get("title"),
@@ -112,7 +115,6 @@ def _dedupe_sorted(headlines: Sequence[dict], limit: int) -> list[dict]:
 
 
 def _world_feed(limit: int, provider: str) -> dict:
-    """A real macro/markets wire via news.world (needs a provider key)."""
     raw = news.world_news(provider=provider, limit=max(limit * 2, 50))
     headlines = _dedupe_sorted([_world_headline(i) for i in raw], limit)
     return {
@@ -125,70 +127,75 @@ def _world_feed(limit: int, provider: str) -> dict:
     }
 
 
-def _proxy_feed(limit: int, targets: dict, provider: str) -> dict:
-    """Free fallback: per-instrument yfinance company news, merged + tag-deduped."""
+def _proxy_feed(limit: int, targets: dict[str, reg.TrackedInstrument], provider: str) -> dict:
+    if not targets:
+        return {
+            "count": 0,
+            "provider": provider,
+            "filter": "registry",
+            "sources": {},
+            "errors": None,
+            "headlines": [],
+        }
     per_instrument = max(limit, 20)
     seen: set[str] = set()
     headlines: list[dict] = []
     errors: dict[str, str] = {}
 
     def _fetch(item):
-        code, inst = item
+        tag, inst = item
+        ticker = _news_ticker(inst)
+        if not ticker:
+            return tag, [], "no news symbol"
         try:
-            return code, news.company_news(inst.news_symbol, provider=provider, limit=per_instrument), None
-        except Exception as exc:  # noqa: BLE001 — one ticker must not sink the feed
-            return code, [], type(exc).__name__
+            return tag, news.company_news(ticker, provider=provider, limit=per_instrument), None
+        except Exception as exc:  # noqa: BLE001
+            return tag, [], type(exc).__name__
 
-    for code, raw, err in parallel_map(_fetch, targets.items()):
+    for tag, raw, err in parallel_map(_fetch, targets.items()):
         if err:
-            errors[code] = err
+            errors[tag] = err
             continue
         for item in raw:
-            h = _proxy_headline(item, code)
+            h = _proxy_headline(item, tag)
             dedupe_key = (h["url"] or h["title"] or "").strip().lower()
             if not dedupe_key:
                 continue
             if dedupe_key in seen:
-                for existing in headlines:  # same story under another instrument → merge tag
+                for existing in headlines:
                     if (existing["url"] or existing["title"] or "").strip().lower() == dedupe_key:
-                        if code not in existing["tags"]:
-                            existing["tags"].append(code)
+                        if tag not in existing["tags"]:
+                            existing["tags"].append(tag)
                         break
                 continue
             seen.add(dedupe_key)
             headlines.append(h)
 
-    if not headlines and errors:
+    if not headlines and errors and len(errors) == len(targets):
         raise RuntimeError(f"all news fetches failed (e.g. {next(iter(errors.values()))})")
 
     headlines.sort(key=lambda h: h["date"] or "", reverse=True)
     return {
         "count": len(headlines[:limit]),
         "provider": provider,
-        "filter": "watchlist",
-        "sources": {code: inst.news_symbol for code, inst in targets.items()},
+        "filter": "registry",
+        "sources": {tag: _news_ticker(inst) for tag, inst in targets.items()},
         "errors": errors or None,
         "headlines": headlines[:limit],
     }
 
 
 def feed(*, limit: int = 50, instrument: str | None = None, provider: str = "yfinance") -> dict:
-    """Merged, tagged, deduped news feed (newest first).
-
-    Uses a real world wire when a news-provider key is set; otherwise the free
-    yfinance per-instrument proxy feed. Per-instrument requests always use the
-    proxy path (free, symbol-tagged).
-    """
+    """Merged, tagged, deduped news feed (newest first)."""
     if instrument:
-        key = instrument.upper()
-        if key not in WATCHLIST:
-            raise ValueError(f"unknown instrument '{instrument}'; known: {', '.join(WATCHLIST)}")
-        return _proxy_feed(limit, {key: WATCHLIST[key]}, provider)
+        inst = reg.resolve(instrument)
+        tag = inst.code or inst.id
+        return _proxy_feed(limit, {tag: inst}, provider)
 
     world_provider = _world_provider()
     if world_provider:
         try:
             return _world_feed(limit, world_provider)
-        except Exception:  # noqa: BLE001 — world wire failed → fall back to the free proxy feed
+        except Exception:  # noqa: BLE001
             pass
-    return _proxy_feed(limit, dict(WATCHLIST), provider)
+    return _proxy_feed(limit, reg.news_wire_targets(), provider)

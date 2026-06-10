@@ -1,7 +1,6 @@
-"""Custom-watchlist store (ROADMAP C6) — now SQLite-backed (ROADMAP C2).
+"""Instrument store (SQLite-backed registry).
 
-The public surface (add / remove / list_items) is unchanged; storage moved from
-a JSON file to the SQLite layer in `app/db.py`, so the watchlist survives
+Public surface: add / remove / list_items. Storage in `app/db.py` — survives
 restarts and (on a Railway volume) redeploys. No OpenBB — unit-tested in CI.
 """
 
@@ -13,11 +12,16 @@ VALID_ASSETS = ("futures", "crypto", "forex", "equity", "etf")
 
 
 def list_items() -> list[dict]:
-    """The stored entries (id, asset, symbol, label) — no live data."""
+    """Stored entries (id, asset, symbol, label, meta) — no live data."""
     return db.watchlist_list()
 
 
-def add(asset: str, symbol: str, label: str | None = None) -> dict:
+def add(
+    asset: str,
+    symbol: str,
+    label: str | None = None,
+    meta: dict | None = None,
+) -> dict:
     """Add an instrument; idempotent on (asset, symbol). Returns its entry."""
     asset = (asset or "").lower().strip()
     symbol = (symbol or "").strip()
@@ -26,8 +30,12 @@ def add(asset: str, symbol: str, label: str | None = None) -> dict:
     if not symbol:
         raise ValueError("symbol is required")
     item_id = f"{asset}:{symbol}"
-    db.watchlist_add(item_id, asset, symbol, label or symbol)
-    return {"id": item_id, "asset": asset, "symbol": symbol, "label": label or symbol}
+    db.watchlist_add(item_id, asset, symbol, label or symbol, meta)
+    rows = [r for r in db.watchlist_list() if r["id"] == item_id]
+    return rows[0] if rows else {
+        "id": item_id, "asset": asset, "symbol": symbol,
+        "label": label or symbol, "meta": meta or {},
+    }
 
 
 def remove(item_id: str) -> bool:

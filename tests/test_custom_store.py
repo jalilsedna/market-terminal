@@ -24,7 +24,11 @@ def test_starts_empty(store):
 
 def test_add_list_remove(store):
     e = store.add("crypto", "BTC-USD")
-    assert e == {"id": "crypto:BTC-USD", "asset": "crypto", "symbol": "BTC-USD", "label": "BTC-USD"}
+    assert e["id"] == "crypto:BTC-USD"
+    assert e["asset"] == "crypto"
+    assert e["symbol"] == "BTC-USD"
+    assert e["label"] == "BTC-USD"
+    assert e["meta"] == {}
     store.add("equity", "AAPL", label="Apple")
     ids = [i["id"] for i in store.list_items()]
     assert ids == ["crypto:BTC-USD", "equity:AAPL"]

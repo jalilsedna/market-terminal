@@ -20,7 +20,6 @@ from collections.abc import Callable
 from config import get_settings
 from services import (
     cot,
-    custom_watchlist,
     history,
     macro,
     movers,
@@ -51,7 +50,6 @@ WARMERS: list[tuple[str, Callable[[], object]]] = [
     ("sectors", screener.sector_rotation),
     ("news", lambda: news.feed(limit=40)),
     ("volatility", volatility.dashboard),
-    ("custom", custom_watchlist.dashboard),
     # Runs last so it snapshots the just-warmed vol/regime (one point/day).
     ("history", history.record_all),
 ]

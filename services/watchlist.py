@@ -1,23 +1,28 @@
-"""V2 — Watchlist domain logic (SPEC.md §4 V2).
+"""Unified instruments dashboard — all tracked assets (futures, crypto, forex, equity, ETF).
 
-For each contract in the fixed watchlist (obb_layer/symbols.py): last EOD OHLCV,
-day/week/month % change, and ATR(14) — shown beside its spot/cash proxy so the
-futures series can be sanity-checked against the underlying.
-
-ATR(14) is computed inline with Wilder's method: it's a small standard formula
-on OHLCV we already hold, not a data source, so there's no need to round-trip
-our own series back through OpenBB's `technical` extension.
+Per instrument: EOD price, 1d/1w/1m % change, ATR(14) where OHLCV allows,
+optional spot proxy (futures), and vol/regime read. The registry starts empty;
+users add symbols via /instruments.
 
 Services never import OpenBB directly — they call `obb_layer/`.
 """
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
+
+import numpy as np
 
 from concurrency import parallel_map
 from obb_layer import market
-from obb_layer.symbols import WATCHLIST
+from services import instruments as reg
+from services.custom_watchlist import FETCHERS, _metrics
+from vol import realized_vol_series, vol_regime
+
+DISCLAIMER = "EOD prices — research context, not a trade signal."
+_VOL_WINDOW = 21
+_MIN_VOL_BARS = _VOL_WINDOW + 40
 
 
 def _num(value: Any) -> float | None:
@@ -38,7 +43,6 @@ def _nth_back(values: list[float], n: int) -> float | None:
 
 
 def _ohlcv_snapshot(records: list[dict]) -> dict:
-    """Latest close + 1d/1w/1m % change from ordered (oldest→newest) OHLCV rows."""
     closes = [c for r in records if (c := _num(r.get("close"))) is not None]
     if not closes:
         raise ValueError("no close prices")
@@ -58,7 +62,6 @@ def _ohlcv_snapshot(records: list[dict]) -> dict:
 
 
 def _atr(records: list[dict], length: int = 14) -> float | None:
-    """ATR(length) via Wilder's smoothing over OHLCV rows (oldest→newest)."""
     rows = [
         r for r in records
         if _num(r.get("high")) is not None
@@ -72,57 +75,87 @@ def _atr(records: list[dict], length: int = 14) -> float | None:
         high, low = _num(rows[i]["high"]), _num(rows[i]["low"])
         prev_close = _num(rows[i - 1]["close"])
         true_ranges.append(max(high - low, abs(high - prev_close), abs(low - prev_close)))
-    # Seed with the simple average of the first `length` TRs, then Wilder-smooth.
     atr = sum(true_ranges[:length]) / length
     for tr in true_ranges[length:]:
         atr = (atr * (length - 1) + tr) / length
     return round(atr, 5)
 
 
-def instrument_summary(code: str) -> dict:
-    """Full V2 row for one watchlist instrument (future + ATR + proxy)."""
-    key = code.upper()
-    if key not in WATCHLIST:
-        raise ValueError(f"unknown instrument '{code}'; known: {', '.join(WATCHLIST)}")
-    inst = WATCHLIST[key]
-
-    fut_records = market.futures_history(inst.yf_symbol)
-    fut = _ohlcv_snapshot(fut_records)
-    atr = _atr(fut_records, 14)
-
-    # Proxy is best-effort: a failed proxy must not sink the future's data.
+def _vol_read(closes: np.ndarray) -> dict:
+    if len(closes) < _MIN_VOL_BARS:
+        return {}
     try:
-        proxy = {"symbol": inst.proxy_symbol, "name": inst.proxy_name,
-                 **_ohlcv_snapshot(market.proxy_history(inst.proxy_symbol))}
-    except Exception as exc:  # noqa: BLE001
-        proxy = {"symbol": inst.proxy_symbol, "name": inst.proxy_name,
-                 "ok": False, "error": f"{type(exc).__name__}"}
+        rv = realized_vol_series(closes, window=_VOL_WINDOW)
+        cur = float(rv[-1])
+        return {"vol_annualized": round(cur, 4), "regime": vol_regime(cur, rv[:-1])["regime"]}
+    except Exception:  # noqa: BLE001
+        return {}
 
-    # ATR as a % of price = atr / close * 100 (a ratio, not a period-over-period
-    # change). A typical daily reading is low single digits.
-    close = fut.get("close")
-    atr_pct = round(atr / close * 100, 3) if (atr is not None and close) else None
 
-    return {
+def instrument_summary(ref: str) -> dict:
+    """Full row for one tracked instrument."""
+    inst = reg.resolve(ref)
+    base = {
+        "id": inst.id,
         "code": inst.code,
-        "name": inst.name,
-        "future_symbol": inst.yf_symbol,
-        "future": fut,
-        "atr_14": atr,
-        "atr_14_pct": atr_pct,
-        "proxy": proxy,
+        "asset": inst.asset,
+        "symbol": inst.symbol,
+        "name": inst.label,
+        "capabilities": inst.capabilities(),
     }
 
+    if inst.asset == "futures":
+        fetch = FETCHERS["futures"]
+        fut_records = fetch(inst.symbol, start_date=(date.today() - timedelta(days=400)).isoformat())
+        fut = _ohlcv_snapshot(fut_records)
+        atr = _atr(fut_records, 14)
+        close = fut.get("close")
+        atr_pct = round(atr / close * 100, 3) if (atr is not None and close) else None
+        proxy_sym = inst.meta.get("proxy_symbol")
+        proxy = None
+        if proxy_sym:
+            try:
+                proxy = {
+                    "symbol": proxy_sym,
+                    "name": inst.meta.get("proxy_name") or proxy_sym,
+                    **_ohlcv_snapshot(market.proxy_history(proxy_sym)),
+                }
+            except Exception as exc:  # noqa: BLE001
+                proxy = {"symbol": proxy_sym, "ok": False, "error": type(exc).__name__}
+        closes = np.array([float(r["close"]) for r in fut_records if r.get("close") is not None])
+        return {
+            **base,
+            "ok": True,
+            "future": fut,
+            "atr_14": atr,
+            "atr_14_pct": atr_pct,
+            "proxy": proxy,
+            **_vol_read(closes),
+        }
 
-def _one(item) -> tuple[str, dict]:
-    key, inst = item
+    metrics = _metrics(inst.asset, inst.symbol)
+    return {**base, **metrics}
+
+
+def _one(inst: reg.TrackedInstrument) -> tuple[str, dict]:
     try:
-        return key, {"ok": True, **instrument_summary(key)}
-    except Exception as exc:  # noqa: BLE001 — one instrument must not sink the view
-        return key, {"ok": False, "code": inst.code, "name": inst.name,
-                     "error": f"{type(exc).__name__}: {exc}"[:200]}
+        row = instrument_summary(inst.id)
+        return inst.id, {"ok": True, **row} if row.get("ok") is not False else row
+    except Exception as exc:  # noqa: BLE001
+        return inst.id, {
+            "ok": False,
+            "id": inst.id,
+            "name": inst.label,
+            "asset": inst.asset,
+            "symbol": inst.symbol,
+            "error": f"{type(exc).__name__}: {exc}"[:200],
+        }
 
 
 def watchlist() -> dict:
-    """V2 across the whole watchlist; each instrument fetched concurrently."""
-    return dict(parallel_map(_one, WATCHLIST.items()))
+    """All tracked instruments with live metrics (empty registry → empty dict)."""
+    items = reg.list_all()
+    if not items:
+        return {"instruments": {}, "count": 0, "disclaimer": DISCLAIMER}
+    rows = dict(parallel_map(_one, items))
+    return {"instruments": rows, "count": len(rows), "disclaimer": DISCLAIMER}

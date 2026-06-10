@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from obb_layer.client import get_obb
-from obb_layer.symbols import WATCHLIST
+from obb_layer.symbols import INSTRUMENT_TEMPLATES
 
 # Where the machine-readable probe report is written. `cache/data/` is already
 # gitignored (SPEC.md §6), so the report never lands in version control.
@@ -153,7 +153,7 @@ def build_probes(obb: Any) -> list[tuple[str, str, Callable[[], Any]]]:
     probes: list[tuple[str, str, Callable[[], Any]]] = []
 
     # --- Futures EOD (SPEC §3: futures price) ---
-    for _code, inst in WATCHLIST.items():
+    for _code, inst in INSTRUMENT_TEMPLATES.items():
         probes.append((
             f"futures.historical {inst.yf_symbol}",
             "futures price (EOD)",
@@ -230,7 +230,7 @@ def build_probes(obb: Any) -> list[tuple[str, str, Callable[[], Any]]]:
 
 def main() -> None:
     obb = get_obb()
-    print("OpenBB loaded. Watchlist:", ", ".join(WATCHLIST))
+    print("OpenBB loaded. Templates:", ", ".join(INSTRUMENT_TEMPLATES))
     print("Probing SPEC §3 endpoints (read-only)…\n")
 
     results: list[ProbeResult] = []
