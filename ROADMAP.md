@@ -268,6 +268,13 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       gets the terminal's *interpreted* fundamentals + conviction (still research-
       only, never auto-executed). *(H3/H4 raw-data phases can backfill later to
       enrich the brain.)*
+- [x] **H7 — Brain SCREEN.** `brain.screen(symbols=None)` ranks **conviction across a
+      universe** — explicit tickers or the registry's fundamentals-capable
+      instruments (equities/ETFs) — computing the macro regime once and reusing it.
+      `GET /brain/screen` (registered before `/{ticker}`), `brain_screen` MCP tool,
+      and a **Brain Screen** panel on the Stock Brain tab. Compact ranked rows
+      (best→worst); errors sink. Fault-tolerant; CI-tested. Rebuilt on the unified
+      registry (replaces the earlier hardcoded-universe draft).
 
 ---
 
@@ -275,9 +282,10 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
 (F1). Research→reason→paper-execute loop proven (A1–A5). Shipped: analysis edge
 (C3), the **volatility forecasting pillar** (E1–E5 — Kronos price-forecasting
 evaluated and rejected; pivoted to HAR/EWMA + regime, in the API/MCP/UI),
-instrument **Focus** screen (C4), **multi-asset watchlist** (C6), provider
-**fallback** for equity/ETF (B4), tests + CI green (C1), and a **SQLite
-persistence** foundation (C2).
+instrument **Focus** screen (C4), the **unified instrument registry** (multi-asset
+universe — futures/crypto/forex/equity/ETF, capability-aware; default-seeded with
+the 5 reference futures on first boot), provider **fallback** for equity/ETF (B4),
+tests + CI green (C1), and a **SQLite persistence** foundation (C2).
 
 **Still open:** **B3** (commodity curves — needs a futures-curve source) · the
 **G-series product plan** (FMP fundamentals panels, UI/UX pass, TradingView

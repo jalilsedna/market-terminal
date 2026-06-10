@@ -68,6 +68,14 @@ async def lifespan(_app: FastAPI):
 
     from app.precache import start as start_precache
     from obb_layer.client import get_obb
+    from services import instruments as _instruments
+
+    # Seed the reference futures on first boot so the terminal isn't blank. No-op
+    # once the user has any tracked instrument of their own.
+    try:
+        _instruments.seed_defaults()
+    except Exception:  # noqa: BLE001 — a seed failure must never block startup
+        logging.getLogger("uvicorn.error").warning("instrument seed skipped", exc_info=True)
 
     get_obb()
     stop_precache = start_precache(settings.precache_interval_min)

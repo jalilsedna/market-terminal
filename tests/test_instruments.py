@@ -41,3 +41,18 @@ def test_equity_no_cot(reg):
     inst = reg.add("equity", "AAPL")
     assert inst.capabilities()["cot"] is False
     assert inst.capabilities()["fundamentals"] is True
+
+
+def test_seed_defaults_on_empty_then_noop(reg):
+    n = reg.seed_defaults()
+    assert n == len(reg.DEFAULT_SEED)
+    codes = {i.code for i in reg.list_all()}
+    assert {"6E", "6B", "GC", "NQ", "YM"} <= codes
+    # Idempotent: a second call seeds nothing because the registry is non-empty.
+    assert reg.seed_defaults() == 0
+
+
+def test_seed_skipped_when_user_has_instruments(reg):
+    reg.add("crypto", "BTC-USD")
+    assert reg.seed_defaults() == 0
+    assert {i.id for i in reg.list_all()} == {"crypto:BTC-USD"}
