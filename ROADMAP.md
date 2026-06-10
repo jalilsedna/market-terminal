@@ -73,9 +73,12 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       tagged with macro themes + watchlist instruments, and **falls back to FMP
       per-instrument company news** when no world wire (or the wire errors). No
       config flip — add a key and it switches. CI-tested (`tests/test_news.py`).
-- [x] **B3 — GC/CL/NG futures curves (V5).** FMP `commodities-list` + batch
-      quotes (`obb_layer/fmp_curve.py`); VIX unchanged on CBOE. Needs
-      `FMP_API_KEY`.
+- [~] **B3 — GC/CL/NG futures curves (V5).** No source provides a real commodity
+      curve on the current stack: FMP only has a single continuous quote per
+      commodity (not per-expiry), and Polygon/Massive futures need a paid plan.
+      GC/CL/NG are marked **unavailable** (`services/term_structure.py:_UNAVAILABLE`)
+      and render a calm note; **VIX (CBOE)** is the working term structure. Wire a
+      real futures source (Massive Futures / Databento) to re-enable.
 - [~] **B4 — Provider reliability.** Shipped a configurable **EOD provider
       fallback chain** (`EOD_PROVIDERS`, `obb_layer/providers.py`): equity/ETF
       fetchers — incl. the sector-rotation 11-ETF fan-out + custom equity/ETF —

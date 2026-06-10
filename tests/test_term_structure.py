@@ -14,6 +14,7 @@ def test_expiration_from_trade_month():
 
 
 def test_curve_classify_contango(monkeypatch):
+    monkeypatch.setattr(svc, "_UNAVAILABLE", set())  # treat GC as available for the test
     monkeypatch.setattr(
         "obb_layer.term_structure.futures_curve",
         lambda symbol, provider="fmp", date=None: [
@@ -30,6 +31,7 @@ def test_curve_classify_contango(monkeypatch):
 
 
 def test_curve_classify_backwardation(monkeypatch):
+    monkeypatch.setattr(svc, "_UNAVAILABLE", set())
     monkeypatch.setattr(
         "obb_layer.term_structure.futures_curve",
         lambda symbol, provider="fmp", date=None: [
@@ -39,6 +41,33 @@ def test_curve_classify_backwardation(monkeypatch):
     )
     result = svc.curve("CL")
     assert result["structure"] == "backwardation"
+
+
+def test_commodity_curves_unavailable_by_default():
+    """GC/CL/NG have no live futures source → clean unavailable, not an error."""
+    import pytest
+
+    for code in ("GC", "CL", "NG"):
+        with pytest.raises(svc.CurveUnavailable):
+            svc.curve(code)
+
+
+def test_dashboard_marks_commodities_unavailable_keeps_vix(monkeypatch):
+    monkeypatch.setattr(
+        "obb_layer.term_structure.futures_curve",
+        lambda symbol, provider="cboe", date=None: [
+            {"expiration": "2026-06", "price": 19.0},
+            {"expiration": "2026-12", "price": 22.0},
+        ],
+    )
+    d = svc.dashboard()
+    for code in ("GC", "CL", "NG"):
+        assert d[code]["ok"] is True
+        assert d[code]["unavailable"] is True
+        assert "note" in d[code]
+    assert d["VIX"]["ok"] is True
+    assert d["VIX"].get("unavailable") is None
+    assert d["VIX"]["structure"] == "contango"
 
 
 def test_fmp_curve_builds_from_list_and_batch(monkeypatch):
