@@ -117,23 +117,25 @@ function _instrumentRows(insts) {
   }).join("");
 }
 
+function _renderCotCard(c) {
+  if (c.ok === false) return panelErr(`${c.code || ""} ${c.name || ""}`, c.error);
+  const nc = c.non_commercial || {};
+  const cm = c.commercial || {};
+  const r1y = nc.range_1y || {};
+  const pos = r1y.percentile_in_range;
+  return panel(`${esc(c.name)} — ${esc(c.contract || "")}`, `
+    <div class="tiles">
+      <div class="tile"><div class="label">Non-comm net (specs)</div><div class="value ${pctCls(nc.net)}">${num(nc.net, 0)}</div><div class="sub">1w ${nc.net_change_1w > 0 ? "+" : ""}${num(nc.net_change_1w, 0)}</div></div>
+      <div class="tile"><div class="label">Commercial net (hedgers)</div><div class="value ${pctCls(cm.net)}">${num(cm.net, 0)}</div><div class="sub">1w ${cm.net_change_1w > 0 ? "+" : ""}${num(cm.net_change_1w, 0)}</div></div>
+    </div>
+    <div class="sub" style="margin-top:10px">Specs net vs 1y range ${pos === null || pos === undefined ? "" : "(" + num(pos, 0) + "%)"}</div>
+    <div class="bar"><span style="left:${Math.max(0, Math.min(100, pos || 0))}%"></span></div>
+    <div class="sub" style="margin-top:4px">report ${esc(c.report_date || "")} · ${num(c.history_weeks, 0)} wks</div>`);
+}
+
 function renderCot(env) {
   const d = env.data || {};
-  const cards = Object.values(d).map((c) => {
-    if (!c.ok) return panelErr(`${c.code || ""} ${c.name || ""}`, c.error);
-    const nc = c.non_commercial || {};
-    const cm = c.commercial || {};
-    const r1y = nc.range_1y || {};
-    const pos = r1y.percentile_in_range;
-    return panel(`${esc(c.name)} — ${esc(c.contract || "")}`, `
-      <div class="tiles">
-        <div class="tile"><div class="label">Non-comm net (specs)</div><div class="value ${pctCls(nc.net)}">${num(nc.net, 0)}</div><div class="sub">1w ${nc.net_change_1w > 0 ? "+" : ""}${num(nc.net_change_1w, 0)}</div></div>
-        <div class="tile"><div class="label">Commercial net (hedgers)</div><div class="value ${pctCls(cm.net)}">${num(cm.net, 0)}</div><div class="sub">1w ${cm.net_change_1w > 0 ? "+" : ""}${num(cm.net_change_1w, 0)}</div></div>
-      </div>
-      <div class="sub" style="margin-top:10px">Specs net vs 1y range ${pos === null || pos === undefined ? "" : "(" + num(pos, 0) + "%)"}</div>
-      <div class="bar"><span style="left:${Math.max(0, Math.min(100, pos || 0))}%"></span></div>
-      <div class="sub" style="margin-top:4px">report ${esc(c.report_date || "")} · ${num(c.history_weeks, 0)} wks</div>`);
-  }).join("");
+  const cards = Object.values(d).map((c) => _renderCotCard(c)).join("");
   return `<div class="grid">${cards}</div>`;
 }
 
@@ -394,6 +396,27 @@ async function _instrumentOptions(selectedId) {
   }
 }
 
+async function _cotInstrumentOptions(selectedId) {
+  try {
+    const env = await fetchJSON("/instruments");
+    const list = ((env.data || {}).instruments || []).filter((i) => i.capabilities && i.capabilities.cot);
+    if (!list.length) {
+      return {
+        html: '<option value="">— add futures (GC, NQ, 6E…) in Registry —</option>',
+        labels: {},
+      };
+    }
+    const labels = {};
+    const html = list.map((i) => {
+      labels[i.id] = i.label || i.symbol;
+      return `<option value="${esc(i.id)}"${i.id === selectedId ? " selected" : ""}>${esc(labels[i.id])}</option>`;
+    }).join("");
+    return { html, labels };
+  } catch (e) {
+    return { html: '<option value="">unavailable</option>', labels: {} };
+  }
+}
+
 // Instrument registry: add/remove any asset class; Alpaca search for US equities.
 async function apiSend(path, method, body) {
   const opts = { method, headers: {} };
@@ -576,6 +599,41 @@ async function loadFocus() {
     loadFocusOne(pick.value);
   } else {
     $("#focus-body").innerHTML = '<div class="dim">Add instruments in the Registry tab first.</div>';
+  }
+}
+
+async function loadCotOne(id, label) {
+  const body = document.getElementById("cot-body");
+  if (!body) return;
+  body.innerHTML = `<div class="loading">Loading ${esc(label || id)}…</div>`;
+  try {
+    const env = await fetchJSON("/cot/positioning?instrument=" + encodeURIComponent(id));
+    if (env.freshness) $("#freshness").textContent = env.freshness;
+    if (env.ok === false) {
+      body.innerHTML = _renderCotCard({ ok: false, name: label || id, error: env.error });
+      return;
+    }
+    body.innerHTML = `<div class="grid">${_renderCotCard({ ok: true, name: label || id, ...(env.data || {}) })}</div>`;
+  } catch (e) {
+    body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`;
+  }
+}
+
+async function loadCot() {
+  const sec = $("#view-cot");
+  const { html, labels } = await _cotInstrumentOptions("");
+  sec.innerHTML = panel("COT positioning — weekly CFTC report",
+    `<div class="sub mb-sm">Pick a futures contract from your registry. Common roots (GC, NQ, 6E, 6B, YM) get CFTC metadata automatically when added.</div>
+     <select id="cot-pick" class="btn">${html}</select>
+     <div id="cot-body" class="mt-md"></div>`);
+  const pick = document.getElementById("cot-pick");
+  if (pick && pick.value) {
+    const load = () => loadCotOne(pick.value, labels[pick.value] || pick.value);
+    pick.addEventListener("change", load);
+    load();
+  } else if (document.getElementById("cot-body")) {
+    document.getElementById("cot-body").innerHTML =
+      '<div class="dim">Add futures in the Registry tab — COT is available for contracts with CFTC metadata (e.g. GC, NQ, 6E).</div>';
   }
 }
 
@@ -1008,6 +1066,7 @@ function _loadFor(view) {
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
+  if (view === "cot") return loadCot();
   if (view === "watchlist") return loadInstruments();
   if (view === "admin") return loadAdmin();
   if (view === "history") return loadHistory();
