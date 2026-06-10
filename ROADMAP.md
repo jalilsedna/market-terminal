@@ -252,9 +252,19 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
 - [ ] **H3 — ETF holdings + ownership/alt-data** (holdings/sector/country, insider,
       13F [gated], congress trades, ESG).
 - [ ] **H4 — Market/discovery/macro/news/filings** + a fundamental **screener**.
-- [ ] **H5 — Terminal BRAIN.** `services/brain.py` fuses fundamentals + analyst +
-      ownership + earnings with macro-regime/COT/vol into one ranked decision read.
-- [ ] **H6 — Expose to Alice (MCP)** — last; nothing FMP-derived to Alice before H5.
+- [x] **H5 — Terminal BRAIN.** `services/brain.py` `verdict(ticker)` fuses bottom-up
+      (the fundamental read: valuation/quality/growth/analyst) with top-down (macro
+      regime) into ONE **conviction** result — constructive / neutral / cautious /
+      insufficient — with a plain summary, signed component scores, and risk flags.
+      `GET /brain/{ticker}`; the **Fundamentals tab now leads with this Decision
+      card** (result, not just data). Fault-tolerant; CI-tested (`tests/test_brain.py`).
+      *(Follow-ups: fold in vol/COT for futures-proxy tickers; richer ranking once
+      H3/H4 data lands.)*
+- [x] **H6 — Exposed to Alice (MCP).** Brought forward at the operator's request to
+      test impact on Alice: `fundamentals` + `brain_verdict` MCP tools. Alice now
+      gets the terminal's *interpreted* fundamentals + conviction (still research-
+      only, never auto-executed). *(H3/H4 raw-data phases can backfill later to
+      enrich the brain.)*
 
 ---
 

@@ -750,19 +750,30 @@ function _fundTile(label, value, sub) {
   return `<div class="tile"><div class="label">${esc(label)}</div><div class="value">${value}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div>`;
 }
 
+const _CONV_CLASS = { constructive: "green", cautious: "red", neutral: "amber", insufficient: "" };
+
 function renderFundamentals(env) {
   const d = env.data || {};
-  const p = d.profile || {}, v = d.valuation || {}, q = d.quality || {}, g = d.growth || {};
-  const r = d.read || {}, dcf = d.dcf || {}, an = d.analyst || {}, ea = d.earnings || {};
+  // /brain nests the dashboard under `fundamentals`; tolerate a raw dashboard too.
+  const fd = d.fundamentals || d;
+  const p = fd.profile || {}, v = fd.valuation || {}, q = fd.quality || {}, g = fd.growth || {};
+  const dcf = fd.dcf || {}, an = fd.analyst || {}, ea = fd.earnings || {};
   const head = `<div class="sub" style="margin-bottom:8px">
-    <b>${esc(p.name || d.symbol)}</b> <span class="dim">${esc(d.symbol)}</span> · ${esc(p.sector || "—")} / ${esc(p.industry || "—")}
+    <b>${esc(p.name || fd.symbol)}</b> <span class="dim">${esc(fd.symbol)}</span> · ${esc(p.sector || "—")} / ${esc(p.industry || "—")}
     · ${esc(p.exchange || "")} · mkt cap ${_fmtBig(p.market_cap)} · β ${num(p.beta, 2)}</div>`;
 
-  // Interpreted read — the decisioning verdict (H2).
-  const flags = (r.flags || []).map((x) => `<span class="pill amber" style="margin:2px">${esc(x)}</span>`).join(" ");
-  const readPanel = r.verdict
-    ? panel("Fundamental Read", `<div style="font-size:14px"><b>${esc(r.verdict)}</b></div>${flags ? `<div style="margin-top:6px">${flags}</div>` : ""}`)
-    : "";
+  // Decision hero — the RESULT (H5 brain): conviction + summary + drivers.
+  const conv = d.conviction;
+  const c = d.components || {};
+  const flags = (d.flags || []).map((x) => `<span class="pill amber" style="margin:2px">${esc(x)}</span>`).join(" ");
+  const heroPanel = conv ? panel("Decision", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill ${_CONV_CLASS[conv] || ""}" style="font-size:13px">${esc(conv.toUpperCase())}</span>
+      <span style="font-size:14px"><b>${esc(d.summary || "")}</b></span></div>
+    <div class="sub" style="margin-top:8px">score ${num(d.score, 0)}
+      (bottom-up ${num(c.bottom_up, 0)} · analyst ${num(c.analyst, 0)} · macro ${num(c.macro, 0)})
+      · regime ${esc(c.macro_regime || "—")}</div>
+    ${flags ? `<div style="margin-top:6px">${flags}</div>` : ""}`) : "";
 
   const valuation = panel("Valuation", `<div class="tiles">
     ${_fundTile("P/E", num(v.pe, 1))}${_fundTile("P/S", num(v.ps, 1))}${_fundTile("P/B", num(v.pb, 1))}
@@ -783,12 +794,12 @@ function renderFundamentals(env) {
   const growth = panel("Growth (latest FY)", `<div class="tiles">
     ${_fundTile("Revenue", _pctv(g.revenue))}${_fundTile("EPS", _pctv(g.eps))}
     ${_fundTile("Net income", _pctv(g.net_income))}</div>`);
-  const peers = (d.peers || []).length
-    ? panel("Peers", (d.peers).map((s) => `<span class="pill" style="margin:2px">${esc(s)}</span>`).join(" ")) : "";
+  const peers = (fd.peers || []).length
+    ? panel("Peers", (fd.peers).map((s) => `<span class="pill" style="margin:2px">${esc(s)}</span>`).join(" ")) : "";
   const desc = p.description ? panel("About", `<div class="sub">${esc(p.description)}</div>`) : "";
-  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">unavailable: ${esc(Object.keys(d.errors).join(", "))} (FMP tier / endpoint)</div>` : "";
-  return head + readPanel + `<div class="grid" style="grid-template-columns:1fr">${valuation}${dcfAnalyst}${quality}${growth}${peers}${desc}</div>`
-    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + errs;
+  const errs = fd.errors ? `<div class="exec-help dim" style="margin-top:8px">unavailable: ${esc(Object.keys(fd.errors).join(", "))} (FMP tier / endpoint)</div>` : "";
+  return head + heroPanel + `<div class="grid" style="grid-template-columns:1fr">${valuation}${dcfAnalyst}${quality}${growth}${peers}${desc}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || fd.disclaimer || "")}</div>` + errs;
 }
 
 async function loadFundamentals() {
@@ -805,7 +816,7 @@ async function loadFundamentals() {
     if (!t) return;
     body.innerHTML = `<div class="loading">Loading ${esc(t)}…</div>`;
     try {
-      const env = await fetchJSON("/fundamentals/" + encodeURIComponent(t));
+      const env = await fetchJSON("/brain/" + encodeURIComponent(t));  // brain → verdict + fundamentals
       if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
       body.innerHTML = renderFundamentals(env);
     } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }

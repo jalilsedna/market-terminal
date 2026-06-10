@@ -126,12 +126,18 @@ no change is needed — see `docs/openalice-wsl-setup.md`.)
 
 ## Tools OpenAlice will see
 
-All 15, all returning research context (EOD / delayed / weekly), **never** trade
+All 17, all returning research context (EOD / delayed / weekly), **never** trade
 signals. The agent interprets them; the terminal only reports.
 
 **Raw data (8):** `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
 `cot_search`, `term_structure`, `sector_rotation`, `market_movers` (whole-market
 gainers/losers/most-active via Flat Files), `market_news`.
+
+**Fundamentals brain (2):** `fundamentals` (per-stock FMP: profile, valuation,
+quality scores, growth, DCF, analyst, earnings, peers) and `brain_verdict` (the
+**synthesized conviction** — bottom-up fundamentals fused with the top-down macro
+regime → constructive/neutral/cautious + summary + flags). Use `brain_verdict` as
+the decision-level read, `fundamentals` for the numbers.
 
 **Derived / operational (3):** `volatility` (realized vol + calm/normal/
 elevated/stressed regime + short-horizon forecast), `alerts_status` (C5
