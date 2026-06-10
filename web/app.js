@@ -98,7 +98,7 @@ function _instrumentRows(insts) {
   }
   return items.map((i) => {
     if (!i.ok) {
-      return `<tr><td>${esc(i.id || i.code || "")} <span class="dim">${esc(i.asset || "")}</span></td><td colspan="6" class="err">${esc(i.error)}</td><td></td></tr>`;
+      return `<tr><td>${esc(i.id || i.code || "")} <span class="dim">${esc(i.asset || "")}</span></td><td colspan="6" class="err">${esc(i.error)}</td><td><button class="btn rm" data-id="${esc(i.id)}" title="remove">✕</button></td></tr>`;
     }
     const f = i.future || {};
     const last = f.close != null ? f.close : i.last;
