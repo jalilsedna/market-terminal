@@ -53,7 +53,8 @@ def _profile(p: dict) -> dict:
 
 def _valuation(ratios: dict, metrics: dict) -> dict:
     return {
-        "pe": _pick(ratios, "priceEarningsRatio", "peRatio") or _pick(metrics, "peRatio"),
+        # stable API uses priceToEarningsRatio; keep v3 names as fallbacks.
+        "pe": _pick(ratios, "priceToEarningsRatio", "priceEarningsRatio", "peRatio") or _pick(metrics, "peRatio", "priceToEarningsRatioTTM"),
         "ps": _pick(ratios, "priceToSalesRatio", "priceSalesRatio") or _pick(metrics, "priceToSalesRatio"),
         "pb": _pick(ratios, "priceToBookRatio", "pbRatio") or _pick(metrics, "pbRatio"),
         "ev_ebitda": _pick(ratios, "enterpriseValueMultiple", "evToEbitda") or _pick(metrics, "evToEBITDA", "enterpriseValueOverEBITDA"),
@@ -73,7 +74,8 @@ def _quality(ratios: dict, metrics: dict, scores: dict) -> dict:
         "gross_margin": _pick(ratios, "grossProfitMargin"),
         "operating_margin": _pick(ratios, "operatingProfitMargin"),
         "current_ratio": _pick(ratios, "currentRatio") or _pick(metrics, "currentRatio"),
-        "debt_to_equity": _pick(ratios, "debtEquityRatio", "debtToEquity") or _pick(metrics, "debtToEquity"),
+        # stable API uses debtToEquityRatio; keep v3 names as fallbacks.
+        "debt_to_equity": _pick(ratios, "debtToEquityRatio", "debtEquityRatio", "debtToEquity") or _pick(metrics, "debtToEquityRatio", "debtToEquity"),
     }
 
 
