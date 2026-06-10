@@ -553,10 +553,29 @@ async function loadChart() {
   go(picks[0] ? picks[0].tv_symbol : "COMEX:GC1!");
 }
 
-// Lazy loading: only fetch the visible tab; fetch others when first opened (by
-// then the background pre-cache has usually warmed them, so they appear fast).
+// Lazy loading: only fetch the visible view when first opened (by then the
+// background pre-cache has usually warmed it, so it appears fast).
 const loaded = new Set();
 let active = "macro";
+
+const VIEW_TITLES = {
+  macro: "Macro",
+  analysis: "Analysis",
+  news: "News",
+  focus: "Focus",
+  watchlist: "Watchlist",
+  custom: "My Watchlist",
+  chart: "Chart",
+  cot: "COT",
+  term: "Term Structure",
+  volatility: "Volatility",
+  sectors: "Sectors",
+  movers: "Movers",
+  fundamentals: "Stock Brain",
+  history: "History & Alerts",
+  execution: "Execution · Alice",
+  admin: "Admin",
+};
 
 // Admin tab (ROADMAP F2): list / create / disable users. Shown only to admins
 // (initSession reveals the tab when /whoami reports role==='admin').
@@ -730,8 +749,8 @@ async function refreshAlertBadge() {
     const d = (await fetchJSON("/alerts")).data || {};
     const b = $("#alert-badge");
     if (!b) return;
-    if (d.triggered_count > 0) { b.textContent = d.triggered_count; b.style.display = ""; }
-    else b.style.display = "none";
+    if (d.triggered_count > 0) { b.textContent = d.triggered_count; b.classList.remove("hidden"); }
+    else b.classList.add("hidden");
   } catch (e) { /* no badge if unavailable */ }
 }
 
@@ -838,10 +857,18 @@ function _loadFor(view) {
   return loadView(view);
 }
 
+function closeSidebar() {
+  $("#sidebar")?.classList.remove("open");
+  $("#sidebar-backdrop")?.classList.remove("open");
+}
+
 async function showView(view) {
   active = view;
-  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
+  document.querySelectorAll(".nav-item").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${view}`));
+  const title = $("#view-title");
+  if (title) title.textContent = VIEW_TITLES[view] || view;
+  closeSidebar();
   if (!loaded.has(view)) {
     loaded.add(view);
     $("#status").textContent = `loading ${view}…`;
@@ -857,8 +884,19 @@ async function refreshActive() {
   $("#status").textContent = "updated " + new Date().toLocaleTimeString();
 }
 
-function initTabs() {
-  document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => showView(tab.dataset.view)));
+function initNav() {
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.addEventListener("click", () => showView(item.dataset.view));
+  });
+  const toggle = $("#sidebar-toggle");
+  const backdrop = $("#sidebar-backdrop");
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      const open = $("#sidebar").classList.toggle("open");
+      backdrop?.classList.toggle("open", open);
+    });
+  }
+  if (backdrop) backdrop.addEventListener("click", closeSidebar);
 }
 
 function tick() { $("#clock").textContent = new Date().toUTCString().slice(17, 25) + " UTC"; }
@@ -872,15 +910,15 @@ async function initSession() {
       $("#session").innerHTML =
         `<span class="dim">signed in as ${esc(w.user)}${w.role === "admin" ? " · admin" : ""}</span> <a class="btn" href="/logout">Sign out</a>`;
     }
-    // Reveal the Admin tab only to admins.
+    // Reveal the Admin nav item only to admins.
     if (w && w.role === "admin") {
-      const t = document.querySelector(".tab-admin");
-      if (t) t.style.display = "";
+      const t = document.querySelector(".nav-admin");
+      if (t) t.classList.remove("hidden");
     }
   } catch (e) { /* no session bar if unavailable */ }
 }
 
-initTabs();
+initNav();
 initSession();
 refreshAlertBadge();
 $("#refresh").addEventListener("click", refreshActive);
