@@ -67,8 +67,7 @@ def search_instruments(
     limit: int = Query(25, ge=1, le=100),
 ) -> Envelope:
     """Autocomplete symbols for the Registry — filters as you type."""
-    from services import custom_store
-    from services import symbol_search
+    from services import custom_store, symbol_search
 
     asset = asset.lower().strip()
     if asset not in custom_store.VALID_ASSETS:
