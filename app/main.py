@@ -141,6 +141,7 @@ from app.routers import (
     macro,
     news,
     screener,
+    signals,
     term_structure,
     tradingview,
     volatility,
@@ -164,6 +165,7 @@ app.include_router(doctor.router)
 app.include_router(tradingview.router)
 app.include_router(fundamentals.router)
 app.include_router(brain.router)
+app.include_router(signals.router)
 
 
 from pathlib import Path

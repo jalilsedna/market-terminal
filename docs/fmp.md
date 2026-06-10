@@ -54,6 +54,17 @@ and likely **congress trades** are Ultimate. The fault-tolerant build shows
   ownership + earnings proximity with macro-regime/COT/vol into one ranked read.
 - **H6 — expose to Alice (MCP)** — *last*; nothing FMP-derived reaches Alice before
   the brain is complete.
+- **H8 — trade-setup signal engine** *(done)*: `services/signals.py` →
+  `GET /signals/setup/{ticker}` + the `trade_setup` MCP tool. The day-trader's
+  morning bias: fuses **trend** (price vs 50/200-MA), **momentum** (RSI/ADX),
+  **catalysts** (analyst rating change via `grades-historical`, price-target trend
+  via `price-target-summary`, fresh `news/stock`, earnings proximity), **smart
+  money** (insider buy/sell ratio + `senate-trades`/`house-trades`), and the
+  bottom-up+macro context (`services/brain`) into a single `bias`
+  (long/short/neutral) + `score` + `conviction`, plus an `in_play` participation
+  read (relative volume) and concrete `triggers`. Fault-tolerant + tier-gated;
+  pure scoring unit-tested (`tests/test_signals.py`). Research context, never an
+  auto-executed signal — it biases the order-flow execution (NinjaTrader).
 
 ## Setup
 

@@ -281,6 +281,19 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       and a **Brain Screen** panel on the Stock Brain tab. Compact ranked rows
       (best→worst); errors sink. Fault-tolerant; CI-tested. Rebuilt on the unified
       registry (replaces the earlier hardcoded-universe draft).
+- [x] **H8 — Trade-setup signal engine.** `services/signals.py` `trade_setup(ticker)`
+      → `GET /signals/setup/{ticker}` + the `trade_setup` MCP tool. The day-trader's
+      daily bias: fuses **trend** (price vs 50/200-MA), **momentum** (RSI/ADX),
+      **catalysts** (analyst rating change `grades-historical`, price-target trend
+      `price-target-summary`, fresh `news/stock`, earnings proximity), **smart money**
+      (insider buy/sell ratio + `senate-trades`/`house-trades`), and the bottom-up+
+      macro context (`brain`) → one `bias` (long/short/neutral) + `score` +
+      `conviction`, plus an `in_play` relative-volume read and concrete `triggers`.
+      New FMP endpoints in `obb_layer/fmp.py` (quote/grades/PT-summary/insider/
+      congress/technicals). Fault-tolerant + tier-gated; pure scoring CI-tested
+      (`tests/test_signals.py`). Research context, never auto-executed — it biases
+      the order-flow execution (NinjaTrader). *(Next: `daily_hitlist` market-wide
+      scanner that attaches these signals to today's movers.)*
 
 ---
 

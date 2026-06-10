@@ -64,6 +64,16 @@ _PATHS = {
     "historical_eod_full": "historical-price-eod/full",
     "commodity_quote": "quote",
     "stock_news": "news/stock",
+    # J — trade-setup signals (ROADMAP H7): quote snapshot, analyst rating
+    # changes, smart-money flow, technicals.
+    "quote": "quote",
+    "grades_historical": "grades-historical",
+    "grades_consensus": "grades-consensus",
+    "price_target_summary": "price-target-summary",
+    "insider_search": "insider-trading/search",
+    "insider_statistics": "insider-trading/statistics",
+    "senate_trades": "senate-trades",
+    "house_trades": "house-trades",
 }
 
 
@@ -255,3 +265,60 @@ def historical_chart(
 @cached("news")
 def stock_news(symbols: str, limit: int = 50) -> Any:
     return _get(_PATHS["stock_news"], symbols=symbols, limit=limit)
+
+
+# --- J: trade-setup signals (ROADMAP H7) ----------------------------------- #
+@cached("quote")
+def quote(symbol: str) -> Any:
+    """Full snapshot: price, change%, volume, avgVolume, priceAvg50/200, 52w."""
+    return _get(_PATHS["quote"], symbol=symbol)
+
+
+@cached("estimates")
+def grades_historical(symbol: str, limit: int = 10) -> Any:
+    """Analyst-rating consensus counts over time (detect upgrades/downgrades)."""
+    return _get(_PATHS["grades_historical"], symbol=symbol, limit=limit)
+
+
+@cached("estimates")
+def grades_consensus(symbol: str) -> Any:
+    """Current analyst consensus (strongBuy/buy/hold/sell/strongSell counts)."""
+    return _get(_PATHS["grades_consensus"], symbol=symbol)
+
+
+@cached("estimates")
+def price_target_summary(symbol: str) -> Any:
+    """Avg price target by window (month/quarter/year) — PT trend."""
+    return _get(_PATHS["price_target_summary"], symbol=symbol)
+
+
+@cached("fundamentals")
+def insider_search(symbol: str, limit: int = 20) -> Any:
+    """Recent insider transactions for a symbol (purchases / sales)."""
+    return _get(_PATHS["insider_search"], symbol=symbol, page=0, limit=limit)
+
+
+@cached("fundamentals")
+def insider_statistics(symbol: str) -> Any:
+    """Quarterly insider acquired-vs-disposed statistics."""
+    return _get(_PATHS["insider_statistics"], symbol=symbol)
+
+
+@cached("fundamentals")
+def senate_trades(symbol: str) -> Any:
+    """US Senate member trades for a symbol (purchase/sale + amount)."""
+    return _get(_PATHS["senate_trades"], symbol=symbol)
+
+
+@cached("fundamentals")
+def house_trades(symbol: str) -> Any:
+    """US House member trades for a symbol (purchase/sale + amount)."""
+    return _get(_PATHS["house_trades"], symbol=symbol)
+
+
+@cached("eod")
+def technical_indicator(symbol: str, indicator: str = "rsi",
+                        period_length: int = 14, timeframe: str = "1day") -> Any:
+    """A technical indicator series (e.g. 'rsi', 'adx', 'sma'); newest first."""
+    return _get(f"technical-indicators/{indicator}", symbol=symbol,
+                periodLength=period_length, timeframe=timeframe)
