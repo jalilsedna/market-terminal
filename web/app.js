@@ -38,6 +38,9 @@ function panel(title, inner, bad = false) {
 function panelErr(title, msg) {
   return panel(title, `<div class="err">unavailable — ${esc(msg || "no data")}</div>`, true);
 }
+function panelNote(title, msg) {
+  return panel(title, `<div class="dim">${esc(msg || "unavailable")}</div>`);
+}
 
 // ---- renderers -------------------------------------------------------------
 function renderMacro(env) {
@@ -142,6 +145,7 @@ function renderCot(env) {
 function renderTerm(env) {
   const d = env.data || {};
   const cards = Object.values(d).map((t) => {
+    if (t.unavailable) return panelNote(`${t.code || ""} ${t.name || ""}`, t.note);
     if (!t.ok) return panelErr(`${t.code || ""} ${t.name || ""}`, t.error);
     const isVix = t.code === "VIX";
     const sig = t.fear_signal ? `<span class="pill ${t.structure === "backwardation" ? "red" : "green"}">${esc(t.fear_signal)}</span>` : "";

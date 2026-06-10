@@ -15,13 +15,28 @@ from typing import Any
 
 from obb_layer import term_structure as ts
 
-# code -> (display name, curve symbol, provider). GC + energy via FMP; VIX via cboe.
+# code -> (display name, curve symbol, provider). VIX via cboe (real curve).
 CURVE_SPECS: dict[str, tuple[str, str, str]] = {
     "GC": ("Gold (GC)", "GC", "fmp"),
     "CL": ("WTI Crude (CL)", "CL", "fmp"),
     "NG": ("Natural Gas (NG)", "NG", "fmp"),
     "VIX": ("VIX (fear gauge)", "VX_EOD", "cboe"),
 }
+
+# Commodity term structure needs a live per-expiry futures source (a CME futures
+# data plan). FMP only exposes a single continuous quote per commodity (no curve),
+# and no futures provider is configured — so GC/CL/NG are marked unavailable and
+# render a calm note instead of an error. VIX uses CBOE and works on the free
+# stack. Flip a root out of this set the day a real futures curve source is wired.
+_UNAVAILABLE: set[str] = {"GC", "CL", "NG"}
+_UNAVAILABLE_NOTE = (
+    "Commodity futures curve unavailable — no live per-expiry futures data source "
+    "configured. VIX (CBOE) is the only term structure on the current stack."
+)
+
+
+class CurveUnavailable(RuntimeError):
+    """Raised for curves with no configured data source (router → clean note)."""
 
 
 def _num(value: Any) -> float | None:
@@ -74,14 +89,24 @@ def curve(code: str, date: str | None = None) -> dict:
     if key not in CURVE_SPECS:
         raise ValueError(f"unknown curve '{code}'; known: {', '.join(CURVE_SPECS)}")
     name, symbol, provider = CURVE_SPECS[key]
+    if key in _UNAVAILABLE:
+        raise CurveUnavailable(_UNAVAILABLE_NOTE)
     return {"code": key, "name": name, "provider": provider, "as_of": date,
             **_classify(symbol, provider, is_vix=(key == "VIX"), date=date)}
 
 
 def dashboard() -> dict:
-    """Term structure across all tracked curves (GC + energy + VIX); fault-tolerant."""
+    """Term structure across all tracked curves; fault-tolerant.
+
+    Curves with no configured data source (GC/CL/NG today) return a calm
+    `unavailable` note rather than an error, so the UI shows a clean message.
+    """
     out: dict[str, dict] = {}
     for key, (name, _symbol, _provider) in CURVE_SPECS.items():
+        if key in _UNAVAILABLE:
+            out[key] = {"ok": True, "unavailable": True, "code": key,
+                        "name": name, "note": _UNAVAILABLE_NOTE}
+            continue
         try:
             out[key] = {"ok": True, **curve(key)}
         except Exception as exc:  # noqa: BLE001 — one curve must not sink the view

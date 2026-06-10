@@ -49,7 +49,20 @@ Requires `POLYGON_API_KEY`; degrades cleanly when unset.
   are set (`services/news.py`).
 - **Company/symbol news:** FMP `news/stock` REST when no world wire is available.
 
-## B3 — Commodity term structure (GC/CL/NG)
+## B3 — Commodity term structure (GC/CL/NG) — unavailable
 
-FMP `commodities-list` + `batch-commodity-quotes` (or EOD full on historical
-dates). VIX stays on OpenBB CBOE.
+A term structure needs **multiple contract months with a price each**. No
+configured provider supplies that on the current stack:
+
+- **FMP** exposes only a single *continuous* quote per commodity (`GCUSD`), not
+  per-expiry contracts — so it can't build a curve.
+- **Polygon/Massive** has CME futures, but only on a **paid Futures plan**; the
+  equities key returns stale reference data with no live prices.
+
+So **GC/CL/NG are marked unavailable** in `services/term_structure.py`
+(`_UNAVAILABLE`) and render a calm note instead of an error. **VIX** uses OpenBB
+**CBOE** and is the only working term structure.
+
+To enable commodity curves later, wire a real per-expiry futures source (e.g. a
+Massive Futures plan or Databento) through `obb_layer/` and remove the root from
+`_UNAVAILABLE`.
