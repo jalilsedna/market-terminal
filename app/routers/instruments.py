@@ -63,25 +63,27 @@ def remove_instrument(item_id: str) -> Envelope:
 @router.get("/search", response_model=Envelope)
 def search_instruments(
     query: str = Query("", min_length=0),
-    source: str = Query("alpaca", description="alpaca — tradable US equities (read-only)"),
-    limit: int = Query(30, ge=1, le=100),
+    asset: str = Query("equity", description="futures | crypto | forex | equity | etf"),
+    limit: int = Query(25, ge=1, le=100),
 ) -> Envelope:
-    """Discover symbols to add (Alpaca tradable catalog when configured)."""
-    if source != "alpaca":
-        raise HTTPException(status_code=400, detail=f"unknown source {source!r}")
-    if not get_settings().alpaca_enabled:
+    """Autocomplete symbols for the Registry — filters as you type."""
+    from services import custom_store, symbol_search
+
+    asset = asset.lower().strip()
+    if asset not in custom_store.VALID_ASSETS:
+        raise HTTPException(status_code=400, detail=f"unknown asset {asset!r}")
+
+    results = symbol_search.search(asset, query, limit=limit)
+    provider = "alpaca" if asset in ("equity", "etf") else "catalog"
+    if asset in ("equity", "etf") and not get_settings().alpaca_enabled:
         return Envelope(
             ok=False,
-            data={"results": []},
+            data={"results": [], "query": query, "asset": asset},
             error="Alpaca not configured — set ALPACA_API_KEY and ALPACA_API_SECRET",
             freshness=_FRESHNESS,
         )
-    from obb_layer import alpaca
-
-    try:
-        results = alpaca.list_assets(search=query or None, limit=limit)
-    except alpaca.AlpacaDisabled as exc:
-        return Envelope(ok=False, data={"results": []}, error=str(exc), freshness=_FRESHNESS)
-    except alpaca.AlpacaError as exc:
-        return Envelope(ok=False, data={"results": []}, error=str(exc), freshness=_FRESHNESS)
-    return Envelope(data={"results": results, "query": query}, provider="alpaca", freshness=_FRESHNESS)
+    return Envelope(
+        data={"results": results, "query": query, "asset": asset},
+        provider=provider,
+        freshness=_FRESHNESS,
+    )

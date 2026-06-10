@@ -94,13 +94,13 @@ def instruments_remove(item_id: str) -> dict:
 
 
 @mcp.tool()
-def instruments_search(query: str = "", limit: int = 30) -> dict:
-    """Search Alpaca's tradable US equity catalog (read-only). Requires Alpaca keys."""
-    from obb_layer import alpaca
+def instruments_search(query: str = "", asset: str = "equity", limit: int = 25) -> dict:
+    """Autocomplete symbols for the Registry (equity→Alpaca; forex/crypto/futures→catalog)."""
+    from services import symbol_search
 
     try:
-        results = alpaca.list_assets(search=query or None, limit=limit)
-        return {"ok": True, "results": results}
+        results = symbol_search.search(asset, query, limit=limit)
+        return {"ok": True, "asset": asset, "results": results}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"[:200]}
 

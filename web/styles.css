@@ -127,6 +127,41 @@ a:hover { color: var(--accent-hover); }
 .grid-1 { grid-template-columns: 1fr !important; }
 .text-strong { color: var(--text-strong); }
 
+/* ---- Symbol autocomplete (Registry) -------------------------------------- */
+.ac-wrap { position: relative; flex: 1; min-width: 200px; max-width: 360px; }
+.ac-wrap .inp { width: 100%; min-width: 0; }
+.ac-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+.ac-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 11px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.active { background: var(--accent-soft); color: var(--text-strong); }
+.ac-item .sym { font-weight: 600; color: var(--text-strong); }
+.ac-item .nm { color: var(--muted); margin-left: 8px; font-size: 11px; }
+.ac-empty { padding: 10px 11px; color: var(--muted); font-size: 11px; }
+
 /* ---- App shell (sidebar + workspace) ------------------------------------- */
 .shell {
   display: flex;

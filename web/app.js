@@ -405,6 +405,99 @@ async function apiSend(path, method, body) {
 }
 
 const ASSET_CLASSES = ["futures", "crypto", "forex", "equity", "etf"];
+const ASSET_PLACEHOLDER = {
+  futures: "type GC, NQ, CL…",
+  crypto: "type BTC, ETH, SOL…",
+  forex: "type EUR, GBP, AUD…",
+  equity: "type AAPL, MSFT, NVDA…",
+  etf: "type SPY, QQQ, GLD…",
+};
+
+function _bindSymbolAutocomplete(addFn) {
+  const input = $("#c-symbol");
+  const list = $("#c-suggest");
+  const assetSel = $("#c-asset");
+  if (!input || !list) return;
+
+  let hits = [];
+  let activeIdx = -1;
+  let timer = null;
+
+  const hide = () => { list.classList.add("hidden"); activeIdx = -1; };
+  const show = () => list.classList.remove("hidden");
+
+  const render = () => {
+    if (!hits.length) {
+      list.innerHTML = '<div class="ac-empty">no matches — check asset class & spelling</div>';
+      show();
+      return;
+    }
+    list.innerHTML = hits.map((h, i) =>
+      `<button type="button" class="ac-item${i === activeIdx ? " active" : ""}" data-idx="${i}">
+        <span class="sym">${esc(h.symbol)}</span><span class="nm">${esc(h.name || "")}</span>
+      </button>`).join("");
+    list.querySelectorAll(".ac-item").forEach((btn) => {
+      btn.addEventListener("mousedown", (ev) => {
+        ev.preventDefault();
+        const h = hits[Number(btn.dataset.idx)];
+        if (h) { input.value = h.symbol; hide(); addFn(assetSel.value, h.symbol); }
+      });
+    });
+    show();
+  };
+
+  const fetchHits = async () => {
+    const q = input.value.trim();
+    const asset = assetSel.value;
+    if (q.length < 1) { hits = []; hide(); return; }
+    try {
+      const r = await fetchJSON(
+        "/instruments/search?asset=" + encodeURIComponent(asset) + "&query=" + encodeURIComponent(q) + "&limit=20"
+      );
+      hits = (r.data || {}).results || [];
+      activeIdx = hits.length ? 0 : -1;
+      render();
+    } catch (e) {
+      list.innerHTML = `<div class="ac-empty">${esc(e.message)}</div>`;
+      show();
+    }
+  };
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(fetchHits, 200);
+  });
+  input.addEventListener("focus", () => { if (input.value.trim()) fetchHits(); });
+  input.addEventListener("blur", () => setTimeout(hide, 150));
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      if (!hits.length) return;
+      activeIdx = Math.min(activeIdx + 1, hits.length - 1);
+      render();
+    } else if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, 0);
+      render();
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      if (activeIdx >= 0 && hits[activeIdx]) {
+        input.value = hits[activeIdx].symbol;
+        hide();
+        addFn(assetSel.value, hits[activeIdx].symbol);
+      } else {
+        addFn(assetSel.value, input.value.trim());
+      }
+    } else if (ev.key === "Escape") hide();
+  });
+  assetSel.addEventListener("change", () => {
+    input.placeholder = ASSET_PLACEHOLDER[assetSel.value] || "type to search…";
+    hits = [];
+    hide();
+    if (input.value.trim()) fetchHits();
+  });
+  input.placeholder = ASSET_PLACEHOLDER[assetSel.value] || "type to search…";
+}
 
 async function loadInstruments() {
   const sec = $("#view-watchlist");
@@ -414,50 +507,33 @@ async function loadInstruments() {
   const d = env.data || {};
   const opts = ASSET_CLASSES.map((a) => `<option value="${a}">${a}</option>`).join("");
   sec.innerHTML = panel("Instrument registry — track any asset", `
-    <div class="sub mb-sm">Add forex, futures, crypto, equity, or ETF symbols. Panels (COT, vol, news) apply per capability.</div>
+    <div class="sub mb-sm">Pick an asset class, then type the first letters — a dropdown suggests valid symbols. Equity/ETF uses Alpaca; forex/crypto/futures use built-in catalogs.</div>
     <div class="addbar">
       <select id="c-asset" class="btn">${opts}</select>
-      <input id="c-symbol" class="inp" placeholder="symbol (EURUSD, GC=F, BTC-USD, AAPL)" />
+      <div class="ac-wrap">
+        <input id="c-symbol" class="inp" autocomplete="off" spellcheck="false" placeholder="type to search…" />
+        <div id="c-suggest" class="ac-list hidden"></div>
+      </div>
       <button id="c-add" class="btn">+ Add</button>
-      <input id="alp-search" class="inp inp-narrow" placeholder="Alpaca search" />
-      <button id="alp-go" class="btn">Search</button>
       <span id="c-msg" class="dim"></span>
     </div>
-    <div id="alp-results" class="sub mb-sm"></div>
     <table class="mt-md"><thead><tr><th>Instrument</th><th>Last</th><th>1d</th><th>1w</th><th>1m</th><th>ATR</th><th>Vol</th><th>Regime</th><th></th></tr></thead>
       <tbody>${_instrumentRows(d.instruments)}</tbody></table>
     <div class="exec-help dim mt-sm">${esc(d.disclaimer || "")} · persisted in SQLite (attach a volume on Railway).</div>`);
 
   const reload = () => loadInstruments();
   const add = async (asset, symbol) => {
-    if (!symbol) return;
+    const sym = (symbol || "").trim();
+    if (!sym) return;
     $("#c-msg").textContent = "adding…";
-    try { await apiSend("/instruments", "POST", { asset, symbol }); await reload(); }
+    try { await apiSend("/instruments", "POST", { asset, symbol: sym }); await reload(); }
     catch (e) { const m = $("#c-msg"); if (m) m.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
   };
+  _bindSymbolAutocomplete(add);
   $("#c-add").addEventListener("click", () => add($("#c-asset").value, $("#c-symbol").value.trim()));
-  $("#c-symbol").addEventListener("keydown", (ev) => { if (ev.key === "Enter") $("#c-add").click(); });
   sec.querySelectorAll(".rm").forEach((b) => b.addEventListener("click", async () => {
     try { await apiSend("/instruments/" + encodeURIComponent(b.dataset.id), "DELETE"); await reload(); } catch (e) { /* */ }
   }));
-  $("#alp-go").addEventListener("click", async () => {
-    const q = ($("#alp-search").value || "").trim();
-    const box = $("#alp-results");
-    box.textContent = "searching…";
-    try {
-      const r = await fetchJSON("/instruments/search?query=" + encodeURIComponent(q));
-      const hits = (r.data || {}).results || [];
-      if (!hits.length) { box.innerHTML = '<span class="dim">no results (is Alpaca configured?)</span>'; return; }
-      box.innerHTML = hits.map((h) =>
-        `<button type="button" class="btn pill-gap alp-pick" data-asset="${esc(h.terminal_asset)}" data-sym="${esc(h.symbol)}">${esc(h.symbol)}</button>`
-      ).join(" ");
-      box.querySelectorAll(".alp-pick").forEach((btn) => btn.addEventListener("click", () => {
-        $("#c-asset").value = btn.dataset.asset;
-        $("#c-symbol").value = btn.dataset.sym;
-        add(btn.dataset.asset, btn.dataset.sym);
-      }));
-    } catch (e) { box.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
-  });
 }
 
 // Focus tab (ROADMAP C4): one instrument → its volatility + the full "what's
