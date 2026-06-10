@@ -97,6 +97,24 @@ def _segments(rows: Any) -> dict | None:
     return seg or None
 
 
+def _median(values: list) -> float | None:
+    vals = sorted(v for v in values if isinstance(v, (int, float)))
+    if not vals:
+        return None
+    n, m = len(vals), len(vals) // 2
+    return vals[m] if n % 2 else (vals[m - 1] + vals[m]) / 2
+
+
+def _pe_series(ratios_series: Any) -> list:
+    """Positive P/E values across the ratios history (for the 5y median)."""
+    out = []
+    for r in ratios_series if isinstance(ratios_series, list) else []:
+        pe = _pick(r, "priceToEarningsRatio", "priceEarningsRatio", "peRatio")
+        if isinstance(pe, (int, float)) and pe > 0:
+            out.append(pe)
+    return out
+
+
 def _ratio(numer: Any, denom: Any) -> float | None:
     try:
         return (float(numer) - float(denom)) / float(denom) if denom else None
@@ -145,9 +163,20 @@ def _read(valuation: dict, quality: dict, growth: dict, dcf: dict, analyst: dict
     parts: list[str] = []
     flags: list[str] = []
 
+    # Valuation: PRIMARY axis is relative (current P/E vs its own 5y median) — a
+    # naive DCF over-flags premium compounders as "expensive", so DCF is kept as
+    # informational context, not the label. Fall back to DCF only if no P/E history.
+    pe, pe_med = valuation.get("pe"), valuation.get("pe_median")
     gap = dcf.get("gap")
     valuation_label = None
-    if gap is not None:
+    rel = (pe / pe_med) if (isinstance(pe, (int, float)) and isinstance(pe_med, (int, float)) and pe_med > 0 and pe > 0) else None
+    if rel is not None:
+        valuation_label = "cheap" if rel < 0.85 else "expensive" if rel > 1.15 else "fair"
+        detail = f"P/E {pe:.0f} vs 5y-med {pe_med:.0f}"
+        if isinstance(gap, (int, float)):
+            detail += f", DCF {gap:+.0%}"
+        parts.append(f"{valuation_label} ({detail})")
+    elif isinstance(gap, (int, float)):
         valuation_label = "cheap" if gap > 0.15 else "expensive" if gap < -0.15 else "fair"
         parts.append(f"{valuation_label} (DCF {gap:+.0%})")
 
@@ -201,7 +230,8 @@ def dashboard(symbol: str) -> dict:
         return None
 
     profile = _first(grab("profile", lambda: fmp.profile(symbol)) or [])
-    ratios = _first(grab("ratios", lambda: fmp.ratios(symbol, limit=1)) or [])
+    ratios_series = grab("ratios", lambda: fmp.ratios(symbol, limit=5)) or []  # 5y for the P/E median
+    ratios = _first(ratios_series)
     metrics = _first(grab("key_metrics", lambda: fmp.key_metrics(symbol, limit=1)) or [])
     scores = _first(grab("scores", lambda: fmp.financial_scores(symbol)) or [])
     growth = _first(grab("growth", lambda: fmp.income_growth(symbol, limit=1)) or [])
@@ -218,6 +248,7 @@ def dashboard(symbol: str) -> dict:
 
     price = _pick(profile, "price")
     valuation = _valuation(ratios, metrics)
+    valuation["pe_median"] = _median(_pe_series(ratios_series))  # 5y median for relative valuation
     quality = _quality(ratios, metrics, scores)
     growth_block = _growth(growth)
     dcf = _dcf(dcf_rec, price)

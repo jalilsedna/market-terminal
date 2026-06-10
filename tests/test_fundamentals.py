@@ -128,6 +128,46 @@ def test_next_earnings_picks_future_and_last():
     assert out["last_eps_actual"] == 1.2
 
 
+def test_median_and_pe_series():
+    from services.fundamentals import _median, _pe_series
+
+    assert _median([10, 20, 30]) == 20
+    assert _median([10, 20, 30, 40]) == 25
+    assert _median([]) is None
+    series = [{"priceToEarningsRatio": 30}, {"priceEarningsRatio": 28}, {"peRatio": -5}, {}]
+    assert _pe_series(series) == [30, 28]  # negative/missing P/E dropped
+
+
+def test_read_valuation_relative_primary():
+    """Premium compounder near its own 5y P/E median reads 'fair', not 'expensive',
+    even when a naive DCF is deeply negative (B fix)."""
+    from services.fundamentals import _read
+
+    out = _read(
+        valuation={"pe": 33.0, "pe_median": 30.0}, quality={"piotroski": 9},
+        growth={"revenue": 0.06}, dcf={"gap": -0.47},  # DCF says very expensive
+        analyst={"upside": 0.13}, earnings={"days_away": 50},
+    )
+    assert out["labels"]["valuation"] == "fair"  # P/E 33 vs med 30 → rel 1.1 → fair
+    assert "DCF -47%" in out["verdict"]  # DCF still shown as context
+
+
+def test_read_valuation_relative_cheap_and_expensive():
+    from services.fundamentals import _read
+
+    cheap = _read({"pe": 12.0, "pe_median": 20.0}, {}, {}, {}, {}, {})
+    assert cheap["labels"]["valuation"] == "cheap"
+    rich = _read({"pe": 40.0, "pe_median": 20.0}, {}, {}, {}, {}, {})
+    assert rich["labels"]["valuation"] == "expensive"
+
+
+def test_read_falls_back_to_dcf_without_pe_history():
+    from services.fundamentals import _read
+
+    out = _read({"pe": None, "pe_median": None}, {}, {}, {"gap": 0.22}, {}, {})
+    assert out["labels"]["valuation"] == "cheap"  # DCF fallback when no P/E history
+
+
 def test_read_verdict_and_flags():
     from services.fundamentals import _read
 

@@ -249,6 +249,9 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       · quality (Piotroski/Altman-Z) · growth · analyst upside · earnings proximity
       into one line + flags (event-risk, distress), shown atop the Fundamentals
       tab. CI-tested. (Analyst/DCF may be Starter-gated → degrade.)
+      *(H2.1 tuning: valuation label is now driven by **relative** valuation —
+      current P/E vs the stock's own 5y median — with DCF kept as context, so
+      premium compounders aren't perma-flagged "expensive" by a naive DCF.)*
 - [ ] **H3 — ETF holdings + ownership/alt-data** (holdings/sector/country, insider,
       13F [gated], congress trades, ESG).
 - [ ] **H4 — Market/discovery/macro/news/filings** + a fundamental **screener**.
