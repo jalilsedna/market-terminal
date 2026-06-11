@@ -62,6 +62,29 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       (auth on, anon→401, Bearer→200, MCP handshake). Research-only — OpenAlice /
       broker keys never deployed. (Optional: point `DB_PATH` / `CUSTOM…` at a
       Railway volume for watchlist persistence — see C2.)
+- [ ] **A9 — Cloud-hosted OpenAlice (24/7 execution, browser from anywhere).**
+      **Ultimate ops goal:** research stays on Railway (A8); **execution +
+      monitoring + inbox** run on an always-on host so the loop survives when the
+      dev PC is off. OpenAlice ships an official **Docker Compose** server path
+      (see upstream `README` → "Run on a server"); market-terminal documents the
+      boundary only (`docs/openalice.md`). **Target topology:**
+      `https://alice.<domain>` (OpenAlice Web UI + UTA + workspaces + cron) →
+      Railway `market-terminal` MCP (Bearer `AUTH_TOKEN`); Alpaca **paper** keys
+      live only in OpenAlice `data/config/accounts.json` on a persistent volume.
+      **Acceptance:**
+      1. VPS (or always-on box) runs OpenAlice via `docker compose up -d` with
+         `data/` on a named volume (config, workspaces, UTA state survive rebuild).
+      2. **HTTPS** reverse proxy (Caddy/nginx + TLS) — public browser login via
+         admin token; MCP port `47332` **not** exposed externally.
+      3. Migrate local WSL state: `accounts.json`, `persona.md`, workspaces,
+         `.mcp.json` seed → Railway URL + `source: alpaca-…` on portfolio tools.
+      4. Smoke: `analysis_regime` + `decision_brief` via workspace MCP;
+         `getPortfolio`/`getAccount` with Alpaca `source`; one cron job fires
+         without the laptop on.
+      5. Operator doc in-repo: `docs/openalice-cloud-deploy.md` (VPS + HTTPS +
+         migration checklist). **Out of scope for A9:** packaging OpenAlice on
+         Railway (possible later); live (non-paper) brokers; fixing inbox prompt
+         vs proposal display (parked).
 
 ## B. Data / provider gaps (documented, still open)
 - [x] **B1 — Economic calendar.** `obb_layer.economic_calendar` already requests
@@ -312,10 +335,11 @@ universe — futures/crypto/forex/equity/ETF, capability-aware; default-seeded w
 the 5 reference futures on first boot), provider **fallback** for equity/ETF (B4),
 tests + CI green (C1), and a **SQLite persistence** foundation (C2).
 
-**Still open:** **B3** (commodity curves — needs a futures-curve source) · the
-**G-series product plan** (FMP fundamentals panels, UI/UX pass, TradingView
-webhooks, budgeted provider depth) · minor housekeeping (A6 Claude-Code CLI
-warning, C6 brief-threading). **B1/B2 now unlock with an FMP key.**
+**Still open:** **A9** (cloud-hosted OpenAlice — 24/7 execution + browser access;
+research already on Railway) · **B3** (commodity curves — needs a futures-curve
+source) · the **G-series product plan** (FMP fundamentals panels, UI/UX pass,
+TradingView webhooks, budgeted provider depth) · minor housekeeping (A6 Claude-
+Code CLI warning, C6 brief-threading). **B1/B2 now unlock with an FMP key.**
 
 **Done since:** **C2 history** (`/history`) → **C5 charts + alerts** (History ▸
 Alerts tab, `services/alerts.py`, `/alerts`, `alerts_status` MCP tool) and **F2**
