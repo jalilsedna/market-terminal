@@ -1351,10 +1351,11 @@ async function loadTradeSetup() {
   sec.innerHTML = panel("Trade Setup — daily directional bias", `
     <div class="sub mb-sm">Per-ticker bias fusing trend (50/200 MA), momentum (RSI/ADX), catalysts (analyst/news/earnings), and smart money (insider + congress). Research context, never an auto-executed signal.</div>
     <div class="addbar">
-      <input id="ts-input" class="inp" placeholder="ticker (e.g. AAPL, NVDA, TSLA)" value="AAPL" />
+      ${_acFieldHtml("ts-input", "ts-suggest", "type AAPL, NVDA, TSLA…")}
       <button id="ts-go" class="btn">Analyze</button>
     </div>
     <div id="ts-body" style="margin-top:12px"></div>`);
+  $("#ts-input").value = "AAPL";
   const body = $("#ts-body");
   const go = async () => {
     const t = ($("#ts-input").value || "").trim().toUpperCase();
@@ -1367,7 +1368,14 @@ async function loadTradeSetup() {
     } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
   };
   $("#ts-go").addEventListener("click", go);
-  $("#ts-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+  $("#ts-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !listVisible("ts-suggest")) go(); });
+  _bindInstrumentAutocomplete({
+    input: "#ts-input",
+    list: "#ts-suggest",
+    assets: ["equity", "etf"],
+    onPick: (h) => { $("#ts-input").value = h.symbol; go(); },
+    onEnter: () => go(),
+  });
   go();
 }
 
@@ -1486,11 +1494,12 @@ async function loadMarketSetup() {
     <div class="sub mb-sm">The crypto/FX analog of Trade Setup: trend (50/200 MA) + momentum (RSI/ADX) + in-play participation. No catalyst/smart-money axes (don't exist for these assets). Research context, never a trade trigger.</div>
     <div class="addbar">
       <select id="ms-asset" class="btn"><option value="crypto">Crypto</option><option value="forex">Forex</option></select>
-      <input id="ms-input" class="inp" placeholder="symbol (e.g. BTC-USD, EURUSD)" value="BTC-USD" />
+      ${_acFieldHtml("ms-input", "ms-suggest", "type BTC, ETH, EUR…")}
       <button id="ms-go" class="btn">Analyze</button>
       <button id="ms-screen" class="btn">Screen majors</button>
     </div>
     <div id="ms-body" style="margin-top:12px"></div>`);
+  $("#ms-input").value = "BTC-USD";
   const body = $("#ms-body");
   const asset = () => $("#ms-asset").value || "crypto";
   const one = async () => {
@@ -1516,7 +1525,14 @@ async function loadMarketSetup() {
   });
   $("#ms-go").addEventListener("click", one);
   $("#ms-screen").addEventListener("click", screen);
-  $("#ms-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") one(); });
+  $("#ms-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !listVisible("ms-suggest")) one(); });
+  _bindInstrumentAutocomplete({
+    input: "#ms-input",
+    list: "#ms-suggest",
+    asset: asset,  // follows the Crypto/Forex toggle
+    onPick: (h) => { $("#ms-input").value = h.symbol; one(); },
+    onEnter: () => one(),
+  });
   one();
 }
 
