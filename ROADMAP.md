@@ -128,8 +128,11 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
 - [x] **B7 — Regime index + news/registry enrichments.** `obb_layer/macro.py`
       FMP-first `index_history` with ETF fallback (`^GSPC`→`SPY`) fixes S&P 500
       (1w) in `analysis_regime`; crypto news maps to FMP tickers (`BTCUSD`) with
-      world-wire keyword fallback; `decision_brief` / `daily_hitlist` auto-register
-      equity movers for vol + news (`instruments.ensure`). CI-tested.
+      world-wire keyword fallback; `decision_brief` auto-registers an equity
+      on demand (`instruments.ensure`) so its vol + news sections populate.
+      CI-tested. *(`daily_hitlist` stays a pure read — it does NOT write to the
+      registry; the earlier bulk auto-register was removed to avoid polluting the
+      curated universe with transient movers.)*
 
 ## C. Skeleton → product
 - [x] **C1 — Tests + CI.** `tests/` covers the auth gate (session/token/expiry +
