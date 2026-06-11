@@ -62,7 +62,7 @@ Rank the 3 most interesting names across asset classes (one line each why).
 
 Phase 3 — For each of the 3 names, call decision_brief(symbol). Report synthesis verbatim, section summaries, `errors` and `skipped` verbatim, and conviction vs setup vs macro conflict.
 
-Phase 4 — getPortfolio. If unavailable, say so and use my stated ~45 QQQ. For each idea: concentrates or diversifies?
+Phase 4 — getPortfolio and getAccount with source alpaca-37cbc8aa (see your UTA boot log for the id if it differs). If unavailable, say so and use my stated ~45 QQQ. For each idea: concentrates or diversifies?
 
 Phase 5 — Best idea or "no clean trade". Vol-aware stop (≥1.5× daily σ). Size ≤1% of $100k paper risk. **inbox_push once** with ONLY the short proposal (≤15 lines) — no gap report, no scripts.
 
@@ -101,7 +101,7 @@ agent -f -p "Call decision_brief for BTC-USD — show news section or skipped.ne
 | S&P 500 (1w) | Real % or explicitly absent with reason |
 | CBRL `skipped` | vol/news registry message when not tracked |
 | BTC news | Headlines or `skipped.news` with reason |
-| getPortfolio | 200 + positions, or transient error named |
+| getPortfolio | Positions with `source: alpaca-…` (see below), or transient error named |
 
 ### Full workflow
 
@@ -111,12 +111,42 @@ Paste the **workflow prompt** above. Verify:
 - [ ] Inbox has **one** short NVDA (or best-idea) proposal — not the full transcript
 - [ ] Phase 6 gap report stayed in **chat only**
 
+### Portfolio tools — always pass `source`
+
+OpenAlice may have several UTA accounts (Alpaca paper + geo-blocked crypto
+read-only feeds). **Without `source`, `getPortfolio` often returns** `Account
+temporarily unavailable` even when Alpaca is healthy.
+
+Find your Alpaca id in the `pnpm dev` log, e.g.
+`AlpacaBroker[alpaca-37cbc8aa]: connected`.
+
+**Smoke test** (any WSL tab while `pnpm dev` runs):
+
+```bash
+node <<'SCRIPT'
+const MCP = "http://127.0.0.1:47332/mcp";
+const SOURCE = "alpaca-37cbc8aa";
+async function rpc(name, args = {}) {
+  const res = await fetch(MCP, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
+  });
+  const text = await res.text();
+  const jsonText = text.includes("data:") ? text.split("\n").filter(l => l.startsWith("data:")).map(l => l.slice(5).trim()).pop() : text;
+  const t = JSON.parse(jsonText).result?.content?.[0]?.text;
+  console.log(name + ":", t);
+}
+(async () => { await rpc("getPortfolio", { source: SOURCE }); await rpc("getAccount", { source: SOURCE }); })();
+SCRIPT
+```
+
 ### When getPortfolio was down
 
 Re-run **Phase 4 only** after OpenAlice UTA / Alpaca paper is healthy:
 
 ```bash
-agent -f -p "Call getPortfolio and getAccount. Re-score NVDA vs my live QQQ exposure using the last workflow thesis. inbox_push only if the portfolio-fit conclusion changed."
+agent -f -p "Call getPortfolio and getAccount with source alpaca-37cbc8aa. Re-score NVDA vs my live QQQ exposure using the last workflow thesis. inbox_push only if the portfolio-fit conclusion changed."
 ```
 
 ### Registry tip (hitlist names)
