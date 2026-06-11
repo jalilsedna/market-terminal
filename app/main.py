@@ -305,6 +305,38 @@ def logout() -> RedirectResponse:
 # catch-all static mount so it takes precedence.
 app.mount("/mcp", _mcp_app, name="mcp")
 
+
+# Cache-busting for the SPA shell. The static mount sends app.js/styles.css with
+# the browser's default caching, so after a deploy a client can run NEW
+# index.html against a STALE cached app.js (the nav shows new views but the old
+# JS 404s them). We serve index.html ourselves with a content-hash query string
+# appended to the asset URLs, so the browser refetches them iff their bytes
+# changed. The static mount below still serves the actual files.
+def _asset_version() -> str:
+    import hashlib
+
+    h = hashlib.sha1()
+    for name in ("app.js", "styles.css"):
+        try:
+            h.update((_WEB_DIR / name).read_bytes())
+        except OSError:
+            pass
+    return h.hexdigest()[:8]
+
+
+_ASSET_VER = _asset_version()
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/index.html", include_in_schema=False)
+def spa_shell() -> HTMLResponse:
+    """Serve the SPA shell with version-stamped asset URLs (cache-busting)."""
+    html = (_WEB_DIR / "index.html").read_text(encoding="utf-8")
+    html = (html.replace("/app.js", f"/app.js?v={_ASSET_VER}")
+                .replace("/styles.css", f"/styles.css?v={_ASSET_VER}"))
+    return HTMLResponse(html)
+
+
 # Serve the single-page dashboard (web/) at the root. Mounted LAST so all API
 # routes above take precedence; the static mount only catches '/', '/app.js',
 # '/styles.css', etc. (Phase 3 — SPEC.md §5 step 11.)
