@@ -138,11 +138,24 @@ class Settings(BaseSettings):
     polygon_api_key: str | None = None
     eia_api_key: str | None = None
 
+    # --- LLM (ROADMAP H14 — News Pulse analyst) ---
+    # Optional: an Anthropic key turns the rule-based News-Pulse sentiment into a
+    # reasoned analyst summary + 24h directional opinion. Absent → rule-based only
+    # (deterministic, no key). Default model is Opus; switch to a cheaper one
+    # (e.g. claude-haiku-4-5) via NEWS_PULSE_MODEL if cost matters.
+    anthropic_api_key: str | None = None
+    news_pulse_model: str = "claude-opus-4-8"
+
     @property
     def eod_provider_chain(self) -> list[str]:
         """The EOD provider fallback chain (parsed from `eod_providers`)."""
         chain = [p.strip() for p in self.eod_providers.split(",") if p.strip()]
         return chain or ["fmp"]
+
+    @property
+    def llm_enabled(self) -> bool:
+        """Whether an Anthropic key is configured (News-Pulse analyst pass)."""
+        return bool(self.anthropic_api_key)
 
     @property
     def fmp_enabled(self) -> bool:

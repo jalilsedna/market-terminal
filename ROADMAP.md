@@ -368,6 +368,16 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       (plus REST under `/instruments`). FMP-backed symbol search + type-ahead in
       Registry and brain/signals fields (`web/app.js`). COT codes resolved for
       common futures roots beyond the five templates (`obb_layer/symbols.py`).
+- [x] **H14 — News Pulse (24h directional read).** `services/news_pulse.py`
+      `pulse(symbol)` monitors the symbol's last-24h headlines and returns a brief
+      summary + an up/down/neutral lean for the **current trading day only**,
+      fusing keyword-sentiment + technical bias + macro regime. **Hybrid engine:**
+      a deterministic rule-based read always runs (no key, CI-tested); when
+      `ANTHROPIC_API_KEY` is set, a Claude **analyst pass** (`obb_layer/llm.py`,
+      the sole Anthropic call-site) writes the prose summary + catalysts + caveats
+      and sharpens the direction, degrading to rule-based on any failure.
+      `GET /news/pulse/{symbol}`, `news_pulse` MCP tool, **News Pulse** web tab.
+      Research synthesis, never a forecast or trade trigger.
 
 ---
 

@@ -15,6 +15,12 @@ openbb-cboe==1.6.1
 # AI client (Phase 3; see mcp_server.py).
 mcp==1.27.2
 
+# Anthropic SDK — optional News-Pulse analyst pass (ROADMAP H14). Key-gated and
+# lazily imported; with no ANTHROPIC_API_KEY the feature degrades to a
+# deterministic rule-based read. Floor-pinned (only the stable messages.create
+# surface is used) to avoid churn on this fast-moving SDK.
+anthropic>=0.39.0
+
 # Provider extensions (see SPEC.md §3). Listed for clarity / lockfile intent.
 # openbb-fred
 # openbb-cftc

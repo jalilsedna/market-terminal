@@ -33,6 +33,7 @@ from services import macro as macro_svc
 from services import market_setup as market_setup_svc
 from services import movers as movers_svc
 from services import news as news_svc
+from services import news_pulse as news_pulse_svc
 from services import screener as screener_svc
 from services import signals as signals_svc
 from services import term_structure as ts_svc
@@ -318,6 +319,18 @@ def market_screen(asset: str, symbols: str | None = None, limit: int = 25) -> di
     context, NOT a trade trigger."""
     syms = [s for s in (symbols or "").split(",") if s.strip()] or None
     return _safe(market_setup_svc.screen, asset, symbols=syms, limit=limit)
+
+
+@mcp.tool()
+def news_pulse(symbol: str, asset: str | None = None) -> dict:
+    """**24-hour news pulse** for a symbol — monitors the day's headlines and gives
+    a brief summary plus an opinion on which way price may lean **for the current
+    trading day only**. Fuses news sentiment + technical bias + macro regime. When
+    an Anthropic key is configured it reasons like a markets analyst (prose summary
+    + catalysts + caveats); otherwise a deterministic rule-based read. `direction`
+    is up/down/neutral with a confidence. Research synthesis, never a forecast or
+    trade trigger."""
+    return _safe(news_pulse_svc.pulse, symbol, asset)
 
 
 @mcp.tool()

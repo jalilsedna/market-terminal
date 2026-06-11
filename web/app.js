@@ -885,6 +885,7 @@ let active = "macro";
 const VIEW_TITLES = {
   macro: "Macro",
   decision: "Decision Brief",
+  "news-pulse": "News Pulse",
   analysis: "Analysis",
   news: "News",
   focus: "Focus",
@@ -1645,6 +1646,83 @@ async function loadDecision() {
   go();
 }
 
+// --- News Pulse: 24h news-driven directional read --------------------------
+const _DIR_CLASS = { up: "green", down: "red", neutral: "amber" };
+
+function renderNewsPulse(env) {
+  const d = env.data || {};
+  const dir = (d.direction || "neutral").toLowerCase();
+  const s = d.news_sentiment || {};
+  const cats = (d.catalysts || []).map((x) => `<li>${esc(x)}</li>`).join("");
+  const cavs = (d.caveats || []).map((x) => `<li>${esc(x)}</li>`).join("");
+  const heads = (d.headlines || []).slice(0, 8).map((h) =>
+    `<li><a href="${esc(h.url || "#")}" target="_blank" rel="noopener">${esc(h.title || "")}</a> <span class="dim">${esc(h.source || "")} · ${esc(String(h.date || "").slice(0, 10))}</span></li>`).join("");
+  const engineBadge = d.engine === "llm"
+    ? '<span class="pill green">analyst (Claude)</span>'
+    : '<span class="pill">rule-based</span>';
+
+  const hero = panel("24h Pulse", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill ${_DIR_CLASS[dir] || ""}" style="font-size:14px">${esc(dir.toUpperCase())}</span>
+      <span class="pill">${esc(d.confidence || "—")} confidence</span>
+      ${engineBadge}
+      <span class="dim">${esc(d.symbol)} · ${esc(d.asset || "")} · next ~24h</span>
+    </div>
+    <div style="font-size:14px;margin-top:10px"><b>${esc(d.summary || "")}</b></div>`);
+
+  const drivers = panel("News sentiment", `<div class="tiles">
+    ${_fundTile("Lean", `<span class="${_DIR_CLASS[(s.lean || "neutral")] === "green" ? "up" : _DIR_CLASS[s.lean] === "red" ? "down" : "dim"}">${esc((s.lean || "—").toUpperCase())}</span>`)}
+    ${_fundTile("Positive", num(s.positive, 0))}${_fundTile("Negative", num(s.negative, 0))}
+    ${_fundTile("Net", `<span class="${(s.score || 0) > 0 ? "up" : (s.score || 0) < 0 ? "down" : "dim"}">${s.score > 0 ? "+" : ""}${num(s.score, 0)}</span>`)}
+    ${_fundTile("Headlines 24h", num(s.headline_count, 0))}
+    ${_fundTile("Technical", esc(d.technical_bias || "—"))}${_fundTile("Macro", esc(d.macro_regime || "—"))}</div>`);
+
+  const catPanel = cats ? panel("Catalysts (24h)", `<ul class="sub" style="margin:0;padding-left:18px">${cats}</ul>`) : "";
+  const cavPanel = cavs ? panel("What could flip it", `<ul class="sub" style="margin:0;padding-left:18px">${cavs}</ul>`) : "";
+  const headPanel = heads ? panel("Headlines", `<ul class="sub" style="margin:0;padding-left:18px">${heads}</ul>`) : "";
+  const base = (d.baseline && d.engine === "llm")
+    ? `<div class="exec-help dim" style="margin-top:8px">rule-based baseline: ${esc(d.baseline.direction)} (${esc(d.baseline.confidence)})</div>` : "";
+  const note = d.engine !== "llm"
+    ? `<div class="exec-help dim" style="margin-top:8px">Set ANTHROPIC_API_KEY to upgrade this to a reasoned analyst summary (catalysts + caveats).</div>` : "";
+  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:6px">degraded: ${esc(Object.keys(d.errors).join(", "))}</div>` : "";
+
+  return hero + `<div class="grid" style="grid-template-columns:1fr">${drivers}${catPanel}${cavPanel}${headPanel}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + base + note + errs;
+}
+
+async function loadNewsPulse() {
+  const sec = $("#view-news-pulse");
+  sec.innerHTML = panel("News Pulse — 24h directional read", `
+    <div class="sub mb-sm">Monitors the day's headlines for a symbol and gives a brief summary + which way price may lean for the current trading day, fusing news sentiment + technicals + macro. Analyst summary when an Anthropic key is set, else rule-based. Research, not a forecast.</div>
+    <div class="addbar">
+      ${_acFieldHtml("np-input", "np-suggest", "type AAPL, BTC-USD, GC=F…")}
+      <button id="np-go" class="btn">Pulse</button>
+    </div>
+    <div id="np-body" style="margin-top:12px"></div>`);
+  $("#np-input").value = "AAPL";
+  const body = $("#np-body");
+  const go = async () => {
+    const t = ($("#np-input").value || "").trim();
+    if (!t) return;
+    body.innerHTML = `<div class="loading">Reading the tape for ${esc(t.toUpperCase())}…</div>`;
+    try {
+      const env = await fetchJSON("/news/pulse/" + encodeURIComponent(t));
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderNewsPulse(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#np-go").addEventListener("click", go);
+  $("#np-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !listVisible("np-suggest")) go(); });
+  _bindInstrumentAutocomplete({
+    input: "#np-input",
+    list: "#np-suggest",
+    assets: ["equity", "etf", "crypto", "forex", "futures"],
+    onPick: (h) => { $("#np-input").value = h.symbol; go(); },
+    onEnter: () => go(),
+  });
+  go();
+}
+
 async function loadFundamentalsOne(symbol, label) {
   const body = $("#fund-body");
   if (!body) return;
@@ -1736,6 +1814,7 @@ function _loadFor(view) {
   if (view === "trade-setup") return loadTradeSetup();
   if (view === "market-setup") return loadMarketSetup();
   if (view === "decision") return loadDecision();
+  if (view === "news-pulse") return loadNewsPulse();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
