@@ -29,6 +29,7 @@ from services import cot as cot_svc
 from services import fundamentals as fundamentals_svc
 from services import instruments as instruments_svc
 from services import macro as macro_svc
+from services import market_setup as market_setup_svc
 from services import movers as movers_svc
 from services import news as news_svc
 from services import screener as screener_svc
@@ -294,6 +295,28 @@ def daily_hitlist(limit: int = 15, min_move_pct: float = 2.0) -> dict:
     'what's in play today and which way'. Needs FMP + POLYGON_API_KEY. Research
     context, NOT auto-executed trade signals."""
     return _safe(signals_svc.daily_hitlist, limit=limit, min_move_pct=min_move_pct)
+
+
+@mcp.tool()
+def market_setup(asset: str, symbol: str) -> dict:
+    """**Technical setup** for a crypto or FX symbol (the crypto/FX analog of
+    `trade_setup`, which is stocks-only). Fuses trend (price vs 50/200-MA),
+    momentum (RSI/ADX), and in-play participation (relative volume, 52w range)
+    into a `bias` (long/short/neutral) + `score` + `conviction`. `asset` is
+    'crypto' or 'forex'; `symbol` like 'BTC-USD' or 'EURUSD'. No catalyst/
+    smart-money axes (don't exist for these assets). Research context, NOT a
+    trade trigger."""
+    return _safe(market_setup_svc.market_setup, asset, symbol)
+
+
+@mcp.tool()
+def market_screen(asset: str, symbols: str | None = None, limit: int = 25) -> dict:
+    """Rank **crypto/FX technical setups** across the majors (or a comma-separated
+    list). `asset` is 'crypto' or 'forex'. Curated universe only — FMP's bulk
+    crypto/FX quotes are Ultimate-tier, so there's no whole-market scan. Research
+    context, NOT a trade trigger."""
+    syms = [s for s in (symbols or "").split(",") if s.strip()] or None
+    return _safe(market_setup_svc.screen, asset, symbols=syms, limit=limit)
 
 
 @mcp.tool()

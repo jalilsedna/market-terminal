@@ -899,6 +899,7 @@ const VIEW_TITLES = {
   "forex-brain": "Forex Brain",
   hitlist: "Daily Hitlist",
   "trade-setup": "Trade Setup",
+  "market-setup": "Crypto/FX Setup",
   history: "History & Alerts",
   execution: "Execution · Alice",
   admin: "Admin",
@@ -1426,6 +1427,99 @@ async function loadHitlist() {
   go();
 }
 
+// --- Crypto/FX Market Setup (technical analog of stock Trade Setup) ----------
+function renderMarketSetup(env) {
+  const d = env.data || {};
+  if (d.enabled === false) return `<div class="err">${esc(d.error || "market setup unavailable")}</div>`;
+  const bias = d.bias || "neutral";
+  const c = d.components || {};
+  const part = d.participation || {};
+  const mom = d.momentum || {};
+  const flags = (d.flags || []).map((x) => `<span class="pill amber" style="margin:2px">${esc(x)}</span>`).join(" ");
+  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">degraded axes: ${esc(Object.keys(d.errors).join(", "))}</div>` : "";
+  const hero = panel("Setup", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill ${_BIAS_CLASS[bias] || ""}" style="font-size:13px">${esc(bias.toUpperCase())}</span>
+      <span style="font-size:14px"><b>${esc(d.symbol)}</b> ${d.price != null ? num(d.price, d.price < 10 ? 4 : 2) : ""}</span>
+      <span class="pill">${esc(d.conviction || "—")} conviction</span>
+      <span class="pill ${part.in_play ? "green" : ""}">${part.in_play ? "IN PLAY" : "quiet"}</span>
+      <span class="dim">${esc(d.asset || "")}</span>
+    </div>
+    <div class="sub" style="margin-top:8px">${esc(d.read || "")}</div>
+    ${flags ? `<div style="margin-top:6px">${flags}</div>` : ""}`);
+  const drivers = panel("Drivers", `<div class="tiles">
+    ${_signedTile("Trend", c.trend)}${_signedTile("Momentum", c.momentum)}
+    ${_fundTile("Score", `<span class="${(d.score || 0) > 0 ? "up" : (d.score || 0) < 0 ? "down" : "dim"}">${d.score > 0 ? "+" : ""}${num(d.score, 0)}</span>`)}</div>`);
+  const partPanel = panel("Participation", `<div class="tiles">
+    ${_fundTile("Rel. volume", part.relative_volume != null ? num(part.relative_volume, 2) + "×" : "—", "vs avg")}
+    ${_fundTile("RSI(14)", mom.rsi != null ? num(mom.rsi, 0) : "—")}
+    ${_fundTile("ADX", mom.adx != null ? num(mom.adx, 0) : "—", mom.trending ? "trending" : "choppy")}
+    ${_fundTile("52w range", part.range_position_52w != null ? num(part.range_position_52w * 100, 0) + "%" : "—", "0=low · 100=high")}</div>`);
+  return hero + `<div class="grid" style="grid-template-columns:1fr">${drivers}${partPanel}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")} · No catalyst/insider axes — those don't exist for crypto/FX.</div>` + errs;
+}
+
+function renderMarketScreen(env) {
+  const d = env.data || {};
+  if (d.enabled === false) return `<div class="err">${esc(d.error || "unavailable")}</div>`;
+  const rows = d.ranked || [];
+  if (!rows.length) return `<div class="sub dim">No setups returned.</div>`;
+  const head = `<div class="sub" style="margin-bottom:6px">${rows.length} ranked · ${esc(d.universe || "")} universe · ${esc(d.asset || "")}</div>`;
+  const body = rows.map((r) => {
+    const bias = r.bias || "neutral";
+    const c = r.components || {};
+    const detail = r.error ? `<span class="dim">${esc(r.error)}</span>`
+      : `<span class="dim">trend ${num(c.trend, 0)} · mom ${num(c.momentum, 0)}${r.in_play ? " · in play" : ""}</span>`;
+    return `<tr>
+      <td><b>${esc(r.symbol)}</b></td>
+      <td><span class="pill ${_BIAS_CLASS[bias] || ""}">${esc(String(bias).toUpperCase())}</span></td>
+      <td style="text-align:right">${r.score == null ? "—" : (r.score > 0 ? "+" : "") + num(r.score, 0)}</td>
+      <td class="sub">${esc(r.read || "")} ${detail}</td>
+    </tr>`;
+  }).join("");
+  return head + `<table style="margin-top:6px"><thead><tr><th>Symbol</th><th>Bias</th><th style="text-align:right">Score</th><th>Read</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function loadMarketSetup() {
+  const sec = $("#view-market-setup");
+  sec.innerHTML = panel("Crypto/FX Setup — technical day-trade bias", `
+    <div class="sub mb-sm">The crypto/FX analog of Trade Setup: trend (50/200 MA) + momentum (RSI/ADX) + in-play participation. No catalyst/smart-money axes (don't exist for these assets). Research context, never a trade trigger.</div>
+    <div class="addbar">
+      <select id="ms-asset" class="btn"><option value="crypto">Crypto</option><option value="forex">Forex</option></select>
+      <input id="ms-input" class="inp" placeholder="symbol (e.g. BTC-USD, EURUSD)" value="BTC-USD" />
+      <button id="ms-go" class="btn">Analyze</button>
+      <button id="ms-screen" class="btn">Screen majors</button>
+    </div>
+    <div id="ms-body" style="margin-top:12px"></div>`);
+  const body = $("#ms-body");
+  const asset = () => $("#ms-asset").value || "crypto";
+  const one = async () => {
+    const s = ($("#ms-input").value || "").trim();
+    if (!s) return;
+    body.innerHTML = `<div class="loading">Analyzing ${esc(s.toUpperCase())}…</div>`;
+    try {
+      const env = await fetchJSON(`/signals/market/${encodeURIComponent(asset())}/` + encodeURIComponent(s));
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderMarketSetup(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  const screen = async () => {
+    body.innerHTML = `<div class="loading">Screening ${esc(asset())} majors… (first run can be slow)</div>`;
+    try {
+      const env = await fetchJSON(`/signals/market/${encodeURIComponent(asset())}/screen`);
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderMarketScreen(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#ms-asset").addEventListener("change", () => {
+    $("#ms-input").value = asset() === "crypto" ? "BTC-USD" : "EURUSD";
+  });
+  $("#ms-go").addEventListener("click", one);
+  $("#ms-screen").addEventListener("click", screen);
+  $("#ms-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") one(); });
+  one();
+}
+
 async function loadFundamentalsOne(symbol, label) {
   const body = $("#fund-body");
   if (!body) return;
@@ -1515,6 +1609,7 @@ function _loadFor(view) {
   if (view === "forex-brain") return loadForexBrain();
   if (view === "hitlist") return loadHitlist();
   if (view === "trade-setup") return loadTradeSetup();
+  if (view === "market-setup") return loadMarketSetup();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();

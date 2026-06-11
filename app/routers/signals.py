@@ -11,11 +11,12 @@ from fastapi import APIRouter
 
 from app.schemas import Envelope
 from config import get_settings
-from services import signals
+from services import market_setup, signals
 
 router = APIRouter(prefix="/signals", tags=["Trade Setup Signals"])
 
 _FRESHNESS = "trade-setup context (FMP, EOD/delayed) — research only, not a trade trigger"
+_MKT_FRESHNESS = "technical setup (FMP, EOD/delayed) — research only, not a trade trigger"
 
 
 @router.get("/setup/{ticker}", response_model=Envelope)
@@ -30,6 +31,40 @@ def trade_setup_view(ticker: str) -> Envelope:
         return Envelope(ok=False, provider="fmp", freshness=_FRESHNESS,
                         error=f"{type(exc).__name__}: {exc}"[:200])
     return Envelope(data=data, provider="fmp", freshness=_FRESHNESS)
+
+
+@router.get("/market/{asset}/screen", response_model=Envelope)
+def market_screen_view(asset: str, symbols: str | None = None, limit: int = 25) -> Envelope:
+    """Rank crypto/FX technical setups across the majors (or a comma-separated list).
+    Registered before the `{symbol}` route so it isn't swallowed."""
+    if not get_settings().fmp_enabled:
+        return Envelope(ok=False, provider="fmp", freshness=_MKT_FRESHNESS,
+                        error="Market setups need an FMP key — set FMP_API_KEY.")
+    syms = [s for s in (symbols or "").split(",") if s.strip()] or None
+    try:
+        data = market_setup.screen(asset, symbols=syms, limit=limit)
+    except ValueError as exc:
+        return Envelope(ok=False, provider="fmp", freshness=_MKT_FRESHNESS, error=str(exc))
+    except Exception as exc:  # noqa: BLE001 — degrade rather than 500
+        return Envelope(ok=False, provider="fmp", freshness=_MKT_FRESHNESS,
+                        error=f"{type(exc).__name__}: {exc}"[:200])
+    return Envelope(data=data, provider="fmp", freshness=_MKT_FRESHNESS)
+
+
+@router.get("/market/{asset}/{symbol:path}", response_model=Envelope)
+def market_setup_view(asset: str, symbol: str) -> Envelope:
+    """Per-symbol crypto/FX technical setup (trend + momentum + participation)."""
+    if not get_settings().fmp_enabled:
+        return Envelope(ok=False, provider="fmp", freshness=_MKT_FRESHNESS,
+                        error="Market setups need an FMP key — set FMP_API_KEY.")
+    try:
+        data = market_setup.market_setup(asset, symbol)
+    except ValueError as exc:
+        return Envelope(ok=False, provider="fmp", freshness=_MKT_FRESHNESS, error=str(exc))
+    except Exception as exc:  # noqa: BLE001 — degrade rather than 500
+        return Envelope(ok=False, provider="fmp", freshness=_MKT_FRESHNESS,
+                        error=f"{type(exc).__name__}: {exc}"[:200])
+    return Envelope(data=data, provider="fmp", freshness=_MKT_FRESHNESS)
 
 
 @router.get("/hitlist", response_model=Envelope)
