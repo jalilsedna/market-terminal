@@ -342,7 +342,8 @@ def decision_brief(symbol: str, asset: str | None = None) -> dict:
         (trend/momentum/catalyst/smart-money)
       • crypto/forex → technical **setup** + momentum/macro/vol/USD **conviction**
       • futures → macro/COT/price/term-structure **brief** + **COT positioning**
-    Plus realized-vol regime and symbol-tagged news when the symbol is tracked, all
+    Plus realized-vol regime, symbol-tagged news, and a **24h news pulse**
+    (direction + summary) when the symbol is tracked, all
     framed by the current macro regime, with a one-line `synthesis`. `asset` is
     optional (auto-detected). Each section degrades independently (`errors` =
     fetch failed; `skipped` = not attempted or empty, with a reason). Research

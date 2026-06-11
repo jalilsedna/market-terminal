@@ -11,7 +11,9 @@ Routing by asset class:
   * crypto/fx  → technical setup (market_setup) + momentum/macro/vol/USD (brain)
   * futures    → analysis brief (macro/COT/price/term/news) + COT positioning
 Plus, when the symbol is tracked in the registry: realized-vol regime and
-symbol-tagged news. Sections that were not attempted or returned empty are
+symbol-tagged news. A `news_pulse` section adds the 24h news-driven directional
+read (rule-based, or Claude-analyst when ANTHROPIC_API_KEY is set). Sections that
+were not attempted or returned empty are
 listed in `skipped` (with a reason) so agents do not confuse omission with a
 silent success. Failures that raise still land in `errors`. A shared macro regime
 read frames everything.
@@ -137,6 +139,20 @@ def brief(symbol: str, asset: str | None = None) -> dict:
         if headlines:
             sections["news"] = headlines
 
+    # 24h news-driven directional read (its own underlying calls are cached, so the
+    # overlap with the sections above is cheap). Compact — full headlines/sentiment
+    # live in the standalone `news_pulse` tool.
+    from services import news_pulse as np_svc
+    p = grab("news_pulse", lambda: np_svc.pulse(symbol, asset))
+    if p:
+        sections["news_pulse"] = {
+            "direction": p.get("direction"),
+            "confidence": p.get("confidence"),
+            "engine": p.get("engine"),
+            "summary": p.get("summary"),
+            "catalysts": p.get("catalysts") or [],
+        }
+
     return {
         "symbol": symbol.upper(),
         "asset": asset,
@@ -163,6 +179,9 @@ def _synthesize(symbol: str, asset: str, sections: dict, macro: dict) -> str:
     pos = sections.get("positioning") or {}
     if pos.get("trend"):
         bits.append(f"COT {pos['trend']}")
+    pulse = sections.get("news_pulse") or {}
+    if pulse.get("direction"):
+        bits.append(f"24h news {pulse['direction'].upper()}")
     brf = sections.get("brief") or {}
     if not bits and brf.get("read"):
         bits.append(str(brf["read"]))

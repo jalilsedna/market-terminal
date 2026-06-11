@@ -1587,6 +1587,19 @@ function _briefNews(items) {
   return panel("News", `<ul class="sub" style="margin:0;padding-left:18px">${rows}</ul>`);
 }
 
+function _briefPulse(p) {
+  if (!p || !p.direction) return "";
+  const dir = String(p.direction).toLowerCase();
+  const cats = (p.catalysts || []).slice(0, 4).map((x) => `<span class="pill" style="margin:2px">${esc(x)}</span>`).join(" ");
+  return panel("24h News Pulse", `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="pill ${_DIR_CLASS[dir] || ""}">${esc(dir.toUpperCase())}</span>
+      <span class="pill">${esc(p.confidence || "—")}</span>
+      <span class="dim">${p.engine === "llm" ? "analyst" : "rule-based"}</span>
+    </div>
+    <div class="sub" style="margin-top:6px">${esc(p.summary || "")}</div>${cats ? `<div style="margin-top:4px">${cats}</div>` : ""}`);
+}
+
 function renderDecision(env) {
   const d = env.data || {};
   const s = d.sections || {};
@@ -1603,6 +1616,7 @@ function renderDecision(env) {
   const body = [
     _briefConviction(s.conviction),
     _briefSetup(s.setup),
+    _briefPulse(s.news_pulse),
     briefPanel,
     _briefPositioning(s.positioning),
     _briefVol(s.volatility),

@@ -5,6 +5,17 @@ from __future__ import annotations
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _stub_news_pulse(monkeypatch):
+    """Keep brief() composition deterministic — the pulse section is tested in
+    tests/test_news_pulse.py and has its own underlying calls."""
+    from services import news_pulse
+    monkeypatch.setattr(news_pulse, "pulse", lambda symbol, asset=None: {
+        "direction": "neutral", "confidence": "low", "engine": "rule-based",
+        "summary": f"{symbol} stub", "catalysts": [],
+    })
+
+
 def test_infer_asset():
     from services.decision_brief import _infer_asset
 
@@ -19,6 +30,24 @@ def test_requires_symbol():
 
     with pytest.raises(ValueError):
         decision_brief.brief("")
+
+
+def test_brief_includes_news_pulse_section(monkeypatch):
+    from services import analysis, brain, decision_brief, instruments, news_pulse, signals
+
+    monkeypatch.setattr(instruments, "resolve", lambda s: (_ for _ in ()).throw(ValueError("nt")))
+    monkeypatch.setattr(instruments, "ensure", lambda *a, **k: (_ for _ in ()).throw(ValueError("nt")))
+    monkeypatch.setattr(analysis, "regime", lambda: {"regime": "risk-off", "score": -2})
+    monkeypatch.setattr(brain, "verdict", lambda s: {"conviction": "neutral"})
+    monkeypatch.setattr(signals, "trade_setup", lambda s: {"bias": "long"})
+    monkeypatch.setattr(news_pulse, "pulse", lambda symbol, asset=None: {
+        "direction": "up", "confidence": "high", "engine": "llm",
+        "summary": "fresh upgrades", "catalysts": ["analyst upgrade"]})
+
+    out = decision_brief.brief("AAPL")
+    assert out["sections"]["news_pulse"]["direction"] == "up"
+    assert out["sections"]["news_pulse"]["engine"] == "llm"
+    assert "24H NEWS UP" in out["synthesis"].upper()
 
 
 def test_equity_brief_composes_conviction_and_setup(monkeypatch):
