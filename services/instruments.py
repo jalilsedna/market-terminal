@@ -135,6 +135,14 @@ def add(asset: str, symbol: str, label: str | None = None, meta: dict | None = N
     return _from_row(row)
 
 
+def ensure(asset: str, symbol: str, label: str | None = None) -> TrackedInstrument:
+    """Return a tracked instrument, adding it when missing (idempotent on asset+symbol)."""
+    try:
+        return resolve(symbol)
+    except ValueError:
+        return add(asset, symbol, label)
+
+
 def remove(item_id: str) -> bool:
     return custom_store.remove(item_id)
 

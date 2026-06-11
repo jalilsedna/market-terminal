@@ -21,6 +21,16 @@ def test_starts_empty(reg):
     assert reg.list_all() == []
 
 
+def test_ensure_adds_when_missing(reg):
+    inst = reg.ensure("equity", "CBRL")
+    assert inst.id == "equity:CBRL"
+    assert reg.resolve("CBRL").symbol == "CBRL"
+    # Idempotent — returns existing row.
+    again = reg.ensure("equity", "CBRL")
+    assert again.id == inst.id
+    assert len(reg.list_all()) == 1
+
+
 def test_add_resolve_remove(reg):
     inst = reg.add("crypto", "BTC-USD", label="Bitcoin")
     assert inst.id == "crypto:BTC-USD"

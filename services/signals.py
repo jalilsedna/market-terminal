@@ -482,6 +482,13 @@ def daily_hitlist(limit: int = 15, scan_depth: int = 20, min_move_pct: float = 2
         })
 
     ranked = rank_hitlist(rows)[: max(1, limit)]
+    from services import instruments as reg
+
+    for row in ranked:
+        try:
+            reg.ensure("equity", row["ticker"])
+        except Exception:  # noqa: BLE001 — registry enrich is best-effort
+            continue
     return {
         "enabled": True,
         "as_of": m.get("as_of"),
