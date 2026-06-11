@@ -69,6 +69,64 @@ def _skipped_sections(
     return skipped or None
 
 
+def _conflict(sections: dict[str, Any]) -> dict[str, Any]:
+    """Classify fundamental-vs-technical-vs-news agreement for one symbol.
+
+    The execution agent should size *against* this — a momentum setup with no
+    fundamental support (or actively negative fundamentals) is a far weaker trade
+    than one where all three agree, even when the technical score is high. Uses
+    the conviction SCORE sign (not just its label) so a 'neutral'-labelled but
+    negative-scoring fundamental read still registers as a conflict.
+    """
+    conv = sections.get("conviction") or {}
+    setup = sections.get("setup") or {}
+    pulse = sections.get("news_pulse") or {}
+
+    fund = 0
+    score = conv.get("score")
+    if isinstance(score, (int, float)) and score != 0:
+        fund = 1 if score > 0 else -1
+    else:
+        fund = {"constructive": 1, "cautious": -1}.get(str(conv.get("conviction") or "").lower(), 0)
+    tech = {"long": 1, "up": 1, "short": -1, "down": -1}.get(str(setup.get("bias") or "").lower(), 0)
+    news = {"up": 1, "down": -1}.get(str(pulse.get("direction") or "").lower(), 0)
+
+    flags = [str(f).lower() for f in (setup.get("flags") or [])]
+    stretched = any("overbought" in f or "oversold" in f for f in flags)
+    vol = sections.get("volatility") or {}
+    vr = vol.get("regime")
+    vol_regime = vr.get("regime") if isinstance(vr, dict) else vr
+    stressed = str(vol_regime or "").lower() in ("stressed", "elevated")
+
+    if tech == 0 and fund == 0:
+        cls, caution, note = "none", "low", "no directional setup or fundamental lean."
+    elif fund != 0 and tech != 0 and (fund > 0) != (tech > 0):
+        cls, caution = "fundamental_conflict", "high"
+        note = "technical setup and fundamentals point OPPOSITE ways — momentum/event trade with NO fundamental support."
+    elif tech != 0 and fund == 0:
+        cls, caution = "momentum_only", "medium"
+        note = "setup is technical/catalyst-driven; fundamentals are neutral (no confirmation)."
+    elif news != 0 and tech != 0 and (news > 0) != (tech > 0):
+        cls, caution = "news_conflict", "medium"
+        note = "the 24h news pulse opposes the technical setup."
+    else:
+        cls, caution = "aligned", "low"
+        note = "technical, fundamental and news reads agree."
+
+    extras = []
+    if stretched:
+        extras.append("RSI overbought/oversold (exhaustion risk)")
+    if stressed:
+        extras.append("stressed/elevated vol")
+    if extras and caution == "medium":
+        caution = "high"
+    if extras:
+        note += " Also: " + "; ".join(extras) + "."
+
+    return {"class": cls, "caution": caution, "note": note,
+            "fundamental_lean": fund, "technical_lean": tech, "news_lean": news}
+
+
 def _infer_asset(symbol: str) -> str:
     s = (symbol or "").upper().strip()
     if s.endswith("=F"):
@@ -158,6 +216,7 @@ def brief(symbol: str, asset: str | None = None) -> dict:
         "asset": asset,
         "in_registry": inst is not None,
         "macro": macro,
+        "conflict": _conflict(sections),
         "synthesis": _synthesize(symbol, asset, sections, macro),
         "sections": sections,
         "skipped": _skipped_sections(asset, inst, sections, errors),
@@ -188,4 +247,10 @@ def _synthesize(symbol: str, asset: str, sections: dict, macro: dict) -> str:
     regime = macro.get("regime")
     frame = f" into a {regime} macro" if regime else ""
     head = "; ".join(bits) if bits else "limited data"
-    return f"{symbol.upper()} ({asset}): {head}{frame}."
+    conflict = _conflict(sections)
+    warn = ""
+    if conflict["class"] == "fundamental_conflict":
+        warn = " ⚠ momentum vs fundamentals — no fundamental support."
+    elif conflict["class"] in ("momentum_only", "news_conflict") and conflict["caution"] == "high":
+        warn = f" ⚠ {conflict['class'].replace('_', ' ')} (high caution)."
+    return f"{symbol.upper()} ({asset}): {head}{frame}.{warn}"

@@ -1604,6 +1604,14 @@ function renderDecision(env) {
   const d = env.data || {};
   const s = d.sections || {};
   const regime = (d.macro || {}).regime;
+  const cf = d.conflict || {};
+  const cfCls = { high: "red", medium: "amber", low: "" }[cf.caution] || "";
+  const conflictBanner = (cf.class && cf.class !== "none" && cf.class !== "aligned")
+    ? panel("⚠ Conflict", `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="pill ${cfCls}">${esc(String(cf.class).replace(/_/g, " ").toUpperCase())}</span>
+        <span class="pill ${cfCls}">${esc(cf.caution || "")} caution</span></div>
+        <div class="sub" style="margin-top:6px">${esc(cf.note || "")}</div>`, cf.caution === "high")
+    : "";
   const hero = panel("Decision Brief", `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:15px"><b>${esc(d.symbol)}</b></span>
@@ -1614,6 +1622,7 @@ function renderDecision(env) {
     <div style="font-size:14px;margin-top:8px"><b>${esc(d.synthesis || "")}</b></div>`);
   const briefPanel = s.brief ? panel("What's moving it", `<div class="sub">${esc(s.brief.read || s.brief.summary || JSON.stringify(s.brief).slice(0, 400))}</div>`) : "";
   const body = [
+    conflictBanner,
     _briefConviction(s.conviction),
     _briefSetup(s.setup),
     _briefPulse(s.news_pulse),

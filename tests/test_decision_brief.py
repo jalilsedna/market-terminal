@@ -32,6 +32,33 @@ def test_requires_symbol():
         decision_brief.brief("")
 
 
+def test_conflict_classifier():
+    from services.decision_brief import _conflict
+
+    # CBRL case: setup LONG, fundamentals negative (score -1 under a 'neutral'
+    # label) → fundamental_conflict, high (stressed vol stacks on top).
+    cbrl = _conflict({
+        "conviction": {"conviction": "neutral", "score": -1},
+        "setup": {"bias": "long", "flags": ["RSI 81 - overbought"]},
+        "news_pulse": {"direction": "up"},
+        "volatility": {"regime": "stressed"},
+    })
+    assert cbrl["class"] == "fundamental_conflict" and cbrl["caution"] == "high"
+
+    mo = _conflict({"conviction": {"conviction": "neutral"}, "setup": {"bias": "long"}})
+    assert mo["class"] == "momentum_only"
+
+    aligned = _conflict({
+        "conviction": {"conviction": "constructive", "score": 3},
+        "setup": {"bias": "long"}, "news_pulse": {"direction": "up"},
+    })
+    assert aligned["class"] == "aligned" and aligned["caution"] == "low"
+
+    nc = _conflict({"conviction": {"conviction": "constructive", "score": 3},
+                    "setup": {"bias": "long"}, "news_pulse": {"direction": "down"}})
+    assert nc["class"] == "news_conflict"
+
+
 def test_brief_includes_news_pulse_section(monkeypatch):
     from services import analysis, brain, decision_brief, instruments, news_pulse, signals
 

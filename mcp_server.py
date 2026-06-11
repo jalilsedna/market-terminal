@@ -344,7 +344,11 @@ def decision_brief(symbol: str, asset: str | None = None) -> dict:
       • futures → macro/COT/price/term-structure **brief** + **COT positioning**
     Plus realized-vol regime, symbol-tagged news, and a **24h news pulse**
     (direction + summary) when the symbol is tracked, all
-    framed by the current macro regime, with a one-line `synthesis`. `asset` is
+    framed by the current macro regime, with a one-line `synthesis`. Also returns
+    a **`conflict`** classification (aligned / momentum_only / fundamental_conflict
+    / news_conflict + caution) — size HARDER against it: a high-caution
+    fundamental_conflict (technically bullish but fundamentals negative) is a weak
+    momentum-only trade regardless of how high the setup score is. `asset` is
     optional (auto-detected). Each section degrades independently (`errors` =
     fetch failed; `skipped` = not attempted or empty, with a reason). Research
     synthesis, NEVER a trade trigger or order."""
