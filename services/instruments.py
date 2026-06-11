@@ -44,10 +44,25 @@ class TrackedInstrument:
     def code(self) -> str | None:
         return self.meta.get("code") or (self.symbol.replace("=F", "") if self.asset == "futures" else None)
 
+    @property
+    def cot_code(self) -> str | None:
+        """CFTC code: stored metadata, else resolved from the futures root map.
+
+        Resolving from the root means futures already in the registry (added
+        before they had a stored code) still get COT, no migration needed.
+        """
+        if self.meta.get("cot_code"):
+            return self.meta["cot_code"]
+        if self.asset != "futures":
+            return None
+        from obb_layer.symbols import cot_code_for
+
+        return cot_code_for(self.code)
+
     def capabilities(self) -> dict[str, bool]:
         caps = set(_BASE_CAPS.get(self.asset, {"price", "vol"}))
         out = {c: c in caps for c in ("price", "vol", "news", "cot", "term_structure", "fundamentals")}
-        if "cot" in caps and not self.meta.get("cot_code"):
+        if "cot" in caps and not self.cot_code:
             out["cot"] = False
         if "term_structure" in caps:
             from services import term_structure as ts_svc

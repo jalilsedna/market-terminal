@@ -36,6 +36,40 @@ INSTRUMENT_TEMPLATES: dict[str, InstrumentTemplate] = {
 WATCHLIST = INSTRUMENT_TEMPLATES
 
 
+# Curated CFTC "contract market codes" for common futures roots, so COT works for
+# more than the five templated contracts. Best-effort from the CFTC COT report;
+# the positioning view shows the resolved CFTC contract NAME, which is a built-in
+# sanity check (a wrong code surfaces as the wrong market name). Roots not listed
+# here fall back to `cot_search`. Verify with scripts/probe_providers.py.
+CFTC_CODES: dict[str, str] = {
+    # FX (CME)
+    "6E": "099741", "6B": "096742", "6J": "097741", "6C": "090741",
+    "6S": "092741", "6A": "232741", "6N": "112741", "6M": "095741",
+    # Equity index
+    "ES": "13874A", "NQ": "209742", "YM": "124603", "RTY": "239742",
+    # Rates (CBOT)
+    "ZB": "020601", "ZN": "043602", "ZF": "044601", "ZT": "042601", "UB": "020604",
+    # Metals (COMEX/NYMEX)
+    "GC": "088691", "SI": "084691", "HG": "085692", "PL": "076651", "PA": "075651",
+    # Energy (NYMEX)
+    "CL": "067651", "NG": "023651", "RB": "111659", "HO": "022651",
+    # Grains / oilseeds (CBOT)
+    "ZC": "002602", "ZS": "005602", "ZW": "001602", "KE": "001612",
+    "ZL": "007601", "ZM": "026603",
+    # Softs (ICE)
+    "SB": "080732", "KC": "083731", "CC": "073732", "CT": "033661", "OJ": "040701",
+    # Livestock (CME)
+    "LE": "057642", "HE": "054642", "GF": "061641",
+}
+
+
+def cot_code_for(root: str | None) -> str | None:
+    """CFTC contract code for a futures root ('GC', 'CL', 'ES'), or None if unmapped."""
+    if not root:
+        return None
+    return CFTC_CODES.get(root.strip().upper().replace("=F", ""))
+
+
 def template_for(asset: str, symbol: str) -> dict:
     """Return optional metadata dict for a new (asset, symbol) pair."""
     sym = symbol.strip().upper()
@@ -68,5 +102,8 @@ def template_for(asset: str, symbol: str) -> dict:
     if asset == "futures" and sym.endswith("=F"):
         root = sym.replace("=F", "")
         out["code"] = root
+        code = cot_code_for(root)
+        if code:
+            out["cot_code"] = code
         out["tv_symbol"] = f"COMEX:{root}1!" if root in ("GC", "SI", "HG") else f"CME:{root}1!"
     return out

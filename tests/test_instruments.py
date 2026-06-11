@@ -37,6 +37,30 @@ def test_futures_template_enriches_meta(reg):
     assert inst.capabilities()["cot"] is True
 
 
+def test_non_template_futures_resolves_cot_from_root(reg):
+    # CL (crude) isn't a template, but it's in the CFTC code map → COT works.
+    inst = reg.add("futures", "CL=F")
+    assert inst.meta.get("cot_code") in (None, "067651")  # filled on add OR resolved
+    assert inst.cot_code == "067651"
+    assert inst.capabilities()["cot"] is True
+
+
+def test_unmapped_futures_has_no_cot(reg):
+    inst = reg.add("futures", "XYZ=F")
+    assert inst.cot_code is None
+    assert inst.capabilities()["cot"] is False
+
+
+def test_cot_code_for_helper():
+    from obb_layer.symbols import cot_code_for
+
+    assert cot_code_for("CL") == "067651"
+    assert cot_code_for("ES") == "13874A"
+    assert cot_code_for("cl=f") == "067651"
+    assert cot_code_for("NOPE") is None
+    assert cot_code_for(None) is None
+
+
 def test_equity_no_cot(reg):
     inst = reg.add("equity", "AAPL")
     assert inst.capabilities()["cot"] is False

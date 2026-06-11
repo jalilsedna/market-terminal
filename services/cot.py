@@ -96,7 +96,7 @@ def positioning(*, instrument: str | None = None, code: str | None = None) -> di
     """Summary for one contract by registry id/code or raw CFTC code."""
     if instrument:
         inst = reg.resolve(instrument)
-        resolved = inst.meta.get("cot_code")
+        resolved = inst.cot_code
         if not resolved:
             raise ValueError(f"{inst.label} has no cot_code — set meta when adding or use cot_search")
     elif code:
@@ -110,26 +110,27 @@ def positioning(*, instrument: str | None = None, code: str | None = None) -> di
 
 
 def _one(inst: reg.TrackedInstrument) -> tuple[str, dict]:
-    if not inst.meta.get("cot_code"):
+    resolved = inst.cot_code
+    if not resolved:
         return inst.id, {
             "ok": False,
             "name": inst.label,
             "error": "no cot_code metadata — use cot_search to find the CFTC code",
         }
     try:
-        return inst.id, {"ok": True, "name": inst.label, "code": inst.code, **positioning(code=inst.meta["cot_code"])}
+        return inst.id, {"ok": True, "name": inst.label, "code": inst.code, **positioning(code=resolved)}
     except Exception as exc:  # noqa: BLE001
         return inst.id, {
             "ok": False,
             "name": inst.label,
-            "cot_code": inst.meta.get("cot_code"),
+            "cot_code": resolved,
             "error": f"{type(exc).__name__}: {exc}"[:200],
         }
 
 
 def dashboard() -> dict:
     """COT for all tracked futures that have a cot_code (sequential — CFTC rate limits)."""
-    futures = [i for i in reg.list_all() if i.asset == "futures" and i.meta.get("cot_code")]
+    futures = [i for i in reg.list_all() if i.asset == "futures" and i.cot_code]
     if not futures:
         return {}
     return dict(_one(inst) for inst in futures)

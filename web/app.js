@@ -773,7 +773,7 @@ async function loadCot() {
   const sec = $("#view-cot");
   const { html, labels } = await _cotInstrumentOptions("");
   sec.innerHTML = panel("COT positioning — weekly CFTC report",
-    `<div class="sub mb-sm">Pick a futures contract from your registry. Common roots (GC, NQ, 6E, 6B, YM) get CFTC metadata automatically when added.</div>
+    `<div class="sub mb-sm">Pick a futures contract from your registry. Most liquid CME/CBOT/COMEX/NYMEX roots (GC, CL, NG, ES, NQ, ZN, 6E, 6J…) resolve their CFTC code automatically.</div>
      <select id="cot-pick" class="btn">${html}</select>
      <div id="cot-body" class="mt-md"></div>`);
   const pick = document.getElementById("cot-pick");
