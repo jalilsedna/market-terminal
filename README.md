@@ -107,24 +107,31 @@ the Bearer gate — no separate process needed.
 claude mcp add market-terminal -- .venv/bin/python mcp_server.py
 ```
 
-Tools exposed: `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
-`cot_search`, `term_structure`, `sector_rotation`, `market_movers` (whole-market
-gainers/losers via Flat Files), `market_news`, `volatility` (realized vol +
-regime + forecast), `alerts_status` (C5 research flags), and the
-interpreted-signal tools `analysis_cot`, `analysis_regime`, `analysis_brief`,
-`analysis_term_structure`, `tradingview_signals` (TradingView alert/strategy
-signals received via webhook — see [`docs/tradingview.md`](./docs/tradingview.md)),
-and the **fundamental brain** `fundamentals` + `brain_verdict` (per-stock FMP data
-+ a synthesized conviction — see [`docs/fmp.md`](./docs/fmp.md)).
-All return research context (EOD/delayed/weekly), with a disclaimer — never a
-trade trigger.
+**31 tools** (canonical list in `mcp_server.py`), all research context — never
+trade triggers:
+
+| Group | Tools |
+|-------|--------|
+| Macro / watchlist | `macro_dashboard`, `watchlist_summary` |
+| Registry | `instruments_list`, `instruments_add`, `instruments_remove`, `instruments_search` |
+| Futures / macro reads | `cot_positioning`, `cot_search`, `term_structure`, `sector_rotation`, `market_movers`, `market_news` |
+| Analysis | `analysis_cot`, `analysis_regime`, `analysis_brief`, `analysis_term_structure` |
+| Vol / alerts / TV | `volatility`, `alerts_status`, `tradingview_signals` |
+| Stock brain (FMP) | `fundamentals`, `brain_verdict`, `brain_screen` |
+| Crypto / FX brain | `crypto_brain_verdict`, `crypto_brain_screen`, `forex_brain_verdict`, `forex_brain_screen` |
+| Signals | `trade_setup`, `daily_hitlist`, `market_setup`, `market_screen` |
+| Alice centerpiece | **`decision_brief`** — one-call package (conviction + setup + vol + news + macro) |
+
+See [`docs/fmp.md`](./docs/fmp.md) for the fundamentals brain and
+[`docs/tradingview.md`](./docs/tradingview.md) for webhook signals.
 
 **Feeding an execution agent (e.g. OpenAlice):** market-terminal stays
-research-only and acts as an MCP data source the agent *pulls from*. See
-[`docs/openalice.md`](./docs/openalice.md),
-[`docs/openalice-wsl-setup.md`](./docs/openalice-wsl-setup.md), and
-[`docs/openalice-cursor-fallback.md`](./docs/openalice-cursor-fallback.md) (Claude
-Code limit → Cursor Agent).
+research-only and acts as an MCP data source the agent *pulls from*. Start with
+**`decision_brief(symbol)`**. See [`docs/openalice.md`](./docs/openalice.md),
+[`docs/openalice-workflow.md`](./docs/openalice-workflow.md) (validated paper loop),
+[`docs/openalice-wsl-setup.md`](./docs/openalice-wsl-setup.md),
+[`docs/openalice-cursor-fallback.md`](./docs/openalice-cursor-fallback.md), and
+[`docs/openalice-cloud-deploy.md`](./docs/openalice-cloud-deploy.md) (ROADMAP A9).
 
 ## Tests
 

@@ -4,14 +4,16 @@ The day-2 runbook for the **deployed** terminal: what's running, where data
 lives, how to back it up, how to manage users, and the routine ops (rotate
 tokens, redeploy). For first-time setup see `README.md`; for the public deploy
 see [`docs/deploy-railway.md`](./deploy-railway.md); for the OpenAlice boundary
-see [`docs/openalice.md`](./openalice.md).
+see [`docs/openalice.md`](./openalice.md), [`docs/openalice-workflow.md`](./openalice-workflow.md),
+and [`docs/openalice-cloud-deploy.md`](./openalice-cloud-deploy.md).
 
 > **What this is.** A private, single-purpose **research** terminal (macro,
 > market data, COT, term structure, sectors, news, volatility/regime, an
 > interpreted analysis layer, and C5 history charts + alerts). It serves a web
 > UI, a REST API, and an MCP feed from **one** Railway service behind one auth
 > gate. It holds **read-only data keys only** — never broker/trade keys.
-> Execution lives in OpenAlice, on your machine.
+> Execution lives in OpenAlice (today: your machine; ROADMAP **A9**: always-on
+> server — see [`openalice-cloud-deploy.md`](./openalice-cloud-deploy.md)).
 
 ## 1. The shape of the running system
 
@@ -55,7 +57,7 @@ trade / withdrawal keys here; this service is research-only.
 ## 3. Where data lives + how to back it up
 
 All persistence is one **SQLite** file (`DB_PATH`). It holds four things:
-`watchlist` (your My-Watchlist instruments), `snapshots` (daily vol/regime +
+`watchlist` / registry instruments, `snapshots` (daily vol/regime +
 macro-regime history — the C5 charts/alerts data), `users` (DB-created
 accounts), and a `kv` store.
 
