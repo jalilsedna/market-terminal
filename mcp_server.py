@@ -331,8 +331,9 @@ def decision_brief(symbol: str, asset: str | None = None) -> dict:
       • futures → macro/COT/price/term-structure **brief** + **COT positioning**
     Plus realized-vol regime and symbol-tagged news when the symbol is tracked, all
     framed by the current macro regime, with a one-line `synthesis`. `asset` is
-    optional (auto-detected). Each section degrades independently (see `errors`).
-    Research synthesis, NEVER a trade trigger or order."""
+    optional (auto-detected). Each section degrades independently (`errors` =
+    fetch failed; `skipped` = not attempted or empty, with a reason). Research
+    synthesis, NEVER a trade trigger or order."""
     return _safe(decision_brief_svc.brief, symbol, asset)
 
 

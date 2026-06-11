@@ -12,6 +12,7 @@ Services never import OpenBB directly; they go through `obb_layer/`.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 from concurrency import parallel_map
@@ -36,7 +37,11 @@ MACRO_TILES = {
 def _pct(latest: float | None, prior: float | None) -> float | None:
     if latest is None or prior in (None, 0):
         return None
-    return round((latest - prior) / prior * 100, 2)
+    try:
+        pct = (float(latest) - float(prior)) / float(prior) * 100
+        return round(pct, 2) if math.isfinite(pct) else None
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
 
 
 def _nth_back(values: list[float], n: int) -> float | None:

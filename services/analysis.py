@@ -16,6 +16,7 @@ through the other services).
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from cache.store import cached
@@ -43,7 +44,10 @@ _CYCLICAL = {
 
 def _num(value: Any) -> float | None:
     try:
-        return float(value) if value is not None else None
+        if value is None:
+            return None
+        x = float(value)
+        return x if math.isfinite(x) else None
     except (TypeError, ValueError):
         return None
 

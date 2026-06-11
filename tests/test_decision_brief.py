@@ -38,6 +38,8 @@ def test_equity_brief_composes_conviction_and_setup(monkeypatch):
     assert "SETUP LONG" in out["synthesis"].upper()
     assert "risk-off" in out["synthesis"]
     assert out["errors"] is None
+    assert out["skipped"]["volatility"] == out["skipped"]["news"]
+    assert "not in registry" in out["skipped"]["volatility"]
 
 
 def test_crypto_brief_uses_market_setup(monkeypatch):
@@ -52,6 +54,33 @@ def test_crypto_brief_uses_market_setup(monkeypatch):
     assert out["sections"]["setup"]["bias"] == "short"
     # No registry id → no crypto-brain conviction section attempted.
     assert "conviction" not in out["sections"]
+    assert "conviction" in out["skipped"]
+    assert "not in registry" in out["skipped"]["conviction"]
+
+
+def test_registry_equity_empty_news_is_skipped_not_silent(monkeypatch):
+    from services import analysis, brain, decision_brief, instruments, news, signals, volatility
+
+    inst = instruments.TrackedInstrument(
+        id="equity:CBRL",
+        asset="equity",
+        symbol="CBRL",
+        label="Cracker Barrel",
+        meta={},
+    )
+    monkeypatch.setattr(instruments, "resolve", lambda _s: inst)
+    monkeypatch.setattr(analysis, "regime", lambda: {"regime": "mixed / neutral", "score": 0})
+    monkeypatch.setattr(brain, "verdict", lambda s: {"conviction": "neutral"})
+    monkeypatch.setattr(signals, "trade_setup", lambda s: {"bias": "long"})
+    monkeypatch.setattr(volatility, "volatility", lambda _id: {"regime": "normal"})
+    monkeypatch.setattr(news, "feed", lambda **kwargs: {"headlines": []})
+
+    out = decision_brief.brief("CBRL")
+    assert out["in_registry"] is True
+    assert "volatility" in out["sections"]
+    assert "news" not in out["sections"]
+    assert out["skipped"]["news"] == "no headlines tagged to this symbol"
+    assert out["errors"] is None
 
 
 def test_section_failure_is_isolated(monkeypatch):

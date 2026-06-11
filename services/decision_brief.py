@@ -11,7 +11,10 @@ Routing by asset class:
   * crypto/fx  → technical setup (market_setup) + momentum/macro/vol/USD (brain)
   * futures    → analysis brief (macro/COT/price/term/news) + COT positioning
 Plus, when the symbol is tracked in the registry: realized-vol regime and
-symbol-tagged news. A shared macro regime read frames everything.
+symbol-tagged news. Sections that were not attempted or returned empty are
+listed in `skipped` (with a reason) so agents do not confuse omission with a
+silent success. Failures that raise still land in `errors`. A shared macro regime
+read frames everything.
 
 Pure composition over existing services — no new provider logic. Research
 context, never a trade trigger.
@@ -28,6 +31,40 @@ DISCLAIMER = (
     "Composed research package (conviction + setup + positioning + vol + news + "
     "macro) — research only, never a trade trigger or order."
 )
+
+
+_REGISTRY_SKIP = "not in registry — add via Registry UI or instruments_add"
+
+
+def _skipped_sections(
+    asset: str,
+    inst: Any,
+    sections: dict[str, Any],
+    errors: dict[str, str],
+) -> dict[str, str] | None:
+    """Explain absent optional sections (distinct from `errors` = fetch failed)."""
+    skipped: dict[str, str] = {}
+
+    if not inst:
+        skipped["volatility"] = _REGISTRY_SKIP
+        skipped["news"] = _REGISTRY_SKIP
+        if asset in ("crypto", "forex"):
+            skipped["conviction"] = f"{_REGISTRY_SKIP} (crypto/forex conviction needs tracked id)"
+        elif asset == "futures":
+            skipped["brief"] = _REGISTRY_SKIP
+            skipped["positioning"] = _REGISTRY_SKIP
+    else:
+        if "volatility" not in sections and "volatility" not in errors:
+            skipped["volatility"] = "volatility data unavailable"
+        if "news" not in sections and "news" not in errors:
+            skipped["news"] = "no headlines tagged to this symbol"
+        if asset == "futures" and "positioning" not in sections and "positioning" not in errors:
+            if not getattr(inst, "cot_code", None):
+                skipped["positioning"] = "registry instrument has no COT code"
+        if asset in ("crypto", "forex") and "conviction" not in sections and "conviction" not in errors:
+            skipped["conviction"] = "conviction unavailable"
+
+    return skipped or None
 
 
 def _infer_asset(symbol: str) -> str:
@@ -91,8 +128,9 @@ def brief(symbol: str, asset: str | None = None) -> dict:
         sections["volatility"] = grab("volatility", lambda: vol_svc.volatility(inst.id))
         from services import news as news_svc
         feed = grab("news", lambda: news_svc.feed(instrument=inst.id, limit=6))
-        if feed:
-            sections["news"] = (feed.get("headlines") or [])[:6]
+        headlines = (feed.get("headlines") or [])[:6] if feed else []
+        if headlines:
+            sections["news"] = headlines
 
     return {
         "symbol": symbol.upper(),
@@ -101,6 +139,7 @@ def brief(symbol: str, asset: str | None = None) -> dict:
         "macro": macro,
         "synthesis": _synthesize(symbol, asset, sections, macro),
         "sections": sections,
+        "skipped": _skipped_sections(asset, inst, sections, errors),
         "errors": errors or None,
         "disclaimer": DISCLAIMER,
     }
