@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from concurrency import parallel_map
 from config import get_settings
 from obb_layer import news
+from obb_layer.symbol_map import map_symbol
 from services import instruments as reg
 
 MACRO_KEYWORDS: list[str] = [
@@ -44,9 +45,13 @@ def _excerpt(item: dict) -> str | None:
 
 
 def _news_ticker(inst: reg.TrackedInstrument) -> str | None:
-    return inst.meta.get("news_symbol") or (
-        inst.symbol if inst.asset in ("equity", "etf", "crypto") else None
-    )
+    if inst.meta.get("news_symbol"):
+        return inst.meta["news_symbol"]
+    if inst.asset in ("equity", "etf"):
+        return inst.symbol
+    if inst.asset == "crypto":
+        return map_symbol("crypto", inst.symbol, "fmp") or inst.symbol.replace("-", "")
+    return None
 
 
 def _keyword_map() -> dict[str, list[str]]:
@@ -152,10 +157,34 @@ def _proxy_feed(limit: int, targets: dict[str, reg.TrackedInstrument], provider:
         except Exception as exc:  # noqa: BLE001
             return tag, [], type(exc).__name__
 
+    def _crypto_world_fallback(tag: str, inst: reg.TrackedInstrument) -> list[dict]:
+        """When FMP stock news has no crypto rows, mine the world wire by keyword."""
+        if inst.asset != "crypto":
+            return []
+        wp = _world_provider()
+        if not wp:
+            return []
+        kws = _keyword_map().get(tag, [])
+        if not kws:
+            return []
+        try:
+            world = news.world_news(provider=wp, limit=max(per_instrument * 3, 60))
+        except Exception:  # noqa: BLE001
+            return []
+        out: list[dict] = []
+        for item in world:
+            blob = f"{item.get('title') or ''} {_excerpt(item) or ''}".lower()
+            if any(k in blob for k in kws):
+                out.append(item)
+        return out
+
     for tag, raw, err in parallel_map(_fetch, targets.items()):
         if err:
             errors[tag] = err
             continue
+        inst = targets[tag]
+        if not raw and inst.asset == "crypto":
+            raw = _crypto_world_fallback(tag, inst)
         for item in raw:
             h = _proxy_headline(item, tag)
             dedupe_key = (h["url"] or h["title"] or "").strip().lower()

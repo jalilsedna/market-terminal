@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from typing import Any
 
 from concurrency import parallel_map
 from obb_layer import macro
@@ -49,9 +50,16 @@ def _nth_back(values: list[float], n: int) -> float | None:
     return values[-1 - n] if len(values) > n else None
 
 
+def _finite(value: Any) -> bool:
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def _series_change(records: list[dict], value_key: str) -> dict:
     """Latest value + day/week/month change for an ordered (oldest→newest) series."""
-    points = [(r.get("date"), r.get(value_key)) for r in records if r.get(value_key) is not None]
+    points = [(r.get("date"), r.get(value_key)) for r in records if _finite(r.get(value_key))]
     if not points:
         raise ValueError("series has no usable values")
     values = [v for _, v in points]

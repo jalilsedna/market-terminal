@@ -89,6 +89,49 @@ def test_feed_falls_back_to_proxy_without_key(clear_settings, monkeypatch, tmp_p
     assert out["count"] >= 1
 
 
+def test_crypto_news_ticker_uses_fmp_format(tmp_path, monkeypatch):
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "t.db"))
+    import config
+
+    config.get_settings.cache_clear()
+    from services import instruments as reg
+    from services import news as svc
+
+    inst = reg.add("crypto", "BTC-USD")
+    assert svc._news_ticker(inst) == "BTCUSD"
+    config.get_settings.cache_clear()
+
+
+def test_crypto_feed_falls_back_to_world_keywords(clear_settings, monkeypatch, tmp_path):
+    import config
+    from obb_layer import news as obb_news
+    from services import instruments as reg
+    from services import news as svc
+
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "t.db"))
+    clear_settings.setenv("FMP_API_KEY", "f")
+    config.get_settings.cache_clear()
+    inst = reg.add("crypto", "BTC-USD")
+    tag = inst.code or inst.id
+
+    def fake_company(symbol, provider="fmp", limit=50):
+        assert symbol == "BTCUSD"
+        return []
+
+    def fake_world(provider="fmp", limit=100):
+        return [
+            {"title": "Bitcoin rallies on ETF inflows", "text": "btc up", "url": "u-btc", "date": "2026-06-11"},
+            {"title": "Oil slips", "text": "crude down", "url": "u-oil", "date": "2026-06-10"},
+        ]
+
+    monkeypatch.setattr(obb_news, "company_news", fake_company)
+    monkeypatch.setattr(obb_news, "world_news", fake_world)
+    out = svc.feed(limit=10, instrument=inst.id)
+    assert out["count"] == 1
+    assert "Bitcoin" in out["headlines"][0]["title"]
+    config.get_settings.cache_clear()
+
+
 def test_feed_falls_back_when_world_wire_errors(clear_settings, monkeypatch, tmp_path):
     import config
     from obb_layer import news as obb_news
