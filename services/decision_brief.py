@@ -90,6 +90,11 @@ def brief(symbol: str, asset: str | None = None) -> dict:
     except Exception:  # noqa: BLE001 — not tracked is fine; raw-symbol tools still work
         inst = None
     asset = (asset or (inst.asset if inst else None) or _infer_asset(symbol)).lower().strip()
+    if inst is None and asset in ("equity", "etf"):
+        try:
+            inst = reg.ensure(asset, symbol)
+        except Exception:  # noqa: BLE001 — vol/news enrichers are optional
+            inst = None
 
     errors: dict[str, str] = {}
 

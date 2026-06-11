@@ -121,10 +121,17 @@ agent -f -p "Call getPortfolio and getAccount. Re-score NVDA vs my live QQQ expo
 
 ### Registry tip (hitlist names)
 
-Before deep-diving a mover not in registry:
+`daily_hitlist` and `decision_brief` for equities/ETFs **auto-register** movers
+so vol + news run without a manual `instruments_add`. To pre-track a name:
 
 ```
 instruments_add asset=equity symbol=CBRL
 ```
 
-Then `decision_brief("CBRL")` includes vol + news when data exists.
+Re-check CBRL after deploy:
+
+```bash
+agent -f -p "Call decision_brief for CBRL — show skipped and errors verbatim."
+```
+
+Expect vol + news sections (or `skipped.news` only when the wire is empty).

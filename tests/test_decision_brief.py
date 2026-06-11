@@ -25,6 +25,7 @@ def test_equity_brief_composes_conviction_and_setup(monkeypatch):
     from services import analysis, brain, decision_brief, instruments, signals
 
     monkeypatch.setattr(instruments, "resolve", lambda s: (_ for _ in ()).throw(ValueError("not tracked")))
+    monkeypatch.setattr(instruments, "ensure", lambda *a, **k: (_ for _ in ()).throw(ValueError("not tracked")))
     monkeypatch.setattr(analysis, "regime", lambda: {"regime": "risk-off", "score": -2})
     monkeypatch.setattr(brain, "verdict", lambda s: {"conviction": "neutral", "score": 2})
     monkeypatch.setattr(signals, "trade_setup", lambda s: {"bias": "long", "in_play": True})
@@ -56,6 +57,31 @@ def test_crypto_brief_uses_market_setup(monkeypatch):
     assert "conviction" not in out["sections"]
     assert "conviction" in out["skipped"]
     assert "not in registry" in out["skipped"]["conviction"]
+
+
+def test_equity_brief_auto_registers_for_vol_news(tmp_path, monkeypatch):
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "terminal.db"))
+    import config
+
+    config.get_settings.cache_clear()
+    from services import analysis, brain, decision_brief, news, signals, volatility
+
+    monkeypatch.setattr(analysis, "regime", lambda: {"regime": "mixed / neutral", "score": 0})
+    monkeypatch.setattr(brain, "verdict", lambda s: {"conviction": "cautious"})
+    monkeypatch.setattr(signals, "trade_setup", lambda s: {"bias": "long"})
+    monkeypatch.setattr(volatility, "volatility", lambda _id: {"regime": "normal", "as_of": "2026-06-10"})
+    monkeypatch.setattr(
+        news,
+        "feed",
+        lambda **kwargs: {"headlines": [{"title": "CBRL insider buying", "date": "2026-06-11"}]},
+    )
+
+    out = decision_brief.brief("CBRL")
+    assert out["in_registry"] is True
+    assert out["sections"]["volatility"]["regime"] == "normal"
+    assert out["sections"]["news"][0]["title"] == "CBRL insider buying"
+    assert out["skipped"] is None or "volatility" not in (out["skipped"] or {})
+    config.get_settings.cache_clear()
 
 
 def test_registry_equity_empty_news_is_skipped_not_silent(monkeypatch):
