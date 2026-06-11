@@ -897,6 +897,8 @@ const VIEW_TITLES = {
   fundamentals: "Stock Brain",
   "crypto-brain": "Crypto Brain",
   "forex-brain": "Forex Brain",
+  hitlist: "Daily Hitlist",
+  "trade-setup": "Trade Setup",
   history: "History & Alerts",
   execution: "Execution · Alice",
   admin: "Admin",
@@ -1292,6 +1294,138 @@ function listVisible(listId) {
 async function loadCryptoBrain() { return loadMarketBrain("crypto"); }
 async function loadForexBrain() { return loadMarketBrain("forex"); }
 
+// --- Signals: Trade Setup + Daily Hitlist (ROADMAP H7) ----------------------
+const _BIAS_CLASS = { long: "green", short: "red", neutral: "amber" };
+
+// Signed component tile (trend/momentum/catalyst/smart-money/context): coloured
+// by sign so the drivers read at a glance.
+function _signedTile(label, val) {
+  if (val === null || val === undefined) return _fundTile(label, "—");
+  const cls = val > 0 ? "up" : val < 0 ? "down" : "dim";
+  const txt = `<span class="${cls}">${val > 0 ? "+" : ""}${val}</span>`;
+  return _fundTile(label, txt);
+}
+
+function renderTradeSetup(env) {
+  const d = env.data || {};
+  if (d.enabled === false) return `<div class="err">${esc(d.error || "trade setup unavailable")}</div>`;
+  const bias = d.bias || "neutral";
+  const c = d.components || {};
+  const part = d.participation || {};
+  const mom = d.momentum || {};
+  const triggers = (d.triggers || []).map((t) => `<li>${esc(t)}</li>`).join("");
+  const flags = (d.flags || []).map((x) => `<span class="pill amber" style="margin:2px">${esc(x)}</span>`).join(" ");
+  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">degraded axes: ${esc(Object.keys(d.errors).join(", "))}</div>` : "";
+
+  const hero = panel("Setup", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill ${_BIAS_CLASS[bias] || ""}" style="font-size:13px">${esc(bias.toUpperCase())}</span>
+      <span style="font-size:14px"><b>${esc(d.symbol)}</b> ${d.price != null ? "$" + num(d.price, 2) : ""}</span>
+      <span class="pill">${esc(d.conviction || "—")} conviction</span>
+      <span class="pill ${part.in_play ? "green" : ""}">${part.in_play ? "IN PLAY" : "quiet"}</span>
+    </div>
+    <div class="sub" style="margin-top:8px">${esc(d.read || "")}</div>
+    ${flags ? `<div style="margin-top:6px">${flags}</div>` : ""}`);
+
+  const components = panel("Drivers", `<div class="tiles">
+    ${_signedTile("Trend", c.trend)}${_signedTile("Momentum", c.momentum)}${_signedTile("Catalyst", c.catalyst)}
+    ${_signedTile("Smart money", c.smart_money)}${_signedTile("Context", c.context)}
+    ${_fundTile("Score", `<span class="${(d.score || 0) > 0 ? "up" : (d.score || 0) < 0 ? "down" : "dim"}">${d.score > 0 ? "+" : ""}${num(d.score, 0)}</span>`)}</div>`);
+
+  const participation = panel("Participation", `<div class="tiles">
+    ${_fundTile("Rel. volume", part.relative_volume != null ? num(part.relative_volume, 2) + "×" : "—", "vs avg")}
+    ${_fundTile("RSI(14)", mom.rsi != null ? num(mom.rsi, 0) : "—")}
+    ${_fundTile("ADX", mom.adx != null ? num(mom.adx, 0) : "—", mom.trending ? "trending" : "choppy")}
+    ${_fundTile("52w range", part.range_position_52w != null ? num(part.range_position_52w * 100, 0) + "%" : "—", "0=low · 100=high")}</div>`);
+
+  const trig = triggers ? panel("Triggers", `<ul class="sub" style="margin:0;padding-left:18px">${triggers}</ul>`) : "";
+  const ctx = d.context ? panel("Longer-horizon context (Stock Brain)", `<div class="sub">${esc(d.context)}</div>`) : "";
+
+  return hero + `<div class="grid" style="grid-template-columns:1fr">${components}${participation}${trig}${ctx}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + errs;
+}
+
+async function loadTradeSetup() {
+  const sec = $("#view-trade-setup");
+  sec.innerHTML = panel("Trade Setup — daily directional bias", `
+    <div class="sub mb-sm">Per-ticker bias fusing trend (50/200 MA), momentum (RSI/ADX), catalysts (analyst/news/earnings), and smart money (insider + congress). Research context, never an auto-executed signal.</div>
+    <div class="addbar">
+      <input id="ts-input" class="inp" placeholder="ticker (e.g. AAPL, NVDA, TSLA)" value="AAPL" />
+      <button id="ts-go" class="btn">Analyze</button>
+    </div>
+    <div id="ts-body" style="margin-top:12px"></div>`);
+  const body = $("#ts-body");
+  const go = async () => {
+    const t = ($("#ts-input").value || "").trim().toUpperCase();
+    if (!t) return;
+    body.innerHTML = `<div class="loading">Analyzing ${esc(t)}…</div>`;
+    try {
+      const env = await fetchJSON("/signals/setup/" + encodeURIComponent(t));
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderTradeSetup(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#ts-go").addEventListener("click", go);
+  $("#ts-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+  go();
+}
+
+function renderHitlist(env) {
+  const d = env.data || {};
+  if (d.enabled === false) return `<div class="err">${esc(d.error || "hitlist unavailable")}</div>`;
+  if (d.error) return `<div class="err">${esc(d.error)}</div>`;
+  const rows = d.hitlist || [];
+  if (!rows.length) return `<div class="sub dim">No names cleared the scan today.</div>`;
+  const lf = d.liquidity_floor || {};
+  const head = `<div class="sub" style="margin-bottom:6px">
+    as of ${esc(d.as_of || "—")} · scanned ${num(d.scanned, 0)} · <span class="up">${num(d.long_count, 0)} long</span> / <span class="down">${num(d.short_count, 0)} short</span>
+    · floor ≥$${num(lf.min_price, 0)} &amp; ≥${_fmtBig(lf.min_dollar_volume)} $-vol</div>`;
+  const body = rows.map((r) => {
+    const bias = r.bias || "neutral";
+    const trigs = (r.triggers || []).slice(0, 3).join("; ");
+    return `<tr>
+      <td><b>${esc(r.ticker)}</b></td>
+      <td>${r.price != null ? "$" + num(r.price, 2) : "—"}</td>
+      <td>${pct(r.change_1d_pct)}</td>
+      <td><span class="pill ${_BIAS_CLASS[bias] || ""}">${esc(String(bias).toUpperCase())}</span></td>
+      <td style="text-align:right">${r.score == null ? "—" : (r.score > 0 ? "+" : "") + num(r.score, 0)}</td>
+      <td style="text-align:center">${r.confluence ? "✓" : ""}</td>
+      <td style="text-align:center">${r.event_risk ? '<span class="pill amber">⚠</span>' : ""}</td>
+      <td class="sub">${esc(trigs)}</td>
+    </tr>`;
+  }).join("");
+  return head + `<table style="margin-top:6px"><thead><tr>
+    <th>Ticker</th><th>Price</th><th>1d</th><th>Bias</th><th style="text-align:right">Score</th>
+    <th style="text-align:center">Confl.</th><th style="text-align:center">Event</th><th>Triggers</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function loadHitlist() {
+  const sec = $("#view-hitlist");
+  sec.innerHTML = panel("Daily Hitlist — market-wide morning scan", `
+    <div class="sub mb-sm">Today's biggest movers (liquid names only), enriched with catalyst + smart-money signals and ranked by confluence → conviction → intensity. Research context, never a trade trigger.</div>
+    <div class="addbar">
+      <label class="sub">Min move %</label><input id="hl-move" class="inp" style="max-width:80px" value="2" />
+      <label class="sub">Top</label><input id="hl-limit" class="inp" style="max-width:80px" value="15" />
+      <button id="hl-go" class="btn">Scan</button>
+    </div>
+    <div id="hl-body" style="margin-top:12px"></div>`);
+  const body = $("#hl-body");
+  const go = async () => {
+    const move = ($("#hl-move").value || "2").trim();
+    const limit = ($("#hl-limit").value || "15").trim();
+    body.innerHTML = `<div class="loading">Scanning the market…</div>`;
+    try {
+      const env = await fetchJSON(`/signals/hitlist?limit=${encodeURIComponent(limit)}&min_move_pct=${encodeURIComponent(move)}`);
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderHitlist(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#hl-go").addEventListener("click", go);
+  $("#hl-move").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+  $("#hl-limit").addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
+  go();
+}
+
 async function loadFundamentalsOne(symbol, label) {
   const body = $("#fund-body");
   if (!body) return;
@@ -1379,6 +1513,8 @@ function _loadFor(view) {
   if (view === "fundamentals") return loadFundamentals();
   if (view === "crypto-brain") return loadCryptoBrain();
   if (view === "forex-brain") return loadForexBrain();
+  if (view === "hitlist") return loadHitlist();
+  if (view === "trade-setup") return loadTradeSetup();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
