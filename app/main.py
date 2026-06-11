@@ -133,7 +133,6 @@ from app.routers import (
     brain,
     chart,
     cot,
-    custom,
     doctor,
     fundamentals,
     history,
@@ -157,7 +156,6 @@ app.include_router(term_structure.router)
 app.include_router(screener.router)
 app.include_router(analysis.router)
 app.include_router(volatility.router)
-app.include_router(custom.router)
 app.include_router(history.router)
 app.include_router(alerts.router)
 app.include_router(chart.router)

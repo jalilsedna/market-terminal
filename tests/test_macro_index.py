@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import math
 
-import pytest
-
 
 def _bars(n: int, *, start: float = 100.0, step: float = 0.5) -> list[dict]:
     return [
@@ -51,7 +49,8 @@ def test_index_history_falls_back_to_spy(monkeypatch):
 
 def test_regime_includes_spx_when_change_valid(monkeypatch):
     from cache.store import clear as clear_cache
-    from services import analysis, macro as macro_svc
+    from services import analysis
+    from services import macro as macro_svc
 
     clear_cache()
     monkeypatch.setattr(

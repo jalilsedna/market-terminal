@@ -112,7 +112,6 @@ def test_crypto_feed_falls_back_to_world_keywords(clear_settings, monkeypatch, t
     clear_settings.setenv("FMP_API_KEY", "f")
     config.get_settings.cache_clear()
     inst = reg.add("crypto", "BTC-USD")
-    tag = inst.code or inst.id
 
     def fake_company(symbol, provider="fmp", limit=50):
         assert symbol == "BTCUSD"

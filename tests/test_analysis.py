@@ -8,7 +8,8 @@ import math
 def test_regime_omits_nan_spx_1w(monkeypatch):
     """Non-finite index % changes must not surface as +nan% in the regime vote."""
     from cache.store import clear as clear_cache
-    from services import analysis, macro as macro_svc
+    from services import analysis
+    from services import macro as macro_svc
 
     clear_cache()
     monkeypatch.setattr(
