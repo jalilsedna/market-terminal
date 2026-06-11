@@ -171,9 +171,18 @@ def brief(symbol: str, asset: str | None = None) -> dict:
     sections: dict[str, Any] = {}
 
     if asset in ("equity", "etf"):
-        from services import brain, signals
+        from services import brain, ownership, signals
         sections["conviction"] = grab("conviction", lambda: brain.verdict(symbol))
         sections["setup"] = grab("setup", lambda: signals.trade_setup(symbol))
+        own = grab("smart_money", lambda: ownership.ownership(symbol))
+        if own and own.get("enabled") is not False:
+            sm = own.get("smart_money") or {}
+            sections["smart_money"] = {
+                "lean": sm.get("lean"), "score": sm.get("score"),
+                "insider_buy_ratio": sm.get("insider_buy_ratio"),
+                "congress_net_90d": sm.get("congress_net_90d"),
+                "triggers": sm.get("triggers") or [],
+            }
     elif asset in ("crypto", "forex"):
         from services import brain_crypto, brain_forex, market_setup
         sections["setup"] = grab("setup", lambda: market_setup.market_setup(asset, symbol))

@@ -303,8 +303,14 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       *(H2.1 tuning: valuation label is now driven by **relative** valuation —
       current P/E vs the stock's own 5y median — with DCF kept as context, so
       premium compounders aren't perma-flagged "expensive" by a naive DCF.)*
-- [ ] **H3 — ETF holdings + ownership/alt-data** (holdings/sector/country, insider,
-      13F [gated], congress trades, ESG).
+- [~] **H3 — Ownership / alt-data.** **Shipped (Starter-tier subset):**
+      **Smart Money** — `services/ownership.py` `ownership(ticker)` fuses insider
+      buy/sell statistics + recent insider filings + Senate/House trades into an
+      interpreted lean (buying/selling/neutral). `GET /ownership/{ticker}`,
+      `smart_money` MCP tool, a **Smart Money** web tab, and a `smart_money`
+      section in `decision_brief`. Reuses the `signals.smart_money_signal` scorer;
+      CI-tested. **Still gated (Ultimate-tier):** ETF holdings (holdings/sector/
+      country weights), 13F institutional, ESG.
 - [ ] **H4 — Market/discovery/macro/news/filings** + a fundamental **screener**.
 - [x] **H5 — Terminal BRAIN.** `services/brain.py` `verdict(ticker)` fuses bottom-up
       (the fundamental read: valuation/quality/growth/analyst) with top-down (macro

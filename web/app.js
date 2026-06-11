@@ -899,6 +899,7 @@ const VIEW_TITLES = {
   fundamentals: "Stock Brain",
   "crypto-brain": "Crypto Brain",
   "forex-brain": "Forex Brain",
+  ownership: "Smart Money",
   hitlist: "Daily Hitlist",
   "trade-setup": "Trade Setup",
   "market-setup": "Crypto/FX Setup",
@@ -1297,6 +1298,69 @@ function listVisible(listId) {
 async function loadCryptoBrain() { return loadMarketBrain("crypto"); }
 async function loadForexBrain() { return loadMarketBrain("forex"); }
 
+// --- Smart Money / Ownership (H3 equity subset) ----------------------------
+const _LEAN_CLASS = { buying: "green", selling: "red", neutral: "amber" };
+
+function renderOwnership(env) {
+  const d = env.data || {};
+  if (d.enabled === false) return `<div class="err">${esc(d.error || "unavailable")}</div>`;
+  const sm = d.smart_money || {};
+  const lean = (sm.lean || "neutral").toLowerCase();
+  const trigs = (sm.triggers || []).map((t) => `<li>${esc(t)}</li>`).join("");
+  const insRows = (d.insider_recent || []).map((r) => `<tr>
+    <td>${esc(r.date)}</td><td>${esc(r.name || "—")}</td>
+    <td><span class="${r.side === "buy" ? "up" : r.side === "sell" ? "down" : "dim"}">${esc((r.side || "—").toUpperCase())}</span></td>
+    <td style="text-align:right">${r.shares != null ? num(r.shares, 0) : "—"}</td>
+    <td style="text-align:right">${r.value != null ? _fmtBig(r.value) : "—"}</td></tr>`).join("");
+  const conRows = (d.congress_recent || []).map((r) => `<tr>
+    <td>${esc(r.date)}</td><td>${esc(r.name || "—")} <span class="dim">${esc(r.chamber || "")}</span></td>
+    <td><span class="${r.side === "buy" ? "up" : r.side === "sell" ? "down" : "dim"}">${esc((r.side || "—").toUpperCase())}</span></td>
+    <td>${esc(r.amount || "")}</td></tr>`).join("");
+
+  const hero = panel("Smart money", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:15px"><b>${esc(d.ticker)}</b></span>
+      <span class="pill ${_LEAN_CLASS[lean] || ""}" style="font-size:13px">insiders ${esc(lean.toUpperCase())}</span>
+      ${sm.insider_buy_ratio != null ? `<span class="dim">buy ratio ${num(sm.insider_buy_ratio * 100, 0)}%</span>` : ""}
+      ${sm.congress_net_90d != null ? `<span class="dim">congress net ${sm.congress_net_90d > 0 ? "+" : ""}${num(sm.congress_net_90d, 0)}</span>` : ""}
+    </div>${trigs ? `<ul class="sub" style="margin:8px 0 0;padding-left:18px">${trigs}</ul>` : ""}`);
+  const ins = insRows ? panel("Recent insider transactions", `<table style="margin-top:4px"><thead><tr><th>Date</th><th>Insider</th><th>Side</th><th style="text-align:right">Shares</th><th style="text-align:right">$ Value</th></tr></thead><tbody>${insRows}</tbody></table>`) : "";
+  const con = conRows ? panel("Congressional trades", `<table style="margin-top:4px"><thead><tr><th>Date</th><th>Member</th><th>Side</th><th>Amount</th></tr></thead><tbody>${conRows}</tbody></table>`) : "";
+  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">unavailable: ${esc(Object.keys(d.errors).join(", "))} (FMP tier / endpoint)</div>` : "";
+  return hero + `<div class="grid" style="grid-template-columns:1fr">${ins}${con}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + errs;
+}
+
+async function loadOwnership() {
+  const sec = $("#view-ownership");
+  sec.innerHTML = panel("Smart Money — insider & congressional trades", `
+    <div class="sub mb-sm">Who's actually buying/selling a stock: corporate insiders + Senate/House members. The smart-money lens behind Trade Setup, on its own. Research context, not a trade trigger.</div>
+    <div class="addbar">
+      ${_acFieldHtml("own-input", "own-suggest", "type AAPL, NVDA, TSLA…")}
+      <button id="own-go" class="btn">Look up</button>
+    </div>
+    <div id="own-body" style="margin-top:12px"></div>`);
+  $("#own-input").value = "AAPL";
+  const body = $("#own-body");
+  const go = async () => {
+    const t = ($("#own-input").value || "").trim().toUpperCase();
+    if (!t) return;
+    body.innerHTML = `<div class="loading">Loading ${esc(t)}…</div>`;
+    try {
+      const env = await fetchJSON("/ownership/" + encodeURIComponent(t));
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderOwnership(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#own-go").addEventListener("click", go);
+  $("#own-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !listVisible("own-suggest")) go(); });
+  _bindInstrumentAutocomplete({
+    input: "#own-input", list: "#own-suggest", assets: ["equity", "etf"],
+    onPick: (h) => { $("#own-input").value = h.symbol; go(); }, onEnter: () => go(),
+  });
+  go();
+}
+
 // --- Signals: Trade Setup + Daily Hitlist (ROADMAP H7) ----------------------
 const _BIAS_CLASS = { long: "green", short: "red", neutral: "amber" };
 
@@ -1587,6 +1651,18 @@ function _briefNews(items) {
   return panel("News", `<ul class="sub" style="margin:0;padding-left:18px">${rows}</ul>`);
 }
 
+function _briefSmart(sm) {
+  if (!sm || !sm.lean) return "";
+  const lean = String(sm.lean).toLowerCase();
+  const trigs = (sm.triggers || []).slice(0, 3).map((t) => `<span class="pill" style="margin:2px">${esc(t)}</span>`).join(" ");
+  return panel("Smart money", `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="pill ${_LEAN_CLASS[lean] || ""}">insiders ${esc(lean.toUpperCase())}</span>
+      ${sm.insider_buy_ratio != null ? `<span class="dim">buy ${num(sm.insider_buy_ratio * 100, 0)}%</span>` : ""}
+      ${sm.congress_net_90d != null ? `<span class="dim">congress ${sm.congress_net_90d > 0 ? "+" : ""}${num(sm.congress_net_90d, 0)}</span>` : ""}
+    </div>${trigs ? `<div style="margin-top:6px">${trigs}</div>` : ""}`);
+}
+
 function _briefPulse(p) {
   if (!p || !p.direction) return "";
   const dir = String(p.direction).toLowerCase();
@@ -1625,6 +1701,7 @@ function renderDecision(env) {
     conflictBanner,
     _briefConviction(s.conviction),
     _briefSetup(s.setup),
+    _briefSmart(s.smart_money),
     _briefPulse(s.news_pulse),
     briefPanel,
     _briefPositioning(s.positioning),
@@ -1833,6 +1910,7 @@ function _loadFor(view) {
   if (view === "fundamentals") return loadFundamentals();
   if (view === "crypto-brain") return loadCryptoBrain();
   if (view === "forex-brain") return loadForexBrain();
+  if (view === "ownership") return loadOwnership();
   if (view === "hitlist") return loadHitlist();
   if (view === "trade-setup") return loadTradeSetup();
   if (view === "market-setup") return loadMarketSetup();

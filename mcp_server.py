@@ -34,6 +34,7 @@ from services import market_setup as market_setup_svc
 from services import movers as movers_svc
 from services import news as news_svc
 from services import news_pulse as news_pulse_svc
+from services import ownership as ownership_svc
 from services import screener as screener_svc
 from services import signals as signals_svc
 from services import term_structure as ts_svc
@@ -319,6 +320,17 @@ def market_screen(asset: str, symbols: str | None = None, limit: int = 25) -> di
     context, NOT a trade trigger."""
     syms = [s for s in (symbols or "").split(",") if s.strip()] or None
     return _safe(market_setup_svc.screen, asset, symbols=syms, limit=limit)
+
+
+@mcp.tool()
+def smart_money(ticker: str) -> dict:
+    """**Who's buying/selling** a stock — interpreted insider + congressional
+    trading. Returns an insider buy/sell `lean` (buying/selling/neutral) with the
+    buy ratio + recent-purchase count, net congressional flow, and the recent
+    insider and Senate/House transactions. The smart-money lens behind
+    `trade_setup`'s scoring, on its own. Equities only; needs FMP. Research
+    context, never a trade trigger."""
+    return _safe(ownership_svc.ownership, ticker)
 
 
 @mcp.tool()
