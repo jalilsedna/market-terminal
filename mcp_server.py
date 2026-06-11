@@ -26,6 +26,7 @@ from services import brain as brain_svc
 from services import brain_crypto as brain_crypto_svc
 from services import brain_forex as brain_forex_svc
 from services import cot as cot_svc
+from services import decision_brief as decision_brief_svc
 from services import fundamentals as fundamentals_svc
 from services import instruments as instruments_svc
 from services import macro as macro_svc
@@ -317,6 +318,22 @@ def market_screen(asset: str, symbols: str | None = None, limit: int = 25) -> di
     context, NOT a trade trigger."""
     syms = [s for s in (symbols or "").split(",") if s.strip()] or None
     return _safe(market_setup_svc.screen, asset, symbols=syms, limit=limit)
+
+
+@mcp.tool()
+def decision_brief(symbol: str, asset: str | None = None) -> dict:
+    """**The complete research package for one symbol in a single call** — use this
+    BEFORE proposing any trade so nothing is missed. Routes by asset class and
+    fuses everything the terminal produces:
+      • equity/ETF → fundamental+macro **conviction** (brain) + day-trade **setup**
+        (trend/momentum/catalyst/smart-money)
+      • crypto/forex → technical **setup** + momentum/macro/vol/USD **conviction**
+      • futures → macro/COT/price/term-structure **brief** + **COT positioning**
+    Plus realized-vol regime and symbol-tagged news when the symbol is tracked, all
+    framed by the current macro regime, with a one-line `synthesis`. `asset` is
+    optional (auto-detected). Each section degrades independently (see `errors`).
+    Research synthesis, NEVER a trade trigger or order."""
+    return _safe(decision_brief_svc.brief, symbol, asset)
 
 
 @mcp.tool()

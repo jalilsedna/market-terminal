@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas import Envelope
-from services import analysis
+from services import analysis, decision_brief
 
 router = APIRouter(prefix="/analysis", tags=["Analysis (interpreted signals)"])
 
@@ -40,6 +40,17 @@ def brief(instrument: str = Query(..., description="Watchlist code, e.g. 'GC', '
     except ValueError as exc:  # unknown instrument
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Envelope(data=data, provider="derived (mixed)", freshness=_FRESHNESS)
+
+
+@router.get("/decision/{symbol:path}", response_model=Envelope)
+def decision(symbol: str, asset: str | None = Query(None, description="Override auto-detected asset")) -> Envelope:
+    """The complete per-symbol research package (conviction + setup + positioning +
+    vol + news + macro) in one call — the same composition Alice gets over MCP."""
+    try:
+        data = decision_brief.brief(symbol, asset)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Envelope(data=data, provider="derived (composed)", freshness=_FRESHNESS)
 
 
 @router.get("/term-structure", response_model=Envelope)
