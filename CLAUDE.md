@@ -57,7 +57,7 @@ vol/        volatility/regime models (pure numpy — realized vol, HAR/EWMA, reg
 cache/      in-process response cache (per-data-type TTLs)
 web/        single-page dashboard (vanilla JS) + login/register pages
 tests/      pytest suite (lightweight, no-OpenBB) — CI-gated
-docs/       deploy, data-provider, OpenAlice, and operator guides
+docs/       deploy, data-provider, OpenAlice (workflow + cloud deploy), operator guides
 scripts/    eval + ops tools (probe_providers, eval_vol, …)
 mcp_server.py  exposes the views as MCP tools (stdio or HTTP)
 config.py   loads keys/settings from .env
@@ -74,6 +74,8 @@ config.py   loads keys/settings from .env
 - Provider reliability is a chain: equity/ETF and crypto/FX fetchers fall back
   across `EOD_PROVIDERS` (`obb_layer/providers.py`); add new providers there.
 - Ship each view backend-complete and cached before starting the next.
+- Alice integration: prefer **`decision_brief(symbol)`** as the one-call research
+  package (31 MCP tools in `mcp_server.py`); see `docs/openalice-workflow.md`.
 
 ## Keeping this in sync (ROADMAP D1)
 

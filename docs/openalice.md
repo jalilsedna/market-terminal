@@ -91,8 +91,8 @@ python mcp_server.py --http        # serves at http://127.0.0.1:8001/mcp
 ```
 
 Add it to OpenAlice's `.mcp.json` alongside its own servers. The **verified
-working** entry (confirmed live — Alice's agent listed all 11 tools and called
-them) uses `streamable-http`:
+working** entry (early smoke test listed core tools; **31 tools** today — see
+`mcp_server.py`) uses `streamable-http`:
 
 ```json
 {
@@ -138,34 +138,30 @@ no change is needed — see `docs/openalice-wsl-setup.md`.)
 
 ## Tools OpenAlice will see
 
-All 17, all returning research context (EOD / delayed / weekly), **never** trade
-signals. The agent interprets them; the terminal only reports.
+**31 MCP tools** (see `mcp_server.py` for the canonical list), all returning
+research context (EOD / delayed / weekly), **never** trade signals.
 
-**Raw data (8):** `macro_dashboard`, `watchlist_summary`, `cot_positioning`,
-`cot_search`, `term_structure`, `sector_rotation`, `market_movers` (whole-market
-gainers/losers/most-active via Flat Files), `market_news`.
+**Start here for ideas:** `decision_brief(symbol)` — one-call package (conviction +
+setup + vol + news + macro, with explicit `skipped` / `errors`). See
+[`openalice-workflow.md`](openalice-workflow.md).
+
+| Group | Tools |
+|-------|--------|
+| Macro / watchlist | `macro_dashboard`, `watchlist_summary` |
+| Registry | `instruments_list`, `instruments_add`, `instruments_remove`, `instruments_search` |
+| Market data | `cot_positioning`, `cot_search`, `term_structure`, `sector_rotation`, `market_movers`, `market_news` |
+| Analysis | `analysis_cot`, `analysis_regime`, `analysis_brief`, `analysis_term_structure` |
+| Vol / ops | `volatility`, `alerts_status`, `tradingview_signals` |
+| Stock brain | `fundamentals`, `brain_verdict`, `brain_screen` |
+| Crypto / FX brain | `crypto_brain_verdict`, `crypto_brain_screen`, `forex_brain_verdict`, `forex_brain_screen` |
+| Signals | `trade_setup`, `daily_hitlist`, `market_setup`, `market_screen` |
+| **Package** | **`decision_brief`** |
 
 **Data provider:** all market prices, news, and fundamentals flow through **FMP**
-(`FMP_API_KEY` on the terminal). Yahoo Finance is not used.
+(`FMP_API_KEY`). Yahoo Finance is not used.
 
-**Fundamentals brain (2):** `fundamentals` (per-stock FMP: profile, valuation,
-quality scores, growth, DCF, analyst, earnings, peers) and `brain_verdict` (the
-**synthesized conviction** — bottom-up fundamentals fused with the top-down macro
-regime → constructive/neutral/cautious + summary + flags). Use `brain_verdict` as
-the decision-level read, `fundamentals` for the numbers.
-
-**Derived / operational (3):** `volatility` (realized vol + calm/normal/
-elevated/stressed regime + short-horizon forecast), `alerts_status` (C5
-research flags over recorded history, e.g. "is any vol regime stressed now?"),
-and `tradingview_signals` (your TradingView alert/strategy signals received via
-webhook — research context, not auto-executed).
-
-**Interpreted analysis layer (4):** `analysis_cot` (crowded long/short vs
-1y/3y percentile), `analysis_regime` (risk-on/off vote), `analysis_brief`
-(per-instrument "what's moving this contract"), `analysis_term_structure`
-(contango↔backwardation flips). Every analysis response carries the disclaimer:
-*"Research context only — interpreted positioning/regime signals, not investment
-advice or a trade trigger."*
+Every analysis/brain/signal response carries a disclaimer: *research context only,
+not a trade trigger.*
 
 ## The execution side (paper trading) — for reference only
 
@@ -184,7 +180,9 @@ proven end-to-end loop:
 
 **None of this touches market-terminal.** No broker keys, no order entry, no
 position state ever live in this repo — only the read-only research feed flows
-out. See `docs/openalice-wsl-setup.md` for the full host setup.
+out. See `docs/openalice-wsl-setup.md` for the local host setup and
+`docs/openalice-cloud-deploy.md` for ROADMAP **A9** (always-on server + browser
+from anywhere).
 
 ## Rotating OpenAlice's admin token (A7)
 

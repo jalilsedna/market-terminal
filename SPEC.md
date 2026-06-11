@@ -6,8 +6,8 @@ A private, single-user research and analytics terminal for multi-asset
 discretionary trading. Users track any combination of forex, futures, crypto,
 equity, and ETF symbols in a unified registry (starts empty). It aggregates
 macro, market-data, positioning (where CFTC applies), fundamentals, and news
-into focused views. Discovery: Movers/Screener for broad markets; Alpaca search
-for US equities Alice can trade (read-only).
+into focused views. Discovery: Movers/Screener for broad markets; FMP symbol
+search (`instruments_search`) and registry for names Alice may research (read-only).
 
 **Non-goals (hard boundaries):**
 - **Execution is delegated, not done here.** Order entry, position management,
@@ -64,7 +64,7 @@ actually use, mapped to our needs. Free providers cover ~80% of this; paid keys
 | Need | OpenBB endpoint(s) | Providers | Notes / caveats |
 |---|---|---|---|
 | **Futures price (GC, NQ, YM, ES, NG…)** | FMP REST (`obb_layer/fmp_market.py`) | fmp | Continuation symbols mapped to FMP tickers (`GC=F`→`GCUSD`, `NQ=F`→`^NDX`). EOD context, not signals. |
-| **Futures term structure / contango-backwardation** | FMP commodities + OpenBB cboe | fmp (GC/CL/NG), cboe (VIX) | Real edge for GC/NG roll context. CBOE = VIX term structure. |
+| **Futures term structure / contango-backwardation** | OpenBB cboe | cboe (VIX) | **VIX only** today — GC/CL/NG curves unavailable (ROADMAP B3); calm unavailable note in UI. |
 | **Futures reference / instruments / stats** | `obb.derivatives.futures.instruments`, `.info` | deribit (crypto) | Crypto-heavy; thin for CME metals/index. |
 | **FX (EUR, GBP underlying 6E/6B)** | `obb.currency.price.historical`, `.snapshots`, `.reference_rates`, `.search` | fmp, ecb, tiingo, polygon | Prefer **spot FX** (EURUSD, GBPUSD) for macro context — cleaner than the CME FX-futures series. |
 | **COT positioning (the futures trader's edge)** | `obb.regulators.cftc.cot`, `.cot_search` | cftc | Commitment of Traders. Free, weekly. High-value for 6E/6B/GC/NQ/YM net-positioning. |

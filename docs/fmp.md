@@ -46,14 +46,14 @@ and likely **congress trades** are Ultimate. The fault-tolerant build shows
 - **H1 — core fundamentals view** *(done)*: `services/fundamentals.py` →
   `GET /fundamentals/{ticker}` → **Fundamentals tab** (profile, valuation, quality
   scores, growth, peers, segmentation). CI-tested (`tests/test_fundamentals.py`).
-- **H2 — valuation/analyst/calendars + the interpreted READ** *(next)*: DCF, analyst,
-  earnings/dividends; a one-line `fundamental_read` verdict folded into Focus.
-- **H3 — ETF holdings + ownership/alt-data** (insider, 13F-gated, congress, ESG).
-- **H4 — market/discovery/macro/news/filings** + a fundamental **screener**.
-- **H5 — the terminal BRAIN**: `services/brain.py` fuses fundamentals + analyst +
-  ownership + earnings proximity with macro-regime/COT/vol into one ranked read.
-- **H6 — expose to Alice (MCP)** — *last*; nothing FMP-derived reaches Alice before
-  the brain is complete.
+- **H2 — valuation/analyst/calendars + interpreted READ** *(done)*: DCF, analyst,
+  earnings; `_read` verdict on Fundamentals tab. See ROADMAP H2.
+- **H3 — ETF holdings + ownership/alt-data** *(open)*: insider, 13F-gated,
+  congress, ESG.
+- **H4 — market/discovery/macro/news/filings + screener** *(open)*.
+- **H5 — terminal BRAIN** *(done)*: `services/brain.py` `verdict` + conviction.
+- **H6 — expose to Alice (MCP)** *(done)*: `fundamentals`, `brain_verdict`.
+- **H7 — brain SCREEN** *(done)*: `brain_screen` MCP + web panel.
 - **H8 — trade-setup signal engine** *(done)*: `services/signals.py` →
   `GET /signals/setup/{ticker}` + the `trade_setup` MCP tool. The day-trader's
   morning bias: fuses **trend** (price vs 50/200-MA), **momentum** (RSI/ADX),
@@ -73,6 +73,11 @@ and likely **congress trades** are Ultimate. The fault-tolerant build shows
   the day's move) + conviction + intensity — each with a long/short/neutral `bias`.
   Needs FMP + `POLYGON_API_KEY`. Pure ranking/scoring unit-tested. Research context,
   never auto-executed.
+- **H10 — decision brief** *(done)*: `decision_brief` MCP — one-call Alice package
+  (not raw FMP; composes brain + signals + vol + news). See ROADMAP H10.
+- **H11 — crypto/FX market setup** *(done)*: `market_setup` / `market_screen` on
+  FMP technicals. See ROADMAP H11.
+- **H12 — crypto/FX brain** *(done)*: `crypto_brain_*`, `forex_brain_*` MCP tools.
 
 ## Setup
 

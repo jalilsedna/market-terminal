@@ -46,6 +46,13 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       + `scripts/openalice-claude-or-cursor.sh`: when Claude Code caps, continue
       in Cursor Agent (`agent`) with the same workspace MCP / market-terminal feed;
       persona snippet for `data/brain/persona.md` on the OpenAlice host.
+- [x] **A5c — OpenAlice workflow operator docs + live validation.** End-to-end
+      research-only paper loop documented and smoke-tested: `docs/openalice-workflow.md`
+      (persona block, phased workflow prompt, portfolio `source: alpaca-…`,
+      re-run checklist), `docs/openalice-cursor-fallback.md` cross-links. Validated
+      on Railway MCP + local OpenAlice (regime, hitlist, `decision_brief`, live
+      45 QQQ, `inbox_push`). **Parked (not A5c):** inbox sometimes shows the user
+      prompt instead of the short proposal — persona tightening + OpenAlice UI.
 - [ ] **A6 — Resolve Claude Code's `/doctor` "MCP" warning** in the WSL agent.
 - [x] **A6b — Operational `/doctor` endpoint** (app self-diagnostic). Auth-gated
       `GET /doctor` reports provider config + the EOD chain, SQLite/volume state
@@ -114,6 +121,15 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       same `eod_with_fallback` chain as equity/ETF (unmapped providers are
       skipped). Pure + CI-tested (`tests/test_symbol_map.py`). Futures use
       direct FMP REST (`obb_layer/fmp_market.py`).
+- [x] **B6 — FMP-only market data.** Yahoo Finance removed entirely; FMP is the
+      sole market-data provider for prices, news, fundamentals, and macro index
+      reads (`docs/data-providers.md`). Equity/ETF/crypto/FX EOD chain defaults to
+      FMP-first (`EOD_PROVIDERS`).
+- [x] **B7 — Regime index + news/registry enrichments.** `obb_layer/macro.py`
+      FMP-first `index_history` with ETF fallback (`^GSPC`→`SPY`) fixes S&P 500
+      (1w) in `analysis_regime`; crypto news maps to FMP tickers (`BTCUSD`) with
+      world-wire keyword fallback; `decision_brief` / `daily_hitlist` auto-register
+      equity movers for vol + news (`instruments.ensure`). CI-tested.
 
 ## C. Skeleton → product
 - [x] **C1 — Tests + CI.** `tests/` covers the auth gate (session/token/expiry +
@@ -231,12 +247,15 @@ sign into.
       instructions on change).
 - [x] **D2 — Rotated `AUTH_TOKEN`** (shared in chat during setup); Railway env +
       Alice's `.mcp.json` updated to match (verified new→200, old→401).
+- [x] **D3 — Docs ↔ ROADMAP sync.** Shipped ledger caught up (H10–H13, B6–B7,
+      A5c); README / `openalice.md` / `fmp.md` / operator-guide / SPEC aligned to
+      31 MCP tools and current Alice workflow.
 
 ## G. Product plan (next phase — agreed roadmap)
-- [~] **G1 — FMP integration.** *(this PR)* Paid FMP key unlocks the economic
-      **calendar** (B1) and a real **world-news wire** (B2, auto-detected provider
-      chain). Follow-ups: surface FMP **fundamentals / ETF holdings / earnings** as
-      terminal panels + MCP tools (fills the EEM-holdings gap Alice hit).
+- [x] **G1 — FMP integration (core).** Paid FMP key unlocks the economic
+      **calendar** (B1), world-news wire (B2), fundamentals brain (H0–H7), trade
+      setup (H8), hit-list (H9), and crypto/FX paths (B6). **Follow-ups (open):**
+      H3/H4 ETF holdings, ownership/alt-data, fundamental screener depth.
 - [x] **G2 — UI/UX design pass.** *(shipped)* `web/styles.css` refactored into a
       documented **semantic token system** (surfaces, text, direction green/red/
       amber + soft tints, vol-regime/risk tokens, radius/shadow scale). Polish:
@@ -323,27 +342,42 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       by **confluence** (catalyst agrees with the day's move) + conviction + intensity,
       each with a long/short/neutral `bias`. Needs FMP + `POLYGON_API_KEY`. Pure
       ranking/scoring CI-tested. Research context, never auto-executed.
+- [x] **H10 — Decision brief (Alice centerpiece).** `services/decision_brief.py`
+      `brief(symbol)` fuses conviction + setup + vol + news + macro in one
+      fault-tolerant package with explicit `skipped` / `errors` (registry-gated
+      sections documented, not silent). `GET /analysis/decision/{symbol}` +
+      `decision_brief` MCP tool; **Decision Brief** web tab to eyeball the exact
+      payload. Asset-routed (equity/etf/crypto/forex/futures). CI-tested
+      (`tests/test_decision_brief.py`). Research only — Alice's primary one-call
+      read (`docs/openalice-workflow.md`).
+- [x] **H11 — Crypto/FX market setup + screen.** `services/market_setup.py`
+      technical setup (trend/momentum/levels) for crypto and forex — analog of
+      stock `trade_setup`. `market_setup` + `market_screen` MCP tools;
+      `GET /signals/market/{asset}/…`; **Crypto/FX Setup** web tab. Wired into
+      `decision_brief` for crypto/FX. CI-tested (`tests/test_market_setup.py`).
+- [x] **H12 — Crypto & forex brain.** `services/brain_crypto.py` /
+      `services/brain_forex.py` — momentum + macro/USD-aware conviction for
+      registry-tracked crypto/FX. `crypto_brain_verdict`, `crypto_brain_screen`,
+      `forex_brain_verdict`, `forex_brain_screen` MCP tools; **Crypto Brain** /
+      **Forex Brain** web tabs. CI-tested.
+- [x] **H13 — Registry MCP + symbol autocomplete.** `instruments_list` /
+      `instruments_add` / `instruments_remove` / `instruments_search` MCP tools
+      (plus REST under `/instruments`). FMP-backed symbol search + type-ahead in
+      Registry and brain/signals fields (`web/app.js`). COT codes resolved for
+      common futures roots beyond the five templates (`obb_layer/symbols.py`).
 
 ---
 
-**Status (current):** Deployed + authenticated on Railway (A8) with logout/session
-(F1). Research→reason→paper-execute loop proven (A1–A5). Shipped: analysis edge
-(C3), the **volatility forecasting pillar** (E1–E5 — Kronos price-forecasting
-evaluated and rejected; pivoted to HAR/EWMA + regime, in the API/MCP/UI),
-instrument **Focus** screen (C4), the **unified instrument registry** (multi-asset
-universe — futures/crypto/forex/equity/ETF, capability-aware; default-seeded with
-the 5 reference futures on first boot), provider **fallback** for equity/ETF (B4),
-tests + CI green (C1), and a **SQLite persistence** foundation (C2).
+**Status (current):** **31 MCP tools** (`mcp_server.py`). Deployed + authenticated
+on Railway (A8); research→reason→paper-execute loop proven locally (A1–A5c) with
+`decision_brief` as the Alice centerpiece (H10). Shipped: analysis (C3), vol
+pillar (E1–E5), Focus (C4), unified **Registry** (multi-asset), FMP brain +
+signals (H0–H13), crypto/FX setup & brain (H11–H12), B6 FMP-only, B7 regime/news
+enrichments, persistence (C2), tests + CI (C1).
 
-**Still open:** **A9** (cloud-hosted OpenAlice — 24/7 execution + browser access;
-research already on Railway) · **B3** (commodity curves — needs a futures-curve
-source) · the **G-series product plan** (FMP fundamentals panels, UI/UX pass,
-TradingView webhooks, budgeted provider depth) · minor housekeeping (A6 Claude-
-Code CLI warning, C6 brief-threading). **B1/B2 now unlock with an FMP key.**
-
-**Done since:** **C2 history** (`/history`) → **C5 charts + alerts** (History ▸
-Alerts tab, `services/alerts.py`, `/alerts`, `alerts_status` MCP tool) and **F2**
-(multi-user), plus **C5b** (TradingView Chart), **B5** (whole-market Movers via
-Grouped Daily), the **Polygon/Massive** provider, and **B-next** (crypto/FX in
-the fallback chain). The core feature set is complete; what remains is paid-data
-depth (B1/B2/B3) and housekeeping.
+**Still open:** **A9** (cloud-hosted OpenAlice — 24/7 browser access;
+`docs/openalice-cloud-deploy.md`) · **B3** (commodity curves — VIX-only today) ·
+**H3/H4** (ETF holdings, ownership/alt-data, screener) · **G4** provider depth ·
+**A6** (Claude `/doctor` MCP warning) · **A5c parked:** inbox prompt vs proposal ·
+**C6** brief-threading into Analysis dropdown · login/register token pass (G2
+follow-up).
