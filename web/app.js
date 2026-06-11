@@ -884,6 +884,7 @@ let active = "macro";
 
 const VIEW_TITLES = {
   macro: "Macro",
+  decision: "Decision Brief",
   analysis: "Analysis",
   news: "News",
   focus: "Focus",
@@ -1536,6 +1537,114 @@ async function loadMarketSetup() {
   one();
 }
 
+// --- Decision Brief: the one-call composed package Alice receives -----------
+function _briefConviction(s) {
+  if (!s) return "";
+  const conv = s.conviction || "—";
+  return panel("Conviction", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill ${_CONV_CLASS[conv] || ""}" style="font-size:13px">${esc(String(conv).toUpperCase())}</span>
+      ${s.score != null ? `<span class="dim">score ${s.score > 0 ? "+" : ""}${num(s.score, 0)}</span>` : ""}
+    </div>
+    <div class="sub" style="margin-top:8px">${esc(s.summary || "")}</div>`);
+}
+function _briefSetup(s) {
+  if (!s) return "";
+  const bias = s.bias || "neutral";
+  const trigs = (s.triggers || []).slice(0, 4).map((t) => `<li>${esc(t)}</li>`).join("");
+  return panel("Setup", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill ${_BIAS_CLASS[bias] || ""}" style="font-size:13px">${esc(String(bias).toUpperCase())}</span>
+      ${s.score != null ? `<span class="dim">score ${s.score > 0 ? "+" : ""}${num(s.score, 0)}</span>` : ""}
+      ${s.conviction ? `<span class="pill">${esc(s.conviction)} conviction</span>` : ""}
+      <span class="pill ${s.in_play ? "green" : ""}">${s.in_play ? "IN PLAY" : "quiet"}</span>
+    </div>
+    ${trigs ? `<ul class="sub" style="margin:8px 0 0;padding-left:18px">${trigs}</ul>` : ""}`);
+}
+function _briefPositioning(s) {
+  if (!s) return "";
+  const r1 = s.range_1y && typeof s.range_1y === "object" ? s.range_1y.percentile : s.range_1y;
+  return panel("COT positioning", `<div class="tiles">
+    ${_fundTile("Non-comm net", num(s.non_commercial_net, 0), "large specs")}
+    ${_fundTile("Commercial net", num(s.commercial_net, 0), "hedgers")}
+    ${_fundTile("1w change", s.net_change_1w != null ? (s.net_change_1w > 0 ? "+" : "") + num(s.net_change_1w, 0) : "—")}
+    ${_fundTile("Specs vs 1y", r1 != null ? num(r1, 0) + "%" : "—", "range %ile")}
+    ${_fundTile("Trend", esc(s.trend || "—"))}</div>
+    <div class="sub" style="margin-top:6px">report ${esc(s.report_date || "—")}</div>`);
+}
+function _briefVol(s) {
+  if (!s || s.ok === false) return "";
+  const vr = s.regime || {};
+  return panel("Volatility", `<div class="tiles">
+    ${_fundTile("Regime", esc((vr.regime || s.regime_label || "—")), vr.percentile != null ? num(vr.percentile, 0) + "th pct ~3y" : "")}
+    ${_fundTile("Ann. vol", s.current_vol_annualized != null ? num(s.current_vol_annualized * 100, 1) + "%" : "—")}
+    ${_fundTile("EWMA fcst", (s.forecast || {}).ewma != null ? num(s.forecast.ewma * 100, 1) + "%" : "—", num((s.forecast || {}).horizon_days, 0) + "d")}</div>`);
+}
+function _briefNews(items) {
+  if (!items || !items.length) return "";
+  const rows = items.map((h) => `<li><a href="${esc(h.url || "#")}" target="_blank" rel="noopener">${esc(h.title || "")}</a> <span class="dim">${esc(h.source || "")} · ${esc(String(h.date || "").slice(0, 10))}</span></li>`).join("");
+  return panel("News", `<ul class="sub" style="margin:0;padding-left:18px">${rows}</ul>`);
+}
+
+function renderDecision(env) {
+  const d = env.data || {};
+  const s = d.sections || {};
+  const regime = (d.macro || {}).regime;
+  const hero = panel("Decision Brief", `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:15px"><b>${esc(d.symbol)}</b></span>
+      <span class="pill">${esc(d.asset || "")}</span>
+      ${regime ? `<span class="pill ${regime.startsWith("risk-on") ? "green" : regime.startsWith("risk-off") ? "red" : "amber"}">macro ${esc(regime)}</span>` : ""}
+      ${d.in_registry ? '<span class="dim">tracked</span>' : '<span class="dim">not in registry</span>'}
+    </div>
+    <div style="font-size:14px;margin-top:8px"><b>${esc(d.synthesis || "")}</b></div>`);
+  const briefPanel = s.brief ? panel("What's moving it", `<div class="sub">${esc(s.brief.read || s.brief.summary || JSON.stringify(s.brief).slice(0, 400))}</div>`) : "";
+  const body = [
+    _briefConviction(s.conviction),
+    _briefSetup(s.setup),
+    briefPanel,
+    _briefPositioning(s.positioning),
+    _briefVol(s.volatility),
+    _briefNews(s.news),
+  ].filter(Boolean).join("");
+  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">unavailable sections: ${esc(Object.keys(d.errors).join(", "))}</div>` : "";
+  return hero + `<div class="grid" style="grid-template-columns:1fr">${body}</div>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + errs;
+}
+
+async function loadDecision() {
+  const sec = $("#view-decision");
+  sec.innerHTML = panel("Decision Brief — the full package Alice receives", `
+    <div class="sub mb-sm">One call composes everything for a symbol: conviction, setup, COT, vol, news, framed by the macro regime. Routed by asset (stocks, crypto, FX, futures). Research context, never a trade trigger.</div>
+    <div class="addbar">
+      ${_acFieldHtml("dec-input", "dec-suggest", "type AAPL, BTC-USD, GC=F…")}
+      <button id="dec-go" class="btn">Brief</button>
+    </div>
+    <div id="dec-body" style="margin-top:12px"></div>`);
+  $("#dec-input").value = "AAPL";
+  const body = $("#dec-body");
+  const go = async () => {
+    const t = ($("#dec-input").value || "").trim();
+    if (!t) return;
+    body.innerHTML = `<div class="loading">Composing brief for ${esc(t.toUpperCase())}…</div>`;
+    try {
+      const env = await fetchJSON("/analysis/decision/" + encodeURIComponent(t));
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderDecision(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#dec-go").addEventListener("click", go);
+  $("#dec-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !listVisible("dec-suggest")) go(); });
+  _bindInstrumentAutocomplete({
+    input: "#dec-input",
+    list: "#dec-suggest",
+    assets: ["equity", "etf", "crypto", "forex", "futures"],
+    onPick: (h) => { $("#dec-input").value = h.symbol; go(); },
+    onEnter: () => go(),
+  });
+  go();
+}
+
 async function loadFundamentalsOne(symbol, label) {
   const body = $("#fund-body");
   if (!body) return;
@@ -1626,6 +1735,7 @@ function _loadFor(view) {
   if (view === "hitlist") return loadHitlist();
   if (view === "trade-setup") return loadTradeSetup();
   if (view === "market-setup") return loadMarketSetup();
+  if (view === "decision") return loadDecision();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
