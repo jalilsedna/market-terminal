@@ -28,12 +28,10 @@ def futures_history(
 def crypto_history(
     symbol: str, start_date: str | None = None, interval: str = "1d"
 ) -> list[dict]:
-    """OHLCV for a crypto pair (e.g. 'BTC-USD'). Tries the EOD provider chain
-    with per-provider symbol mapping."""
-    return eod_with_fallback(
-        get_obb().crypto.price.historical, symbol, asset="crypto",
-        start_date=start_date, interval=interval,
-    )
+    """OHLCV for a crypto pair (e.g. 'BTC-USD'). Uses FMP direct REST — the same
+    proven path as futures. OpenBB's FMP crypto provider returns empty in prod, so
+    we resolve 'BTC-USD' → 'BTCUSD' and hit the EOD-full endpoint directly."""
+    return fmp_market.crypto_history(symbol, start_date=start_date, interval=interval)
 
 
 @cached("eod")
@@ -41,11 +39,9 @@ def crypto_history(
 def fx_history(
     symbol: str, start_date: str | None = None, interval: str = "1d"
 ) -> list[dict]:
-    """OHLCV for an FX pair (e.g. 'EURUSD'). Tries the EOD provider chain."""
-    return eod_with_fallback(
-        get_obb().currency.price.historical, symbol, asset="forex",
-        start_date=start_date, interval=interval,
-    )
+    """OHLCV for an FX pair (e.g. 'EURUSD'). Uses FMP direct REST — resolves to the
+    FMP pair ('EURUSD') and hits the EOD-full endpoint, like futures (6E=F)."""
+    return fmp_market.fx_history(symbol, start_date=start_date, interval=interval)
 
 
 @cached("eod")

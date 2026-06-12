@@ -19,6 +19,11 @@ FUTURES_SYMBOL_MAP: dict[str, str] = {
     "HG=F": "HGUSD",
     "6E=F": "EURUSD",
     "6B=F": "GBPUSD",
+    "6A=F": "AUDUSD",
+    "6C=F": "CADUSD",
+    "6J=F": "JPYUSD",
+    "6S=F": "CHFUSD",
+    "6N=F": "NZDUSD",
     "NQ=F": "^NDX",
     "YM=F": "^DJI",
     "ES=F": "^GSPC",
@@ -50,6 +55,16 @@ def resolve_fmp_symbol(symbol: str) -> str:
     return s
 
 
+def crypto_fmp_symbol(symbol: str) -> str:
+    """Canonical crypto pair → FMP ticker: 'BTC-USD'/'BTC/USD'/'BTCUSD' → 'BTCUSD'."""
+    return symbol.upper().strip().replace("-", "").replace("/", "")
+
+
+def fx_fmp_symbol(symbol: str) -> str:
+    """Canonical FX pair → FMP ticker: 'EUR/USD'/'EURUSD=X'/'EURUSD' → 'EURUSD'."""
+    return symbol.upper().strip().replace("=X", "").replace("/", "").replace("-", "")
+
+
 def _as_records(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return [r for r in payload if isinstance(r, dict)]
@@ -79,12 +94,32 @@ def _normalize_bars(rows: list[dict[str, Any]]) -> list[dict]:
     return out
 
 
-def history(symbol: str, start_date: str | None = None, interval: str = "1d") -> list[dict]:
-    """OHLCV history for a futures root, proxy, or portable ticker via FMP."""
-    fmp_sym = resolve_fmp_symbol(symbol)
+def _history_for_fmp(
+    fmp_sym: str, start_date: str | None = None, interval: str = "1d"
+) -> list[dict]:
+    """OHLCV for an already-resolved FMP ticker (daily EOD or intraday chart)."""
     if interval in ("1d", "1day", "daily", "d"):
         rows = _as_records(fmp.historical_eod_full(fmp_sym, from_=start_date))
         return _normalize_bars(rows)
     chart_interval = _INTERVAL_CHART.get(interval, interval)
     rows = _as_records(fmp.historical_chart(fmp_sym, chart_interval, from_=start_date))
     return _normalize_bars(rows)
+
+
+def history(symbol: str, start_date: str | None = None, interval: str = "1d") -> list[dict]:
+    """OHLCV history for a futures root, proxy, or portable ticker via FMP."""
+    return _history_for_fmp(resolve_fmp_symbol(symbol), start_date, interval)
+
+
+def crypto_history(
+    symbol: str, start_date: str | None = None, interval: str = "1d"
+) -> list[dict]:
+    """OHLCV for a crypto pair (e.g. 'BTC-USD') via FMP direct REST."""
+    return _history_for_fmp(crypto_fmp_symbol(symbol), start_date, interval)
+
+
+def fx_history(
+    symbol: str, start_date: str | None = None, interval: str = "1d"
+) -> list[dict]:
+    """OHLCV for an FX pair (e.g. 'EURUSD') via FMP direct REST."""
+    return _history_for_fmp(fx_fmp_symbol(symbol), start_date, interval)

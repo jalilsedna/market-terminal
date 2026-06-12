@@ -513,13 +513,14 @@ async function _acSearchHits(assets, query) {
       badge: "tracked",
     });
   }
-  let searchNote = "";
+  let searchNote = "";   // informational (e.g. "Alpaca not configured")
+  let searchError = "";  // a genuine failure
   for (const asset of assets) {
     try {
       const r = await fetchJSON(
         "/instruments/search?asset=" + encodeURIComponent(asset) + "&query=" + encodeURIComponent(q) + "&limit=20"
       );
-      if (r.ok === false && r.error) searchNote = r.error;
+      if (r.ok === false && r.error) searchError = r.error;
       if ((r.data || {}).note) searchNote = r.data.note;
       for (const h of (r.data || {}).results || []) {
         const sym = (h.symbol || "").toUpperCase();
@@ -534,11 +535,12 @@ async function _acSearchHits(assets, query) {
         });
       }
     } catch (e) {
-      searchNote = e.message || "search failed";
+      searchError = e.message || "search failed";
     }
   }
-  if (!out.length && searchNote) {
-    return [{ _error: searchNote }];
+  if (!out.length) {
+    if (searchError) return [{ _error: searchError }];
+    if (searchNote) return [{ _note: searchNote }];
   }
   return out.slice(0, 25);
 }
@@ -565,7 +567,7 @@ function _bindInstrumentAutocomplete(opts) {
   const show = () => list.classList.remove("hidden");
 
   const applyPick = (h) => {
-    if (!h) return;
+    if (!h || h._error || h._note) return;  // pseudo-hits aren't selectable
     if (requireTracked && !h.tracked) {
       if (opts.onUntracked) opts.onUntracked(h);
       return;
@@ -581,8 +583,11 @@ function _bindInstrumentAutocomplete(opts) {
       show();
       return;
     }
-    if (hits[0]._error) {
-      list.innerHTML = `<div class="ac-empty err">${esc(hits[0]._error)}</div>`;
+    if (hits[0]._error || hits[0]._note) {
+      // A genuine error renders red; an informational note (e.g. catalog not
+      // configured) renders neutral so it doesn't read as a failure.
+      const cls = hits[0]._error ? "ac-empty err" : "ac-empty";
+      list.innerHTML = `<div class="${cls}">${esc(hits[0]._error || hits[0]._note)}</div>`;
       show();
       return;
     }
@@ -607,7 +612,9 @@ function _bindInstrumentAutocomplete(opts) {
     if (q.length < 1) { hits = []; hide(); return; }
     try {
       hits = await _acSearchHits(getAssets(), q);
-      activeIdx = hits.length ? 0 : -1;
+      // Don't auto-select a pseudo-hit (error/note) — otherwise Enter "picks"
+      // it (inserting undefined) instead of running the typed-symbol lookup.
+      activeIdx = (hits.length && !hits[0]._error && !hits[0]._note) ? 0 : -1;
       render();
     } catch (e) {
       list.innerHTML = `<div class="ac-empty">${esc(e.message)}</div>`;
