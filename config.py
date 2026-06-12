@@ -189,6 +189,7 @@ class Settings(BaseSettings):
             "tiingo": bool(self.tiingo_api_key),
             "polygon": bool(self.polygon_api_key),
             "eia": bool(self.eia_api_key),
+            "anthropic": bool(self.anthropic_api_key),
             "alpaca": self.alpaca_enabled,
         }
 
