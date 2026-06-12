@@ -4,7 +4,8 @@ Step-by-step operator guide for the **research-only paper loop**: market-termina
 MCP → Cursor Agent in an OpenAlice **shell** workspace → `inbox_push` → manual
 approval in OpenAlice. No orders from the terminal.
 
-See also: [`openalice.md`](openalice.md), [`openalice-cursor-fallback.md`](openalice-cursor-fallback.md).
+See also: [`openalice.md`](openalice.md), [`openalice-multi-broker.md`](openalice-multi-broker.md)
+(forex/metals via IBKR + multi-UTA `source`), [`openalice-cursor-fallback.md`](openalice-cursor-fallback.md).
 
 ---
 
@@ -113,12 +114,13 @@ Paste the **workflow prompt** above. Verify:
 
 ### Portfolio tools — always pass `source`
 
-OpenAlice may have several UTA accounts (Alpaca paper + geo-blocked crypto
-read-only feeds). **Without `source`, `getPortfolio` often returns** `Account
-temporarily unavailable` even when Alpaca is healthy.
+OpenAlice may have several UTA accounts (Alpaca paper, **IBKR** for forex/metals,
+CCXT crypto, geo-blocked read-only feeds). **Without `source`, `getPortfolio`
+often returns** `Account temporarily unavailable` even when a broker is healthy.
 
-Find your Alpaca id in the `pnpm dev` log, e.g.
-`AlpacaBroker[alpaca-37cbc8aa]: connected`.
+Find each account id in the `pnpm dev` log, e.g.
+`AlpacaBroker[alpaca-37cbc8aa]: connected`, `IbkrBroker[ibkr-…]: connected`.
+Route FX/metal execution to **IBKR** — see [`openalice-multi-broker.md`](openalice-multi-broker.md).
 
 **Smoke test** (any WSL tab while `pnpm dev` runs):
 

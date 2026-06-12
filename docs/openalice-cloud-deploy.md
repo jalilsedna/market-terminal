@@ -4,9 +4,9 @@
 monitoring, inbox, and paper approval move to an **always-on OpenAlice host** so
 the loop works when your laptop is off.
 
-See also: [`openalice.md`](openalice.md), [`deploy-railway.md`](deploy-railway.md),
-[`openalice-wsl-setup.md`](openalice-wsl-setup.md), OpenAlice upstream
-`README` → "Run on a server (Docker)".
+See also: [`openalice.md`](openalice.md), [`openalice-multi-broker.md`](openalice-multi-broker.md),
+[`deploy-railway.md`](deploy-railway.md), [`openalice-wsl-setup.md`](openalice-wsl-setup.md),
+OpenAlice upstream `README` → "Run on a server (Docker)".
 
 ---
 
@@ -15,7 +15,7 @@ See also: [`openalice.md`](openalice.md), [`deploy-railway.md`](deploy-railway.m
 ```
 Browser (any device)
   → https://alice.<your-domain>     OpenAlice (Docker on VPS)
-       ├─ UTA + Alpaca paper
+       ├─ UTA(s) — Alpaca paper; IBKR if forex/metals (Gateway on same host)
        ├─ Workspaces + cron (scheduled monitoring)
        └─ MCP → https://<railway-app>.up.railway.app/mcp/  (Bearer AUTH_TOKEN)
 
@@ -78,7 +78,8 @@ Workspace MCP entry:
 }
 ```
 
-Portfolio tools: always pass `source: alpaca-<id>` (see `docs/openalice-workflow.md`).
+Portfolio tools: always pass `source: <uta-id>` per broker (Alpaca equities,
+IBKR forex/metals — see `docs/openalice-workflow.md`, `docs/openalice-multi-broker.md`).
 
 ### 4. Smoke tests (server)
 

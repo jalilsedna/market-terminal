@@ -92,6 +92,16 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
          migration checklist). **Out of scope for A9:** packaging OpenAlice on
          Railway (possible later); live (non-paper) brokers; fixing inbox prompt
          vs proposal display (parked).
+- [~] **A10 — Multi-broker execution (forex + metals).** Alpaca paper covers US
+      equities + limited crypto only — not spot FX or COMEX metals. **Operator doc
+      shipped:** `docs/openalice-multi-broker.md` — OpenAlice broker catalog
+      (IBKR / Alpaca / CCXT), dual-UTA topology, IB Gateway paper setup, registry
+      seeding, `source`-per-broker prompt patterns, symbol map (EURUSD ↔ `EUR.USD`,
+      XAUUSD / GC). **Recommended path:** IBKR UTA for forex + metals; keep Alpaca
+      optional for US stocks. **Still open:** IBKR paper connected on your WSL host;
+      persona + workflow prompts updated to route FX/metal orders to `ibkr-…`;
+      A9 VPS layout with co-located IB Gateway; optional `decision_brief` forex
+      auto-register (like equities).
 
 ## B. Data / provider gaps (documented, still open)
 - [x] **B1 — Economic calendar.** `obb_layer.economic_calendar` already requests
@@ -404,9 +414,9 @@ pillar (E1–E5), Focus (C4), unified **Registry** (multi-asset), FMP brain +
 signals (H0–H13), crypto/FX setup & brain (H11–H12), B6 FMP-only, B7 regime/news
 enrichments, persistence (C2), tests + CI (C1).
 
-**Still open:** **A9** (cloud-hosted OpenAlice — 24/7 browser access;
-`docs/openalice-cloud-deploy.md`) · **B3** (commodity curves — VIX-only today) ·
-**H3/H4** (ETF holdings, ownership/alt-data, screener) · **G4** provider depth ·
-**A6** (Claude `/doctor` MCP warning) · **A5c parked:** inbox prompt vs proposal ·
-**C6** brief-threading into Analysis dropdown · login/register token pass (G2
-follow-up).
+**Still open:** **A9** (cloud-hosted OpenAlice — `docs/openalice-cloud-deploy.md`) ·
+**A10** (IBKR forex/metals UTA wired on your host — doc in
+`docs/openalice-multi-broker.md`) · **B3** (commodity curves — VIX-only) ·
+**H3** remainder (ETF holdings, 13F, ESG) · **G4** provider depth · **A6**
+(Claude `/doctor` MCP warning) · **A5c parked:** inbox prompt vs proposal ·
+**C6** brief-threading · login/register token pass (G2 follow-up).

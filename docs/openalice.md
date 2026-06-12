@@ -168,8 +168,15 @@ not a trade trigger.*
 Execution lives entirely in OpenAlice and is documented here only so the
 boundary is clear. OpenAlice has **no mock broker**; the safe paper path is an
 **Alpaca paper** account in its UTA (paper keys are prefixed `PK…`, hit
-`paper-api.alpaca.markets`, and physically cannot place a real order). The
-proven end-to-end loop:
+`paper-api.alpaca.markets`, and physically cannot place a real order).
+
+**Forex and metals:** Alpaca does **not** support spot FX or COMEX metals. Use a
+second UTA — typically **Interactive Brokers (IBKR)** via TWS/IB Gateway — for
+those asset classes while market-terminal continues to supply research. Full
+broker catalog, setup, and prompt patterns: [`openalice-multi-broker.md`](openalice-multi-broker.md)
+(ROADMAP **A10**).
+
+The proven end-to-end loop (equities on Alpaca):
 
 1. Alice's agent pulls interpreted research from this terminal over MCP.
 2. It reasons (e.g. reads a non-crowded gold-COT base + a gold-supportive
