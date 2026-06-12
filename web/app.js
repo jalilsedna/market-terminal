@@ -1310,6 +1310,19 @@ async function loadForexBrain() { return loadMarketBrain("forex"); }
 // --- Smart Money / Ownership (H3 equity subset) ----------------------------
 const _LEAN_CLASS = { buying: "green", selling: "red", neutral: "amber" };
 
+// Smart Money is built from US-securities datasets — SEC Form 4 insider trades,
+// insider statistics, and Senate/House disclosures. None of these exist for
+// crypto or FX, so flag those symbols rather than running a futile lookup.
+const _FX_CCY = new Set(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "MXN", "SEK", "NOK"]);
+function _nonEquityKind(sym) {
+  const s = (sym || "").toUpperCase().trim();
+  if (s.endsWith("=F")) return "futures";
+  if (s.endsWith("=X")) return "FX";
+  if (s.includes("-") || s.includes("/")) return "crypto";
+  if (s.length === 6 && _FX_CCY.has(s.slice(0, 3)) && _FX_CCY.has(s.slice(3))) return "FX";
+  return null;
+}
+
 function renderOwnership(env) {
   const d = env.data || {};
   if (d.enabled === false) return `<div class="err">${esc(d.error || "unavailable")}</div>`;
@@ -1343,7 +1356,7 @@ function renderOwnership(env) {
 async function loadOwnership() {
   const sec = $("#view-ownership");
   sec.innerHTML = panel("Smart Money — insider & congressional trades", `
-    <div class="sub mb-sm">Who's actually buying/selling a stock: corporate insiders + Senate/House members. The smart-money lens behind Trade Setup, on its own. Research context, not a trade trigger.</div>
+    <div class="sub mb-sm">Who's actually buying/selling a stock: corporate insiders + Senate/House members. The smart-money lens behind Trade Setup, on its own. <b>US-listed stocks &amp; ETFs only</b> — there are no insider or congressional filings for crypto or FX. Research context, not a trade trigger.</div>
     <div class="addbar">
       ${_acFieldHtml("own-input", "own-suggest", "type AAPL, NVDA, TSLA…")}
       <button id="own-go" class="btn">Look up</button>
@@ -1354,6 +1367,11 @@ async function loadOwnership() {
   const go = async () => {
     const t = ($("#own-input").value || "").trim().toUpperCase();
     if (!t) return;
+    const kind = _nonEquityKind(t);
+    if (kind) {
+      body.innerHTML = `<div class="sub dim">Smart Money covers US-listed stocks &amp; ETFs only. <b>${esc(t)}</b> looks like ${esc(kind)} — insider and congressional disclosures don't exist for ${esc(kind)}, so there's no smart-money data to show. Try a stock ticker (AAPL, NVDA, MSFT…).</div>`;
+      return;
+    }
     body.innerHTML = `<div class="loading">Loading ${esc(t)}…</div>`;
     try {
       const env = await fetchJSON("/ownership/" + encodeURIComponent(t));
