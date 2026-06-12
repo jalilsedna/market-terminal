@@ -134,6 +134,7 @@ from app.routers import (
     chart,
     cot,
     doctor,
+    filings,
     fundamentals,
     history,
     instruments,
@@ -154,6 +155,7 @@ app.include_router(instruments.router)
 app.include_router(watchlist.router)
 app.include_router(news.router)
 app.include_router(ownership.router)
+app.include_router(filings.router)
 app.include_router(term_structure.router)
 app.include_router(screener.router)
 app.include_router(analysis.router)

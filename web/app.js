@@ -886,6 +886,7 @@ const VIEW_TITLES = {
   macro: "Macro",
   decision: "Decision Brief",
   "news-pulse": "News Pulse",
+  filings: "Filings",
   analysis: "Analysis",
   news: "News",
   focus: "Focus",
@@ -1663,6 +1664,15 @@ function _briefSmart(sm) {
     </div>${trigs ? `<div style="margin-top:6px">${trigs}</div>` : ""}`);
 }
 
+function _briefFilings(f) {
+  if (!f || !f.latest) return "";
+  const mat = (f.material || []).map((x) => `<span class="pill amber" style="margin:2px">${esc(x.form)} ${esc(x.flag || "")}</span>`).join(" ");
+  const l = f.latest;
+  return panel("Recent filings", `
+    <div class="sub">latest: ${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.form)} · ${esc(l.date)}</a>` : `${esc(l.form)} · ${esc(l.date)}`} <span class="dim">(${num(f.count, 0)} recent)</span></div>
+    ${mat ? `<div style="margin-top:6px">${mat}</div>` : ""}`);
+}
+
 function _briefPulse(p) {
   if (!p || !p.direction) return "";
   const dir = String(p.direction).toLowerCase();
@@ -1702,6 +1712,7 @@ function renderDecision(env) {
     _briefConviction(s.conviction),
     _briefSetup(s.setup),
     _briefSmart(s.smart_money),
+    _briefFilings(s.filings),
     _briefPulse(s.news_pulse),
     briefPanel,
     _briefPositioning(s.positioning),
@@ -1823,6 +1834,56 @@ async function loadNewsPulse() {
   go();
 }
 
+// --- SEC Filings (H4 subset) -----------------------------------------------
+function _filingRows(items) {
+  return (items || []).map((f) => `<tr>
+    <td>${esc(f.date)}</td>
+    <td><b>${esc(f.form)}</b></td>
+    <td>${f.flag ? `<span class="pill amber">${esc(f.flag)}</span>` : ""}</td>
+    <td class="sub">${f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.title || "view")}</a>` : esc(f.title || "")}</td>
+  </tr>`).join("");
+}
+
+function renderFilings(env) {
+  const d = env.data || {};
+  if (d.enabled === false) return `<div class="err">${esc(d.error || "unavailable")}</div>`;
+  if (!(d.filings || []).length) return `<div class="sub dim">No filings returned${d.errors ? " (endpoint may be tier-gated)" : ""}.</div>`;
+  const head = `<div class="sub" style="margin-bottom:6px"><b>${esc(d.ticker)}</b> · ${num(d.count, 0)} recent filings · ${num(d.material_count, 0)} material</div>`;
+  const errs = d.errors ? `<div class="exec-help dim" style="margin-top:8px">unavailable: ${esc(Object.keys(d.errors).join(", "))}</div>` : "";
+  return head + `<table style="margin-top:4px"><thead><tr><th>Date</th><th>Form</th><th>Type</th><th>Filing</th></tr></thead><tbody>${_filingRows(d.filings)}</tbody></table>`
+    + `<div class="exec-help dim" style="margin-top:8px">${esc(d.disclaimer || "")}</div>` + errs;
+}
+
+async function loadFilings() {
+  const sec = $("#view-filings");
+  sec.innerHTML = panel("SEC Filings — what just got filed", `
+    <div class="sub mb-sm">Recent SEC filings for a stock — 8-K material events, 10-Q/10-K reports, Form 4 insider transactions, 13D/G stakes. Research context, not a trade trigger.</div>
+    <div class="addbar">
+      ${_acFieldHtml("fil-input", "fil-suggest", "type AAPL, NVDA, TSLA…")}
+      <button id="fil-go" class="btn">Look up</button>
+    </div>
+    <div id="fil-body" style="margin-top:12px"></div>`);
+  $("#fil-input").value = "AAPL";
+  const body = $("#fil-body");
+  const go = async () => {
+    const t = ($("#fil-input").value || "").trim().toUpperCase();
+    if (!t) return;
+    body.innerHTML = `<div class="loading">Loading ${esc(t)}…</div>`;
+    try {
+      const env = await fetchJSON("/filings/" + encodeURIComponent(t));
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderFilings(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#fil-go").addEventListener("click", go);
+  $("#fil-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !listVisible("fil-suggest")) go(); });
+  _bindInstrumentAutocomplete({
+    input: "#fil-input", list: "#fil-suggest", assets: ["equity", "etf"],
+    onPick: (h) => { $("#fil-input").value = h.symbol; go(); }, onEnter: () => go(),
+  });
+  go();
+}
+
 async function loadFundamentalsOne(symbol, label) {
   const body = $("#fund-body");
   if (!body) return;
@@ -1916,6 +1977,7 @@ function _loadFor(view) {
   if (view === "market-setup") return loadMarketSetup();
   if (view === "decision") return loadDecision();
   if (view === "news-pulse") return loadNewsPulse();
+  if (view === "filings") return loadFilings();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();

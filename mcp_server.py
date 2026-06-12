@@ -27,6 +27,7 @@ from services import brain_crypto as brain_crypto_svc
 from services import brain_forex as brain_forex_svc
 from services import cot as cot_svc
 from services import decision_brief as decision_brief_svc
+from services import filings as filings_svc
 from services import fundamentals as fundamentals_svc
 from services import instruments as instruments_svc
 from services import macro as macro_svc
@@ -320,6 +321,15 @@ def market_screen(asset: str, symbols: str | None = None, limit: int = 25) -> di
     context, NOT a trade trigger."""
     syms = [s for s in (symbols or "").split(",") if s.strip()] or None
     return _safe(market_setup_svc.screen, asset, symbols=syms, limit=limit)
+
+
+@mcp.tool()
+def sec_filings(ticker: str, limit: int = 15) -> dict:
+    """**Recent SEC filings** for a stock — what just got filed (8-K material
+    events, 10-Q/10-K reports, Form 4 insider transactions, 13D/G stakes, …) with
+    dates, event flags, and links. The 'what changed on the record' lens. Equities
+    only; needs FMP. Research context, not a trade trigger."""
+    return _safe(filings_svc.filings, ticker, limit=limit)
 
 
 @mcp.tool()

@@ -171,7 +171,7 @@ def brief(symbol: str, asset: str | None = None) -> dict:
     sections: dict[str, Any] = {}
 
     if asset in ("equity", "etf"):
-        from services import brain, ownership, signals
+        from services import brain, filings, ownership, signals
         sections["conviction"] = grab("conviction", lambda: brain.verdict(symbol))
         sections["setup"] = grab("setup", lambda: signals.trade_setup(symbol))
         own = grab("smart_money", lambda: ownership.ownership(symbol))
@@ -182,6 +182,14 @@ def brief(symbol: str, asset: str | None = None) -> dict:
                 "insider_buy_ratio": sm.get("insider_buy_ratio"),
                 "congress_net_90d": sm.get("congress_net_90d"),
                 "triggers": sm.get("triggers") or [],
+            }
+        fil = grab("filings", lambda: filings.filings(symbol, limit=5))
+        if fil and fil.get("enabled") is not False and fil.get("filings"):
+            material = [f for f in fil["filings"] if f.get("flag")][:3]
+            sections["filings"] = {
+                "count": fil.get("count"),
+                "latest": fil["filings"][0],
+                "material": material,
             }
     elif asset in ("crypto", "forex"):
         from services import brain_crypto, brain_forex, market_setup

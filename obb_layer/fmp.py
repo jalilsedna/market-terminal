@@ -74,6 +74,7 @@ _PATHS = {
     "insider_statistics": "insider-trading/statistics",
     "senate_trades": "senate-trades",
     "house_trades": "house-trades",
+    "sec_filings": "sec-filings-search/symbol",
 }
 
 
@@ -314,6 +315,12 @@ def senate_trades(symbol: str) -> Any:
 def house_trades(symbol: str) -> Any:
     """US House member trades for a symbol (purchase/sale + amount)."""
     return _get(_PATHS["house_trades"], symbol=symbol)
+
+
+@cached("calendar")
+def sec_filings(symbol: str, limit: int = 25) -> Any:
+    """Recent SEC filings for a symbol (form type, filing date, links)."""
+    return _get(_PATHS["sec_filings"], symbol=symbol, page=0, limit=limit)
 
 
 @cached("eod")
