@@ -41,7 +41,20 @@ def _usable_index_bars(rows: list[dict], *, min_bars: int = 6) -> bool:
 @cached("eod")
 @guarded()
 def fx_history(pair: str) -> list[dict]:
-    """Daily OHLCV for a spot FX pair (e.g. 'EURUSD')."""
+    """Daily OHLCV for a spot FX pair (e.g. 'EURUSD').
+
+    FMP direct REST (the proven prod path — same as index_history and futures);
+    OpenBB's FMP currency provider returns empty in prod. Falls back to the
+    OpenBB EOD chain only if FMP yields nothing.
+    """
+    from obb_layer import fmp_market
+
+    try:
+        rows = fmp_market.fx_history(pair)
+        if rows:
+            return rows
+    except Exception:  # noqa: BLE001 — fall through to the OpenBB chain
+        pass
     return eod_with_fallback(
         get_obb().currency.price.historical, pair, asset="forex",
     )
