@@ -50,31 +50,63 @@ flowchart TB
 
 ## Broker options in OpenAlice
 
-Sources: [OpenAlice README](https://github.com/TraderAlice/OpenAlice) (architecture),
-`BROKER_REGISTRY` in upstream `src/domain/trading/brokers/registry.ts` (UI-facing
-types), and CCXT’s exchange list (crypto only).
+Sources (checked **June 2026**, OpenAlice `v0.42.0-beta.1` upstream):
 
-### User-facing brokers (add via OpenAlice **Trading** UI)
+- [`packages/uta-protocol/src/brokers/preset-catalog.ts`](https://github.com/TraderAlice/OpenAlice/blob/master/packages/uta-protocol/src/brokers/preset-catalog.ts) — **user-facing presets** (Trading wizard)
+- [`services/uta/src/domain/trading/brokers/registry.ts`](https://github.com/TraderAlice/OpenAlice/blob/master/services/uta/src/domain/trading/brokers/registry.ts) — **engine implementations** (`BROKER_ENGINE_REGISTRY`)
+- [CCXT exchange list](https://github.com/ccxt/ccxt) — crypto venues behind the `ccxt` engine
 
-These are the broker **types** you can create today. Each becomes a UTA with id
-`{type}-{hash}` (e.g. `alpaca-37cbc8aa`, `ibkr-a1b2c3d4`).
+OpenAlice uses a **preset → engine** model: you pick a named preset in the UI; it
+maps to one of six engines. Each account becomes a UTA with id `{presetId}-{hash}`
+(e.g. `alpaca-37cbc8aa`, `ibkr-tws-a1b2c3d4`, `okx-…`).
 
-| Type | Name | Asset classes | Paper / demo | Auth | Best for |
-|------|------|---------------|--------------|------|----------|
-| **`ibkr`** | Interactive Brokers | **Forex (IDEALPRO)**, **metals** (XAUUSD, XAGUSD), **futures** (GC, SI), US/global stocks, options, bonds | Separate IBKR paper account + paper TWS/Gateway login | **No API key** — TCP to TWS/Gateway (`127.0.0.1`, port **4002** Gateway paper / **7497** TWS paper) | **Primary path for forex + metals** with one Alice loop |
-| **`alpaca`** | Alpaca | US equities, ETFs; some crypto pairs | Free paper (`PK…` keys → `paper-api`) | REST API key + secret | US stock ideas from `daily_hitlist` / `trade_setup` |
-| **`ccxt`** | CCXT (per exchange) | **Crypto only** on 100+ CEXs (Binance, Bybit, OKX, Coinbase, Kraken, …) | `sandbox` / `demoTrading` flags per exchange | Per-exchange API keys (trade-only, **no withdrawal**) | Crypto execution; **not** spot forex |
+### Six broker engines (implementation layer)
 
-**CCXT is not a forex broker.** It unifies **cryptocurrency exchanges**. Traditional
-FX (EURUSD as a currency pair) requires **IBKR** (or a platform outside OpenAlice —
-see below).
+| Engine | Implementation | Asset classes |
+|--------|----------------|---------------|
+| **`ibkr`** | `IbkrBroker` — TWS/IB Gateway socket | **Forex (IDEALPRO)**, **spot metals** (XAU.USD, XAG.USD), **futures** (GC, SI), stocks, options, bonds |
+| **`alpaca`** | `AlpacaBroker` — REST | US equities, ETFs; limited crypto |
+| **`ccxt`** | `CcxtBroker` — unified CEX API | **Crypto** on 100+ exchanges (not spot FX) |
+| **`longbridge`** | `LongbridgeBroker` — Longbridge OpenAPI | HK, US, CN A-shares (Stock Connect), SG **equities** (not forex) |
+| **`leverup`** | `LeverupBroker` — Monad perp DEX (EIP-712 + Pyth) | Synthetic **crypto perps** (some forex-like symbols; on-chain, not IDEALPRO) |
+| **`mock`** | `MockBroker` — in-memory | Dev / UI testing only |
 
-### Mentioned in OpenAlice architecture (not in the public UI registry yet)
+### User-facing presets (Trading → Add account wizard)
 
-| Component | Role |
-|-----------|------|
-| **Longbridge** | Native SDK dep in the UTA carrier image (HK/US-oriented broker). Listed in upstream README next to Alpaca/IBKR/CCXT; **not** in `BROKER_REGISTRY` as of early 2026 — treat as upstream/in-progress unless your OpenAlice build exposes it in **Trading → Add account**. |
-| **MockBroker** | In-memory dev/tests only — not for real or paper trading. |
+These are the presets in `BROKER_PRESET_CATALOG` today:
+
+#### Recommended
+
+| Preset id | Label | Engine | Paper / demo | Auth | Notes |
+|-----------|-------|--------|--------------|------|-------|
+| **`ibkr-tws`** | IBKR (TWS / IB Gateway) | `ibkr` | Ports **7497** / **4002** = paper | TWS/Gateway login — **no API key** | **Your forex + metals path** |
+| **`alpaca`** | Alpaca (US Equities) | `alpaca` | Paper / Live modes | API key + secret | US stocks only |
+| **`longbridge`** | Longbridge (HK / US / CN / SG) | `longbridge` | Paper / Live modes | appKey + appSecret + accessToken | Multi-region **equities**; not FX |
+| **`hyperliquid`** | Hyperliquid | `ccxt` | Mainnet / Testnet | Wallet address + API wallet private key | Perp DEX |
+
+#### Crypto
+
+| Preset id | Label | Engine | Paper / demo | Notes |
+|-----------|-------|--------|--------------|-------|
+| **`okx`** | OKX | `ccxt` | Live / Demo (separate keys) | Spot, perps, futures, options |
+| **`bybit`** | Bybit | `ccxt` | Live / Testnet / Demo | Unified trading account |
+| **`bitget`** | Bitget | `ccxt` | Live / Demo | Spot + USDT-M perps |
+| **`leverup-monad`** | LeverUp (Monad) | `leverup` | Mainnet / Testnet | On-chain perp DEX; market orders + TP/SL via relayer |
+| **`ccxt-custom`** | CCXT Custom (any exchange) | `ccxt` | Per-exchange `sandbox` / `demoTrading` | **Escape hatch** — any CCXT id (binance, kraken, coinbase, gate, mexc, …) |
+
+The CCXT custom preset exposes **100+ exchange ids** from the installed `ccxt`
+package (OpenAlice `^4.5.38`). Common ids: `binance`, `bybit`, `okx`, `coinbase`,
+`kraken`, `kucoin`, `gate`, `mexc`, `htx`, `phemex`, `bitfinex`, `deribit`, …
+Full list: `GET /api/trading/config/ccxt/exchanges` on a running OpenAlice host.
+
+#### Testing
+
+| Preset id | Label | Engine | Notes |
+|-----------|-------|--------|-------|
+| **`mock-simulator`** | Simulator | `mock` | In-memory; Dev → Simulator panel; wiped on restart |
+
+**CCXT is not a traditional forex broker.** It connects to **crypto exchanges**.
+Spot FX and COMEX-style metals need **`ibkr-tws`** (IDEALPRO per [IBKR glossary](https://www.interactivebrokers.com/campus/glossary-terms/idealpro/)).
 
 ### Not available inside OpenAlice today
 
@@ -125,7 +157,7 @@ only if you still want US equity paper on the side.
 
 ### 3. OpenAlice account (Web UI)
 
-**Trading → Add account → IBKR**
+**Trading → Add account → IBKR (TWS / IB Gateway)** (preset `ibkr-tws`)
 
 | Field | Typical value |
 |-------|----------------|
@@ -260,19 +292,21 @@ tunnel — document your choice before go-live. See [`openalice-cloud-deploy.md`
 
 ## CCXT exchange examples (crypto UTA only)
 
-OpenAlice loads the exchange list from the installed `ccxt` package (**100+** names).
-Common choices (verify in **Trading → CCXT → exchange** dropdown):
+Dedicated presets: **OKX**, **Bybit**, **Bitget**, **Hyperliquid**. For everything
+else use **`ccxt-custom`** and pick an exchange id from the live list.
 
-| Exchange id | Notes |
-|-------------|-------|
-| `binance` | Large liquidity; geo restrictions apply |
-| `bybit` | Perps + spot; demo trading flag |
-| `okx` | Passphrase often required |
-| `coinbase` | US-friendly |
-| `kraken` | Spot + futures via `krakenfutures` |
+| Exchange id | Dedicated preset? | Notes |
+|-------------|-------------------|-------|
+| `okx` | ✅ `okx` | Passphrase required; separate demo keys |
+| `bybit` | ✅ `bybit` | Testnet vs demo-trading are different |
+| `bitget` | ✅ `bitget` | Passphrase required |
+| `hyperliquid` | ✅ `hyperliquid` | Wallet auth, not API keys |
+| `binance` | via `ccxt-custom` | Geo restrictions; trade-only keys |
+| `coinbase` | via `ccxt-custom` | US-friendly |
+| `kraken` | via `ccxt-custom` | Spot; `krakenfutures` for perps |
 
-Use **trade-only** API keys; disable withdrawals. For your stated priority (forex +
-metals), treat CCXT as **optional** alongside IBKR.
+Use **trade-only** API keys; disable withdrawals. For forex + metals, CCXT is
+**optional** — primary book stays **IBKR**.
 
 ---
 
@@ -280,9 +314,12 @@ metals), treat CCXT as **optional** alongside IBKR.
 
 | Need | Use |
 |------|-----|
-| Forex + metals in one Alice loop | **IBKR UTA** + IB Gateway paper |
-| US stocks paper | **Alpaca UTA** (optional) |
-| Crypto | **CCXT UTA** or Alpaca |
+| Forex + metals in one Alice loop | **`ibkr-tws`** preset + IB Gateway paper |
+| US stocks paper | **`alpaca`** preset (optional) |
+| HK / US / CN / SG equities | **`longbridge`** preset |
+| Crypto | **OKX / Bybit / Bitget / Hyperliquid** presets or **`ccxt-custom`** |
+| On-chain perps (experimental) | **`leverup-monad`** preset |
+| UI / agent testing | **`mock-simulator`** preset |
 | MT5 / OANDA / NinjaTrader | **Outside OpenAlice** — research here, execute there |
 
 market-terminal already researches forex and metals; the gap is **execution UTA**,

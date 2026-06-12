@@ -97,8 +97,11 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       shipped:** `docs/openalice-multi-broker.md` — OpenAlice broker catalog
       (IBKR / Alpaca / CCXT), dual-UTA topology, IB Gateway paper setup, registry
       seeding, `source`-per-broker prompt patterns, symbol map (EURUSD ↔ `EUR.USD`,
-      XAUUSD / GC). **Recommended path:** IBKR UTA for forex + metals; keep Alpaca
-      optional for US stocks. **Still open:** IBKR paper connected on your WSL host;
+      XAUUSD / GC). Catalog synced to OpenAlice `v0.42` preset system (six engines:
+      ibkr, alpaca, ccxt, longbridge, leverup, mock; wizard presets incl. OKX, Bybit,
+      Bitget, Hyperliquid, Longbridge, LeverUp, ccxt-custom). **Recommended path:**
+      `ibkr-tws` preset for forex + metals; keep `alpaca` optional for US stocks.
+      **Still open:** IBKR paper connected on your WSL host;
       persona + workflow prompts updated to route FX/metal orders to `ibkr-…`;
       A9 VPS layout with co-located IB Gateway; optional `decision_brief` forex
       auto-register (like equities).
