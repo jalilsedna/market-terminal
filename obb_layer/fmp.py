@@ -323,6 +323,15 @@ def sec_filings(symbol: str, limit: int = 25) -> Any:
     return _get(_PATHS["sec_filings"], symbol=symbol, page=0, limit=limit)
 
 
+@cached("fundamentals")
+def company_screener(**filters: Any) -> Any:
+    """FMP equity screener — filter the universe by market cap / price / beta /
+    dividend / volume / sector / industry / exchange / country. Pass FMP's native
+    param names (marketCapMoreThan, betaLowerThan, …); None values are dropped."""
+    clean = {k: v for k, v in filters.items() if v is not None}
+    return _get("company-screener", **clean)
+
+
 @cached("eod")
 def technical_indicator(symbol: str, indicator: str = "rsi",
                         period_length: int = 14, timeframe: str = "1day") -> Any:

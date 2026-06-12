@@ -51,21 +51,26 @@ def movers(top: int = Query(20, ge=1, le=100, description="Rows per list")) -> E
 def screen(
     sector: str | None = Query(None, description="e.g. 'Technology', 'Energy'"),
     industry: str | None = Query(None),
-    exchange: str | None = Query(None, description="e.g. 'nasdaq', 'nyse'"),
+    exchange: str | None = Query(None, description="e.g. 'NASDAQ', 'NYSE'"),
+    country: str | None = Query(None, description="e.g. 'US'"),
     mktcap_min: float | None = Query(None, description="Min market cap (USD)"),
     mktcap_max: float | None = Query(None),
     price_min: float | None = Query(None),
     price_max: float | None = Query(None),
     volume_min: float | None = Query(None),
-    limit: int = Query(50, ge=1, le=500),
+    beta_min: float | None = Query(None),
+    beta_max: float | None = Query(None, description="Max beta (e.g. <1 for low-vol)"),
+    dividend_min: float | None = Query(None, description="Min annual dividend $"),
+    limit: int = Query(50, ge=1, le=1000),
 ) -> Envelope:
-    """Run the FMP equity screener with the given filters."""
+    """Fundamental equity screener (FMP): filter the universe by cap/price/beta/
+    dividend/volume/sector/industry/exchange/country."""
     try:
         data = screener.run_screen(
-            sector=sector, industry=industry, exchange=exchange,
+            sector=sector, industry=industry, exchange=exchange, country=country,
             mktcap_min=mktcap_min, mktcap_max=mktcap_max,
-            price_min=price_min, price_max=price_max,
-            volume_min=volume_min, limit=limit,
+            price_min=price_min, price_max=price_max, volume_min=volume_min,
+            beta_min=beta_min, beta_max=beta_max, dividend_min=dividend_min, limit=limit,
         )
     except Exception as exc:  # noqa: BLE001 — provider failure → degraded envelope
         return Envelope(ok=False, provider="fmp", freshness=_FRESHNESS,

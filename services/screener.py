@@ -95,21 +95,72 @@ def sector_rotation() -> dict:
     }
 
 
-def run_screen(**criteria: Any) -> dict:
-    """Run the equity screener and normalize the rows to a compact shape."""
-    raw = screener.screen(**criteria)
+def run_screen(
+    *,
+    sector: str | None = None,
+    industry: str | None = None,
+    exchange: str | None = None,
+    country: str | None = None,
+    mktcap_min: float | None = None,
+    mktcap_max: float | None = None,
+    price_min: float | None = None,
+    price_max: float | None = None,
+    volume_min: float | None = None,
+    beta_min: float | None = None,
+    beta_max: float | None = None,
+    dividend_min: float | None = None,
+    actively_trading: bool | None = True,
+    limit: int = 50,
+) -> dict:
+    """Fundamental equity screener (FMP `company-screener`, direct REST).
+
+    Filters the universe by cap / price / beta / dividend / volume / sector /
+    industry / exchange / country and normalizes the rows. Fault-tolerant: a
+    provider/tier failure surfaces in `error` rather than raising.
+    """
+    from config import get_settings
+    from obb_layer import fmp
+    if not get_settings().fmp_enabled:
+        return {"enabled": False, "count": 0, "results": [],
+                "error": "Screener needs an FMP key — set FMP_API_KEY."}
+
+    fmp_filters = {
+        "marketCapMoreThan": mktcap_min, "marketCapLowerThan": mktcap_max,
+        "priceMoreThan": price_min, "priceLowerThan": price_max,
+        "volumeMoreThan": volume_min, "betaMoreThan": beta_min, "betaLowerThan": beta_max,
+        "dividendMoreThan": dividend_min, "sector": sector, "industry": industry,
+        "exchange": exchange, "country": country,
+        "isActivelyTrading": actively_trading, "limit": max(1, min(limit, 1000)),
+    }
+    criteria = {k: v for k, v in {
+        "sector": sector, "industry": industry, "exchange": exchange, "country": country,
+        "mktcap_min": mktcap_min, "mktcap_max": mktcap_max, "price_min": price_min,
+        "price_max": price_max, "volume_min": volume_min, "beta_min": beta_min,
+        "beta_max": beta_max, "dividend_min": dividend_min,
+    }.items() if v is not None}
+
+    try:
+        raw = fmp.company_screener(**fmp_filters)
+    except fmp.FmpError as exc:
+        return {"enabled": True, "count": 0, "results": [], "criteria": criteria, "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001
+        return {"enabled": True, "count": 0, "results": [], "criteria": criteria,
+                "error": f"{type(exc).__name__}: {exc}"[:160]}
+
     results = [
         {
             "symbol": r.get("symbol"),
-            "name": r.get("name"),
+            "name": r.get("companyName") or r.get("name"),
             "price": _num(r.get("price")),
-            "percent_change": _num(r.get("percent_change")),
+            "market_cap": _num(r.get("marketCap")),
+            "beta": _num(r.get("beta")),
+            "dividend": _num(r.get("lastAnnualDividend")),
             "volume": _num(r.get("volume")),
-            "market_cap": _num(r.get("market_cap")),
-            "ma50": _num(r.get("ma50")),
-            "ma200": _num(r.get("ma200")),
+            "sector": r.get("sector"),
+            "industry": r.get("industry"),
+            "exchange": r.get("exchangeShortName") or r.get("exchange"),
         }
-        for r in raw
+        for r in (raw if isinstance(raw, list) else [])
     ]
-    return {"count": len(results), "criteria": {k: v for k, v in criteria.items() if v is not None},
-            "results": results}
+    results.sort(key=lambda x: (x.get("market_cap") is not None, x.get("market_cap") or 0), reverse=True)
+    return {"enabled": True, "count": len(results), "criteria": criteria, "results": results}

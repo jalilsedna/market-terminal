@@ -311,13 +311,17 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
       section in `decision_brief`. Reuses the `signals.smart_money_signal` scorer;
       CI-tested. **Still gated (Ultimate-tier):** ETF holdings (holdings/sector/
       country weights), 13F institutional, ESG.
-- [~] **H4 — Market/discovery/macro/news/filings + screener.** **Shipped (filings
-      subset):** `services/filings.py` `filings(ticker)` → recent SEC filings
-      (8-K/10-Q/10-K/Form 4/13D-G/…) with event flags + links. `GET /filings/
-      {ticker}`, `sec_filings` MCP tool, a **Filings** web tab, and a `filings`
-      section in `decision_brief`. Fault-tolerant (degrades if tier-gated).
-      **Still open:** a full fundamental **screener** (FMP `company-screener` —
-      feasibility on Starter unverified) and macro/discovery surfaces.
+- [x] **H4 — Filings + fundamental screener.** **SEC filings:** `services/
+      filings.py` `filings(ticker)` → recent filings (8-K/10-Q/10-K/Form 4/13D-G)
+      with event flags + links; `GET /filings/{ticker}`, `sec_filings` MCP tool,
+      **Filings** tab, `decision_brief` section. **Fundamental screener:**
+      `services/screener.run_screen` rebuilt on FMP's direct `company-screener`
+      (filter by cap/price/beta/dividend/volume/sector/industry/exchange/country)
+      → `GET /screener`, `equity_screener` MCP tool, **Screener** web tab. Pair
+      with `brain_screen` to rank a screened universe by conviction. Fault-tolerant
+      (degrades if tier-gated); CI-tested. *(Macro/discovery surfaces — economic
+      calendar etc. — already covered by `macro_dashboard`; deeper discovery
+      deferred.)*
 - [x] **H5 — Terminal BRAIN.** `services/brain.py` `verdict(ticker)` fuses bottom-up
       (the fundamental read: valuation/quality/growth/analyst) with top-down (macro
       regime) into ONE **conviction** result — constructive / neutral / cautious /

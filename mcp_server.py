@@ -324,6 +324,27 @@ def market_screen(asset: str, symbols: str | None = None, limit: int = 25) -> di
 
 
 @mcp.tool()
+def equity_screener(sector: str | None = None, industry: str | None = None,
+                    exchange: str | None = None, country: str | None = None,
+                    mktcap_min: float | None = None, mktcap_max: float | None = None,
+                    price_min: float | None = None, price_max: float | None = None,
+                    volume_min: float | None = None, beta_min: float | None = None,
+                    beta_max: float | None = None, dividend_min: float | None = None,
+                    limit: int = 50) -> dict:
+    """**Fundamental equity screener** (FMP) — find names matching filters: market
+    cap, price, beta (e.g. `beta_max=1` for low-vol), annual dividend, volume,
+    sector, industry, exchange, country. Returns symbol/name/cap/price/beta/
+    dividend/sector ranked by market cap. Use it to build a candidate universe,
+    then `brain_screen` to rank those by conviction. Research context, not a
+    trade trigger."""
+    return _safe(screener_svc.run_screen, sector=sector, industry=industry,
+                 exchange=exchange, country=country, mktcap_min=mktcap_min,
+                 mktcap_max=mktcap_max, price_min=price_min, price_max=price_max,
+                 volume_min=volume_min, beta_min=beta_min, beta_max=beta_max,
+                 dividend_min=dividend_min, limit=limit)
+
+
+@mcp.tool()
 def sec_filings(ticker: str, limit: int = 15) -> dict:
     """**Recent SEC filings** for a stock — what just got filed (8-K material
     events, 10-Q/10-K reports, Form 4 insider transactions, 13D/G stakes, …) with

@@ -897,6 +897,7 @@ const VIEW_TITLES = {
   volatility: "Volatility",
   sectors: "Sectors",
   movers: "Movers",
+  screener: "Screener",
   fundamentals: "Stock Brain",
   "crypto-brain": "Crypto Brain",
   "forex-brain": "Forex Brain",
@@ -1884,6 +1885,63 @@ async function loadFilings() {
   go();
 }
 
+// --- Fundamental Screener (H4) ---------------------------------------------
+function renderScreener(env) {
+  const d = env.data || {};
+  if (d.enabled === false) return `<div class="err">${esc(d.error || "unavailable")}</div>`;
+  if (d.error) return `<div class="err">${esc(d.error)}</div>`;
+  const rows = d.results || [];
+  if (!rows.length) return `<div class="sub dim">No matches for those filters.</div>`;
+  const head = `<div class="sub" style="margin-bottom:6px">${num(d.count, 0)} matches${Object.keys(d.criteria || {}).length ? " · " + esc(Object.entries(d.criteria).map(([k, v]) => `${k}=${v}`).join(", ")) : ""}</div>`;
+  const body = rows.slice(0, 100).map((r) => `<tr>
+    <td><b>${esc(r.symbol)}</b></td><td class="sub">${esc(r.name || "")}</td>
+    <td style="text-align:right">${r.price != null ? "$" + num(r.price, 2) : "—"}</td>
+    <td style="text-align:right">${_fmtBig(r.market_cap)}</td>
+    <td style="text-align:right">${r.beta != null ? num(r.beta, 2) : "—"}</td>
+    <td style="text-align:right">${r.dividend != null ? "$" + num(r.dividend, 2) : "—"}</td>
+    <td class="sub">${esc(r.sector || "")}</td></tr>`).join("");
+  return head + `<table style="margin-top:4px"><thead><tr><th>Symbol</th><th>Name</th><th style="text-align:right">Price</th><th style="text-align:right">Mkt cap</th><th style="text-align:right">Beta</th><th style="text-align:right">Div</th><th>Sector</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function loadScreener() {
+  const sec = $("#view-screener");
+  sec.innerHTML = panel("Fundamental Screener", `
+    <div class="sub mb-sm">Filter the equity universe by cap / price / beta / dividend / sector (FMP). Build a candidate list, then run names through the Stock Brain. Research context, not a trade trigger.</div>
+    <div class="addbar" style="flex-wrap:wrap;gap:6px">
+      <input id="sc-sector" class="inp" style="max-width:150px" placeholder="sector (Technology…)" />
+      <input id="sc-mcap" class="inp" style="max-width:130px" placeholder="min mkt cap $" />
+      <input id="sc-betamax" class="inp" style="max-width:110px" placeholder="max beta" />
+      <input id="sc-divmin" class="inp" style="max-width:120px" placeholder="min dividend $" />
+      <input id="sc-limit" class="inp" style="max-width:80px" value="50" />
+      <button id="sc-go" class="btn">Screen</button>
+    </div>
+    <div id="sc-body" style="margin-top:12px"></div>`);
+  const body = $("#sc-body");
+  const go = async () => {
+    const p = new URLSearchParams();
+    const sector = ($("#sc-sector").value || "").trim();
+    const mcap = ($("#sc-mcap").value || "").trim();
+    const betamax = ($("#sc-betamax").value || "").trim();
+    const divmin = ($("#sc-divmin").value || "").trim();
+    const limit = ($("#sc-limit").value || "50").trim();
+    if (sector) p.set("sector", sector);
+    if (mcap) p.set("mktcap_min", mcap);
+    if (betamax) p.set("beta_max", betamax);
+    if (divmin) p.set("dividend_min", divmin);
+    p.set("limit", limit);
+    body.innerHTML = `<div class="loading">Screening…</div>`;
+    try {
+      const env = await fetchJSON("/screener?" + p.toString());
+      if (env.ok === false) { body.innerHTML = `<div class="err">${esc(env.error || "unavailable")}</div>`; return; }
+      body.innerHTML = renderScreener(env);
+    } catch (e) { body.innerHTML = `<div class="err">failed: ${esc(e.message)}</div>`; }
+  };
+  $("#sc-go").addEventListener("click", go);
+  ["sc-sector", "sc-mcap", "sc-betamax", "sc-divmin", "sc-limit"].forEach((id) =>
+    $("#" + id).addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); }));
+  go();
+}
+
 async function loadFundamentalsOne(symbol, label) {
   const body = $("#fund-body");
   if (!body) return;
@@ -1978,6 +2036,7 @@ function _loadFor(view) {
   if (view === "decision") return loadDecision();
   if (view === "news-pulse") return loadNewsPulse();
   if (view === "filings") return loadFilings();
+  if (view === "screener") return loadScreener();
   if (view === "execution") return loadExecution();
   if (view === "analysis") return loadAnalysis();
   if (view === "focus") return loadFocus();
