@@ -63,7 +63,7 @@ Rank the 3 most interesting names across asset classes (one line each why).
 
 Phase 3 — For each of the 3 names, call decision_brief(symbol). Report synthesis verbatim, section summaries, `errors` and `skipped` verbatim, and conviction vs setup vs macro conflict.
 
-Phase 4 — getPortfolio and getAccount with source alpaca-37cbc8aa (see your UTA boot log for the id if it differs). If unavailable, say so and use my stated ~45 QQQ. For each idea: concentrates or diversifies?
+Phase 4 — getPortfolio and getAccount with source alpaca-1c173aa4 (see your UTA boot log for the id if it differs). If unavailable, say so and use my stated ~45 QQQ. For each idea: concentrates or diversifies?
 
 Phase 5 — Best idea or "no clean trade". Vol-aware stop (≥1.5× daily σ). Size ≤1% of $100k paper risk. **inbox_push once** with ONLY the short proposal (≤15 lines) — no gap report, no scripts.
 
@@ -119,7 +119,7 @@ CCXT crypto, geo-blocked read-only feeds). **Without `source`, `getPortfolio`
 often returns** `Account temporarily unavailable` even when a broker is healthy.
 
 Find each account id in the `pnpm dev` log, e.g.
-`AlpacaBroker[alpaca-37cbc8aa]: connected`, `IbkrBroker[ibkr-…]: connected`.
+`AlpacaBroker[alpaca-1c173aa4]: connected`, `IbkrBroker[ibkr-…]: connected`.
 Route FX/metal execution to **IBKR** — see [`openalice-multi-broker.md`](openalice-multi-broker.md).
 
 **Smoke test** (any WSL tab while `pnpm dev` runs):
@@ -127,7 +127,7 @@ Route FX/metal execution to **IBKR** — see [`openalice-multi-broker.md`](opena
 ```bash
 node <<'SCRIPT'
 const MCP = "http://127.0.0.1:47332/mcp";
-const SOURCE = "alpaca-37cbc8aa";
+const SOURCE = "alpaca-1c173aa4";
 async function rpc(name, args = {}) {
   const res = await fetch(MCP, {
     method: "POST",
@@ -148,7 +148,7 @@ SCRIPT
 Re-run **Phase 4 only** after OpenAlice UTA / Alpaca paper is healthy:
 
 ```bash
-agent -f -p "Call getPortfolio and getAccount with source alpaca-37cbc8aa. Re-score NVDA vs my live QQQ exposure using the last workflow thesis. inbox_push only if the portfolio-fit conclusion changed."
+agent -f -p "Call getPortfolio and getAccount with source alpaca-1c173aa4. Re-score NVDA vs my live QQQ exposure using the last workflow thesis. inbox_push only if the portfolio-fit conclusion changed."
 ```
 
 ### Registry tip (hitlist names)

@@ -58,7 +58,7 @@ Sources (checked **June 2026**, OpenAlice `v0.42.0-beta.1` upstream):
 
 OpenAlice uses a **preset → engine** model: you pick a named preset in the UI; it
 maps to one of six engines. Each account becomes a UTA with id `{presetId}-{hash}`
-(e.g. `alpaca-37cbc8aa`, `ibkr-tws-a1b2c3d4`, `okx-…`).
+(e.g. `alpaca-1c173aa4`, `ibkr-tws-a1b2c3d4`, `okx-…`).
 
 ### Six broker engines (implementation layer)
 
@@ -219,7 +219,7 @@ the **research symbol** and the **IBKR contract** in trade cards.
 
 ```text
 getPortfolio + getAccount  source: ibkr-<your-id>     # FX + metals book
-getPortfolio + getAccount  source: alpaca-37cbc8aa   # US equities (optional)
+getPortfolio + getAccount  source: alpaca-1c173aa4   # US equities (optional)
 ```
 
 Without `source`, multi-UTA setups often return `Account temporarily unavailable`.
