@@ -43,7 +43,7 @@ SESSION_TTL = 7 * 24 * 60 * 60  # one week
 # /webhook/tradingview is open because TradingView can't send a Bearer header; it
 # is secret-gated instead (tv_webhook_secret) inside the route (ROADMAP G3).
 OPEN_PATHS = {"/health", "/login", "/logout", "/register", "/favicon.ico",
-              "/webhook/tradingview"}
+              "/styles.css", "/webhook/tradingview"}
 
 _PBKDF2_ITERATIONS = 200_000
 
