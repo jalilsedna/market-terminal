@@ -101,9 +101,14 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       ibkr, alpaca, ccxt, longbridge, leverup, mock; wizard presets incl. OKX, Bybit,
       Bitget, Hyperliquid, Longbridge, LeverUp, ccxt-custom). **Recommended path:**
       `ibkr-tws` preset for forex + metals; keep `alpaca` optional for US stocks.
-      **Still open:** IBKR paper connected on your WSL host;
-      persona + workflow prompts updated to route FX/metal orders to `ibkr-…`;
-      A9 VPS layout with co-located IB Gateway; optional `decision_brief` forex
+      **IBKR paper CONNECTED** (`ibkr-tws-b3ca59a7`, $1M demo, healthy) via the
+      **Linux Gateway running inside WSL over WSLg** — the validated fix after the
+      Windows-Gateway path proved fragile (WSL Hyper-V firewall silently drops
+      WSL→Windows even with a Defender allow rule; `networkingMode=mirrored` breaks
+      browser→UI forwarding). Doc updated with the in-WSL Gateway method + reboot
+      routine. **Still open:** route FX/metal orders to `ibkr-…` in persona/workflow
+      prompts; first live IBKR paper trade (forex market opens Sun ~22:00 UTC);
+      A9 VPS layout with co-located Gateway; optional `decision_brief` forex
       auto-register (like equities).
 
 ## B. Data / provider gaps (documented, still open)

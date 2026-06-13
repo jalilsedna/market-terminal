@@ -146,29 +146,84 @@ only if you still want US equity paper on the side.
 2. Client Portal → **Settings → Paper Trading Account** → separate paper login.
 3. Enable **Forex** and **US futures** permissions on the paper account if offered.
 
-### 2. IB Gateway (recommended) on Windows
+> **A free IBKR demo/trial account works** — it gives instant paper credentials
+> (`DUxxxxxxx`) with broad permissions (forex + metals enabled), skipping the
+> live-account approval wait. Use it for paper testing.
 
-1. Install **IB Gateway** (lighter than full TWS).
-2. Log in with **paper** credentials; select paper trading mode.
-3. **Configure → Settings → API → Settings:**
-   - Enable **ActiveX and Socket Clients**
-   - Socket port: **4002** (Gateway paper) or **7497** (TWS paper)
-   - Trusted IPs: `127.0.0.1` and your WSL host IP if OpenAlice runs in WSL
+### 2. IB Gateway — run it **inside WSL** (strongly recommended)
+
+**Lesson learned (validated June 2026):** running IB Gateway on **Windows** while
+OpenAlice runs in **WSL** is a networking minefield. Even with the Gateway
+listening on `0.0.0.0:4002` and a Windows Defender `Allow` rule, WSL→Windows
+connections are silently dropped by the **WSL Hyper-V firewall** (a separate
+filter that ordinary `New-NetFirewallRule` does **not** cover), and
+`networkingMode=mirrored` breaks the browser→UI localhost forwarding. The robust
+fix is to **run the Linux IB Gateway inside WSL** so OpenAlice reaches it over
+pure `127.0.0.1` — no host IP, no firewall, no port-forwarding.
+
+Windows 11 ships **WSLg** (Linux GUI support), so the Java Gateway window renders
+natively.
+
+```bash
+# 0. confirm WSLg is active (should print e.g. ":0"); if empty, `wsl --update` from PowerShell
+echo "$DISPLAY"
+
+# 1. GUI libs the Java app needs
+sudo apt update && sudo apt install -y libxtst6 libxrender1 libxext6 libxi6 libgtk-3-0 fontconfig libnss3
+
+# 2. download + run the Linux installer (grab the live URL from the IB Gateway
+#    download page → Linux X86_64 if this path 404s)
+cd ~ && wget -O ibgateway-stable.sh \
+  "https://download2.interactivebrokers.com/installers/ibgateway/stable-standalone/ibgateway-stable-standalone-linux-x64.sh"
+chmod +x ibgateway-stable.sh && ./ibgateway-stable.sh   # installs to ~/Jts/ibgateway/<version>/
+
+# 3. launch (version folder is numeric, e.g. 1045)
+~/Jts/ibgateway/*/ibgateway &
+```
+
+In the Gateway window: **IB API** + **Paper Trading** → log in. Then
+**Configure → Settings → API → Settings:**
+
+- ☑ Enable ActiveX and Socket Clients
+- ☐ **Read-Only API** unchecked (or orders are rejected)
+- Socket port **4002**
+- ☑ "Allow connections from localhost only" is fine (it genuinely is localhost now)
+- Trusted IPs: `127.0.0.1`
+
+Verify from WSL: `timeout 2 bash -c "</dev/tcp/127.0.0.1/4002" && echo OPEN`.
+
+<details>
+<summary>Fallback: Gateway on Windows (only if you can't run it in WSL)</summary>
+
+Gateway listens on `0.0.0.0:4002`. You must (a) add a Defender inbound rule
+**and** (b) open the **WSL Hyper-V firewall** —
+`Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow`
+or `[wsl2] firewall=false` in `.wslconfig` — then connect via the **Windows host
+IP** (`ip route show default | awk '{print $3}'`, e.g. `172.28.32.1`), not
+`127.0.0.1`. The WSL IP can change on reboot. This path is fragile; prefer the
+in-WSL Gateway above.
+</details>
 
 ### 3. OpenAlice account (Web UI)
 
 **Trading → Add account → IBKR (TWS / IB Gateway)** (preset `ibkr-tws`)
 
-| Field | Typical value |
-|-------|----------------|
-| Host | `127.0.0.1` or Windows host IP from WSL |
-| Port | `4002` (Gateway paper) |
+| Field | Value (Gateway-in-WSL) |
+|-------|------------------------|
+| Host | `127.0.0.1` |
+| Port | `4002` |
 | Client ID | `1` (unique per API connection) |
-| Account ID | Paper code e.g. `DU1234567` (optional; auto-detect if omitted) |
+| Account ID | blank (auto-detects the demo `DU…` code) |
 
-Confirm in `pnpm dev` log: `IbkrBroker[ibkr-…]: connected`.
+Confirm in `pnpm dev` log: `IbkrBroker[ibkr-…]: connected`. The UTA gets an id
+like `ibkr-tws-b3ca59a7` — use it as the `source` on portfolio/order tools.
 
 `accounts.json` is sealed — prefer the UI over hand-editing.
+
+### Reboot routine (Gateway-in-WSL)
+
+Gateway does not auto-start. After a reboot: launch WSL → start Gateway
+(`~/Jts/ibgateway/*/ibgateway &`) → Paper Log In → `pnpm dev`. All localhost.
 
 ### 4. Guards (stop / TP discipline)
 
