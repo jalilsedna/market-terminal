@@ -224,6 +224,7 @@ like `ibkr-tws-b3ca59a7` — use it as the `source` on portfolio/order tools.
 
 Gateway does not auto-start. After a reboot: launch WSL → start Gateway
 (`~/Jts/ibgateway/*/ibgateway &`) → Paper Log In → `pnpm dev`. All localhost.
+Full cold-start + daily + leave-the-desk checklist: [`openalice-daily-runbook.md`](openalice-daily-runbook.md).
 
 ### 4. Guards (stop / TP discipline)
 
