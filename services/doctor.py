@@ -45,6 +45,14 @@ def report(user: str | None = None, role: str | None = None) -> dict:
     check("fred configured", bool(s.fred_api_key),
           "set FRED_API_KEY to fill the Macro tiles + Dollar/FX panel" if not s.fred_api_key else "")
 
+    # News-Pulse analyst (Anthropic) — live probe so a silent fallback is visible.
+    from obb_layer import llm
+    llm_probe = llm.probe()
+    if s.llm_enabled:
+        check("news-pulse analyst (Anthropic)", llm_probe.get("ok", False),
+              f"model={llm_probe.get('model')}" if llm_probe.get("ok")
+              else f"falling back to rule-based — {llm_probe.get('error', 'unknown error')}")
+
     return {
         "app": s.app_name,
         "version": "0.0.1",
@@ -55,6 +63,7 @@ def report(user: str | None = None, role: str | None = None) -> dict:
             "movers_configured": s.movers_enabled,
         },
         "database": dbs,
+        "llm": llm_probe,
         "cache": cache_store.stats(),
         "precache": {"interval_min": s.precache_interval_min},
         "checks": checks,

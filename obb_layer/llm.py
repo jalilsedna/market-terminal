@@ -63,6 +63,38 @@ def analyze_json(system: str, user: str, *, max_tokens: int = 1024) -> dict[str,
     return _extract_json(text)
 
 
+def probe() -> dict[str, Any]:
+    """Live diagnostic: attempt a tiny real call and report success or the actual
+    error (key/model/billing). Unlike `analyze_json` this does NOT swallow — it's
+    for /doctor so the operator can see *why* the analyst pass falls back."""
+    settings = get_settings()
+    info: dict[str, Any] = {"enabled": enabled(), "model": settings.news_pulse_model}
+    if not settings.anthropic_api_key:
+        info["ok"] = False
+        info["error"] = "ANTHROPIC_API_KEY not set"
+        return info
+    try:
+        import anthropic  # noqa: PLC0415
+    except ImportError:
+        info["ok"] = False
+        info["error"] = "anthropic SDK not installed in the deployed image"
+        return info
+    try:
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        resp = client.with_options(timeout=20.0, max_retries=0).messages.create(
+            model=settings.news_pulse_model,
+            max_tokens=8,
+            messages=[{"role": "user", "content": "ping"}],
+        )
+        _ = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+        info["ok"] = True
+    except Exception as exc:  # noqa: BLE001 — surface the real reason for diagnostics
+        info["ok"] = False
+        # Class + message reveals 401 (bad key) / 404 (bad model) / 402 (billing).
+        info["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return info
+
+
 def _extract_json(text: str) -> dict[str, Any] | None:
     """Parse the first JSON object out of a model reply (tolerant of fences/prose)."""
     if not text:
