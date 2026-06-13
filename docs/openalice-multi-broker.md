@@ -224,6 +224,7 @@ like `ibkr-tws-b3ca59a7` — use it as the `source` on portfolio/order tools.
 
 Gateway does not auto-start. After a reboot: launch WSL → start Gateway
 (`~/Jts/ibgateway/*/ibgateway &`) → Paper Log In → `pnpm dev`. All localhost.
+Full cold-start + daily + leave-the-desk checklist: [`openalice-daily-runbook.md`](openalice-daily-runbook.md).
 
 ### 4. Guards (stop / TP discipline)
 
@@ -235,6 +236,19 @@ Per IBKR UTA in OpenAlice:
 
 Prompt rule: every entry uses a **bracket** (entry + stop + take-profit). After
 fill, verify open orders on **`source: ibkr-…`** before opening the next trade.
+
+> **⚠️ Bracket TIF lesson (validated the hard way).** A bracket placed as **MKT
+> DAY** makes its stop/TP **child legs DAY too** — Alpaca **auto-cancels them at
+> the session close (4 PM ET)**, leaving positions **naked overnight/over the
+> weekend**. For any held position the protective legs **must be GTC**:
+> - If `OPG + bracket` is rejected (Alpaca disallows it), don't settle for a bare
+>   `MKT DAY` entry — after the fill, immediately attach a **GTC OCO** (STP +
+>   LMT) so protection survives the close.
+> - **Always re-verify on the venue after the close**, not just via `getOrders`
+>   (which may list only the parent leg). Confirm `TIF=GTC` on the stop *and* TP.
+> - A stop moved against you (e.g. price fell toward the original stop) should be
+>   re-sized to ~1.5× daily σ from the **current** price, not left tight enough to
+>   whipsaw at the next open.
 
 ---
 
