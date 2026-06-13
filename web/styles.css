@@ -103,6 +103,17 @@ a:hover { color: var(--accent-hover); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Accessibility: honour reduced-motion — collapse transitions/animations
+   (skill: ux/reduced-motion). Keeps the UI fully usable, just still. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ---- Utility classes (replace inline styles in app.js) ------------------- */
 .hidden { display: none !important; }
 .mt-xs { margin-top: var(--space-xs); }
