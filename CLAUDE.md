@@ -2,6 +2,10 @@
 
 Guidance for Claude (and any AI/automation) working in this repository.
 
+> **New session? Read `docs/handoff.md` first** — it's the live-state summary
+> (what's deployed, the OpenAlice-on-Railway execution stack, current paper
+> positions, and open items). This file stays the canonical *rules*.
+
 ## What this is
 
 A **private, single-user Python research terminal** for multi-asset market
