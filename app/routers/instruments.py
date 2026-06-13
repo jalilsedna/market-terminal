@@ -60,6 +60,22 @@ def remove_instrument(item_id: str) -> Envelope:
     )
 
 
+@router.post("/ensure-book", response_model=Envelope)
+def ensure_default_book() -> Envelope:
+    """Ensure the canonical default book (reference futures + spot forex/metals,
+    the IBKR execution universe) is tracked. ADD-only and idempotent — never
+    removes anything, so it's safe to run against a populated registry to
+    guarantee forex+metals research exists before an IBKR session (ROADMAP A10).
+    """
+    result = reg.ensure_default_book()
+    items = [i.to_dict() for i in reg.list_all()]
+    return Envelope(
+        data={**result, "instruments": items, "count": len(items)},
+        provider="registry",
+        freshness=_FRESHNESS,
+    )
+
+
 @router.get("/search", response_model=Envelope)
 def search_instruments(
     query: str = Query("", min_length=0),

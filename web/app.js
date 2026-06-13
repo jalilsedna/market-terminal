@@ -1724,10 +1724,15 @@ function renderDecision(env) {
         <span class="pill ${cfCls}">${esc(cf.caution || "")} caution</span></div>
         <div class="sub" style="margin-top:6px">${esc(cf.note || "")}</div>`, cf.caution === "high")
     : "";
+  const ex = d.execution;
+  const execChip = ex && ex.contract
+    ? `<span class="pill" title="IBKR contract on ${esc(ex.venue || "")} (${esc(ex.sec_type || "")}) — execution lives in OpenAlice">IBKR ${esc(ex.contract)}${ex.venue ? " · " + esc(ex.venue) : ""}</span>`
+    : "";
   const hero = panel("Decision Brief", `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:15px"><b>${esc(d.symbol)}</b></span>
       <span class="pill">${esc(d.asset || "")}</span>
+      ${execChip}
       ${regime ? `<span class="pill ${regime.startsWith("risk-on") ? "green" : regime.startsWith("risk-off") ? "red" : "amber"}">macro ${esc(regime)}</span>` : ""}
       ${d.in_registry ? '<span class="dim">tracked</span>' : '<span class="dim">not in registry</span>'}
     </div>

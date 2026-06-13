@@ -187,6 +187,38 @@ def seed_defaults() -> int:
     return added
 
 
+def ensure_default_book() -> dict:
+    """Idempotently ensure the canonical default book (reference futures + spot
+    forex/metals) is tracked — regardless of current registry contents.
+
+    Unlike `seed_defaults` (empty-registry only), this is a deliberate ADD-only
+    admin action: it adds any missing default instruments and removes nothing, so
+    it is safe to run against a populated (or polluted) registry to guarantee the
+    forex+metals book exists before an IBKR session. Returns what it did.
+    """
+    added: list[str] = []
+    present: list[str] = []
+    for code in DEFAULT_SEED:
+        tmpl = INSTRUMENT_TEMPLATES.get(code)
+        if not tmpl:
+            continue
+        sym = tmpl.futures_symbol
+        try:
+            resolve(sym)
+            present.append(sym)
+        except ValueError:
+            add("futures", sym, tmpl.name)
+            added.append(sym)
+    for symbol, label in DEFAULT_FOREX_SEED:
+        try:
+            resolve(symbol)
+            present.append(symbol)
+        except ValueError:
+            add("forex", symbol, label)
+            added.append(symbol)
+    return {"added": added, "already_present": present, "added_count": len(added)}
+
+
 def news_wire_targets() -> dict[str, TrackedInstrument]:
     """Instruments that can supply per-symbol news (proxy or direct)."""
     out: dict[str, TrackedInstrument] = {}

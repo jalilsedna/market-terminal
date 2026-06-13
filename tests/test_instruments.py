@@ -93,3 +93,21 @@ def test_seed_skipped_when_user_has_instruments(reg):
     reg.add("crypto", "BTC-USD")
     assert reg.seed_defaults() == 0
     assert {i.id for i in reg.list_all()} == {"crypto:BTC-USD"}
+
+
+def test_ensure_default_book_adds_missing_without_removing(reg):
+    # A populated/polluted registry: seed_defaults would no-op here.
+    reg.add("crypto", "BTC-USD")
+    reg.add("equity", "DSY")  # transient pollution we must NOT remove
+    assert reg.seed_defaults() == 0
+
+    result = reg.ensure_default_book()
+    assert result["added_count"] > 0
+    ids = {i.id for i in reg.list_all()}
+    # Forex+metals book is now present, pollution untouched.
+    assert {"forex:EURUSD", "forex:XAUUSD", "futures:GC=F"} <= ids
+    assert "crypto:BTC-USD" in ids and "equity:DSY" in ids
+
+    # Idempotent: a second call adds nothing.
+    again = reg.ensure_default_book()
+    assert again["added_count"] == 0

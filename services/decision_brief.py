@@ -228,10 +228,13 @@ def brief(symbol: str, asset: str | None = None) -> dict:
             "catalysts": p.get("catalysts") or [],
         }
 
+    from obb_layer.ibkr_symbols import ibkr_contract
+
     return {
         "symbol": symbol.upper(),
         "asset": asset,
         "in_registry": inst is not None,
+        "execution": ibkr_contract(symbol, asset),
         "macro": macro,
         "conflict": _conflict(sections),
         "synthesis": _synthesize(symbol, asset, sections, macro),
