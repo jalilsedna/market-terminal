@@ -7,22 +7,37 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body class="auth-page">
-  <form class="auth-card" id="form">
-    <div class="auth-brand">
-      <span class="logo">▌</span>
-      <span>MARKET TERMINAL</span>
-    </div>
-    <h1>Create account</h1>
-    <p class="sub">Research &amp; analytics · read-only, no broker keys</p>
-    <!--CLOSED-->
-    <label for="username">Username</label>
-    <input id="username" name="username" autocomplete="username" minlength="3" autofocus required />
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
-    <button type="submit" class="btn btn-primary">Sign up</button>
-    <div id="msg"></div>
-    <p class="auth-foot">Already have an account? <a href="/login">Sign in</a></p>
-  </form>
+  <div class="auth-shell">
+    <aside class="auth-hero">
+      <div class="auth-brand">
+        <span class="logo">▌</span>
+        <span>MARKET TERMINAL</span>
+      </div>
+      <h2 class="auth-tag">Multi-asset <b>research &amp; analytics</b>, one dense terminal.</h2>
+      <p class="auth-blurb">Macro, positioning, fundamentals, volatility regime and a 24h
+        news pulse — the research brain behind your execution agent.</p>
+      <ul class="auth-feat">
+        <li>Macro · rates · dollar &amp; FX</li>
+        <li>COT positioning · term structure</li>
+        <li>Fundamentals · smart money · filings</li>
+        <li>Volatility regime · News Pulse</li>
+      </ul>
+      <span class="tag">research only — not a trade signal · no broker keys</span>
+    </aside>
+
+    <form class="auth-card auth-pane" id="form">
+      <h1>Create account</h1>
+      <p class="sub">Research &amp; analytics · read-only.</p>
+      <!--CLOSED-->
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" minlength="3" autofocus required />
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
+      <button type="submit" class="btn btn-primary">Sign up</button>
+      <div id="msg"></div>
+      <p class="auth-foot">Already have an account? <a href="/login">Sign in</a></p>
+    </form>
+  </div>
   <script>
     document.getElementById("form").addEventListener("submit", async (e) => {
       e.preventDefault();
