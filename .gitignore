@@ -34,3 +34,11 @@ cache/data/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Vendored UI/UX Pro Max skill — only ui-ux-pro-max + ui-styling tracked; the
+# rest (design/design-system/brand/banner-design/slides) are local-only.
+.claude/skills/banner-design/
+.claude/skills/brand/
+.claude/skills/design/
+.claude/skills/design-system/
+.claude/skills/slides/
