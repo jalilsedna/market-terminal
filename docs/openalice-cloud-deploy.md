@@ -44,9 +44,10 @@ guest can't override. Verify AVX2 *before* committing to any host:
 
 Chosen path after budget VPS providers masked the CPU. Railway runs on GCP, which
 exposes AVX2 (confirmed: market-terminal `/health` reports `"cpu_avx2": true`), so
-the agent runtime runs. Trade-off: OpenAlice ships as Docker **Compose**
-(multi-service) and Railway deploys services individually, so you map each compose
-service to a Railway service on a private network.
+the agent runtime runs. OpenAlice's `docker-compose.yml` is actually a **single
+container** (the app), so it's **one Railway service** — plus a second service for
+the headless IB Gateway. The recipe below is the **validated, confirmed-working**
+sequence (June 2026), including the non-obvious gotchas.
 
 ### Boundary (non-negotiable)
 
@@ -63,9 +64,11 @@ Research ↔ execution stay separate apps even on the same platform.
    (admin-token login).
 2. **`ib-gateway`** — the headless **[`ib-gateway-docker`](https://github.com/gnzsnz/ib-gateway-docker)**
    image (IBC auto-login + Xvfb, no GUI). `TRADING_MODE=paper`, IBKR paper creds via
-   env. Exposes `:4002` on Railway's **private** network only — the `openalice`
-   service reaches it at `ib-gateway.railway.internal:4002`. Your `$1M` paper
-   account re-connects here and gets a **new UTA id** (update prompts/persona).
+   env. **Private network only** (the IB API socket has no auth). Because Railway's
+   private network is IPv6 and the image's socat is IPv4-only, you add an IPv6
+   listener (see recipe step 11) and the `openalice` service reaches it at
+   `ib-gateway.railway.internal:4006`. The paper account re-connects here and gets a
+   **new UTA id** (update prompts/persona).
 3. *(optional)* a reverse-proxy service if you want a custom domain; Railway's
    per-service HTTPS domain is usually enough.
 
@@ -109,9 +112,71 @@ Workspace `.mcp.json` entry (points at the research terminal):
 - [ ] A cron job fires with your laptop off → inbox entry
 - [ ] Redeploy the `openalice` service → `data/` (accounts/workspaces) survives (Volume)
 
+### Validated build recipe + gotchas (confirmed working, June 2026)
+
+The exact sequence that worked, with the traps that cost time:
+
+1. **AVX2 first.** Verify any host before building (`grep -o avx2 /proc/cpuinfo`).
+   Railway/GCP passes; two budget VPS ("Common KVM processor") masked it and were
+   dead ends. market-terminal `/health` now reports `cpu_avx2`.
+
+2. **Fork the repo** to your GitHub (Railway builds from a repo you own).
+
+3. **Drop the Dockerfile `VOLUME` instruction.** Railway rejects builds with
+   `VOLUME` (`dockerfile invalid: docker VOLUME ... is not supported, use Railway
+   Volumes`). Comment out the `VOLUME /data` line in your fork's Dockerfile, commit.
+   Persistence comes from a Railway Volume instead.
+
+4. **One service, root Dockerfile.** If Railway auto-splits the monorepo into
+   multiple services (`desktop`/`ui`/`uta-service`), delete them and create **one**
+   service with **Root Directory `/`** + **Builder = Dockerfile**.
+
+5. **Volume + `OPENALICE_HOME`.** Attach a Railway Volume at **`/data`** and set
+   `OPENALICE_HOME=/data`. Note OpenAlice then stores state under **`/data/data/`**
+   (config, `workspaces/`, `home/.claude*`) — double `data` is expected.
+
+6. **Variables** on the app service: `OPENALICE_BIND_HOST=0.0.0.0`,
+   `OPENALICE_HOME=/data`, `CLAUDE_CODE_OAUTH_TOKEN=<claude setup-token>`, and after
+   you generate the domain: `OPENALICE_CSRF_TRUSTED_ORIGINS=https://<domain>`,
+   `WEB_TERMINAL_ALLOWED_ORIGINS=https://<domain>`, `OPENALICE_TRUSTED_PROXIES=0.0.0.0/0`.
+
+7. **Expose the Web UI on port `47331`** (Settings → Networking → Generate Domain →
+   target port 47331). MCP `47332` stays private.
+
+8. **Admin token** prints once on first boot to the deploy logs. If missed, the
+   hash lives at `/data/data/config/auth.json` (not the plaintext) — regenerate by
+   `rm /data/data/config/auth.json` + restart, then grab the new token from logs.
+   Auth gate is real (verify in an incognito window — it should demand the token).
+
+9. **MCP wiring + durability.** Add market-terminal to the agent. Per-workspace
+   `.mcp.json` lives at `/data/workspaces/workspaces/<uuid>/.mcp.json`, but the
+   template is **baked into the image** (new chats regenerate without it). The
+   durable fix: add market-terminal to the **user-scoped** `/data/home/.claude.json`
+   `mcpServers` (read by every session, survives redeploys), **and** set
+   `enableAllProjectMcpServers: true` in `/data/home/.claude/settings.json` (else
+   Claude Code silently skips unapproved project `.mcp.json` servers).
+
+10. **IB Gateway service** (`ghcr.io/gnzsnz/ib-gateway:stable`): env `TWS_USERID`,
+    `TWS_PASSWORD`, `TRADING_MODE=paper`, `READ_ONLY_API=no`. **Do not** expose it
+    publicly (the IB API socket has no auth).
+
+11. **IPv6 gotcha (the big one).** Railway's private network is **IPv6**, but the
+    image's socat binds IPv4 (`0.0.0.0:4004`) → OpenAlice can't reach it. Fix with a
+    Railway **Custom Start Command** that adds an IPv6 listener, then connect
+    OpenAlice's IBKR UTA to that port:
+    ```
+    sh -c "socat TCP6-LISTEN:4006,fork,reuseaddr TCP4:127.0.0.1:4004 & exec /home/ibgateway/scripts/run.sh"
+    ```
+    IBKR host = `ib-gateway.railway.internal`, **port `4006`**, Client ID `1`.
+
+12. **One IBKR session per login.** If your **local** Gateway/TWS is still logged in
+    with the same credentials, the cloud Gateway connect/disconnect-flaps as they
+    fight for the single allowed session. Keep the local Gateway **off**; cloud is
+    the live one. Enable IBC auto-restart so it re-auths through IBKR's daily reset.
+
 ### Cost note
 
-Three always-on services (app + gateway + the agent's work) is real usage — budget
+Two always-on services (app + gateway) plus the agent's work is real usage — budget
 for Railway's metered/Pro tier, not hobby. Still typically cheaper than a Windows
 VPS with licensing, and with **zero** CPU-masking risk.
 
