@@ -121,7 +121,19 @@ def health() -> dict:
         "movers_configured": settings.movers_enabled,
         "precache_interval_min": settings.precache_interval_min,
         "alice_url": settings.alice_url,
+        "cpu_avx2": _cpu_has_avx2(),
     }
+
+
+def _cpu_has_avx2() -> bool | None:
+    """Whether this host's CPU exposes AVX2 (diagnostic for hosting the agent —
+    the `claude` runtime needs it; masked vCPUs hide it). None if undetectable."""
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8") as fh:
+            return "avx2" in fh.read()
+    except OSError:
+        return None
+
 
 
 # Routers (one per view) are registered here as they ship — see SPEC.md §4/§5.
