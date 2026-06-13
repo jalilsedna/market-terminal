@@ -24,6 +24,99 @@ market-terminal (Railway) — research only, no broker keys
 
 ---
 
+## Host options (pick one)
+
+The CPU is the only hard gate: the `claude` agent runtime needs **AVX2**, or it
+crashes `illegal instruction`. Two budget VPS attempts failed because the provider
+**masked the CPU** (`lscpu` → "Common KVM processor", no AVX flags) — a config the
+guest can't override. Verify AVX2 *before* committing to any host:
+`grep -o avx2 /proc/cpuinfo | head -1` (Linux) — must print `avx2`.
+
+| Option | AVX2 | Effort | Notes |
+|--------|------|--------|-------|
+| **Railway (managed)** | ✅ guaranteed (GCP hosts; verified via `/health` `cpu_avx2:true`) | medium | No CPU lottery; multi-service mapping is the work. **See below.** |
+| **Linux VPS + Docker** | ⚠️ verify first | low | Cheapest/cleanest *if* the provider exposes AVX2 (Hetzner/DO/Vultr). Official OpenAlice path. |
+| **Windows Server + WSL2** | ⚠️ verify first | high | See "Windows Server + WSL2" section; needs nested virt **and** AVX2. |
+
+---
+
+## Railway deploy (managed host — AVX2 guaranteed)
+
+Chosen path after budget VPS providers masked the CPU. Railway runs on GCP, which
+exposes AVX2 (confirmed: market-terminal `/health` reports `"cpu_avx2": true`), so
+the agent runtime runs. Trade-off: OpenAlice ships as Docker **Compose**
+(multi-service) and Railway deploys services individually, so you map each compose
+service to a Railway service on a private network.
+
+### Boundary (non-negotiable)
+
+Deploy OpenAlice as a **separate Railway project** from market-terminal. Broker
+(paper) keys live **only** in the OpenAlice project's variables — **never** in
+market-terminal (CLAUDE.md hard rule: no trade-capable keys in the research app).
+Research ↔ execution stay separate apps even on the same platform.
+
+### Services (map from OpenAlice's `docker-compose.yml`)
+
+1. **`openalice` (app)** — build from the OpenAlice repo (Dockerfile). Attach a
+   **Railway Volume** at OpenAlice's `data/` path so `accounts.json`, `persona.md`,
+   workspaces, and the inbox survive redeploys. Public domain for the Web UI
+   (admin-token login).
+2. **`ib-gateway`** — the headless **[`ib-gateway-docker`](https://github.com/gnzsnz/ib-gateway-docker)**
+   image (IBC auto-login + Xvfb, no GUI). `TRADING_MODE=paper`, IBKR paper creds via
+   env. Exposes `:4002` on Railway's **private** network only — the `openalice`
+   service reaches it at `ib-gateway.railway.internal:4002`. Your `$1M` paper
+   account re-connects here and gets a **new UTA id** (update prompts/persona).
+3. *(optional)* a reverse-proxy service if you want a custom domain; Railway's
+   per-service HTTPS domain is usually enough.
+
+### Agent auth (no per-token bill)
+
+The `claude` CLI authenticates with your **Claude subscription**, not a paid API
+key. On a headless container: run `claude setup-token` once locally, then set the
+resulting token as an env var on the `openalice` service (per Claude Code's
+headless auth) so the agent runs without a browser. The pay-per-token
+`ANTHROPIC_API_KEY` is **only** for market-terminal's optional News Pulse analyst —
+not required for the agent.
+
+### Variables (on the `openalice` project, not market-terminal)
+
+| Var | Purpose |
+|-----|---------|
+| `CLAUDE_CODE_OAUTH_TOKEN` (or equivalent) | headless `claude` auth via your subscription |
+| Alpaca **paper** key + secret | `alpaca` UTA |
+| IBKR paper user/pass, `TRADING_MODE=paper` | `ib-gateway` (IBC) |
+| market-terminal MCP URL + `AUTH_TOKEN` | workspace `.mcp.json` → research |
+| OpenAlice admin token / session secret | Web UI login |
+
+Workspace `.mcp.json` entry (points at the research terminal):
+
+```json
+{
+  "market-terminal": {
+    "type": "streamable-http",
+    "url": "https://<railway-app>.up.railway.app/mcp/",
+    "headers": { "Authorization": "Bearer <AUTH_TOKEN>" }
+  }
+}
+```
+
+### Smoke tests (Railway)
+
+- [ ] OpenAlice Web UI loads over its Railway HTTPS domain; admin-token login works
+- [ ] `openalice` logs show `connected` for both Alpaca and `IbkrBroker[ibkr-…]`
+- [ ] Workspace MCP: `analysis_regime`, `decision_brief("forex:EURUSD")`
+- [ ] `getPortfolio source: ibkr-…` (private-network reach to `ib-gateway`) + `source: alpaca-…`
+- [ ] A cron job fires with your laptop off → inbox entry
+- [ ] Redeploy the `openalice` service → `data/` (accounts/workspaces) survives (Volume)
+
+### Cost note
+
+Three always-on services (app + gateway + the agent's work) is real usage — budget
+for Railway's metered/Pro tier, not hobby. Still typically cheaper than a Windows
+VPS with licensing, and with **zero** CPU-masking risk.
+
+---
+
 ## Prerequisites
 
 - VPS or always-on Linux host (US region fine for Alpaca paper)

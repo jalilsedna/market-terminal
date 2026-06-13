@@ -97,10 +97,18 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       `illegal instruction` without it. This is a CPU feature, **not** an OS one;
       a Windows host on a non-AVX2 CPU fails identically. The first parked attempt
       died on an AVX-less budget VPS. Verify (`grep avx2 /proc/cpuinfo`) before
-      committing to any instance. **Chosen host:** Windows Server 2022/2025 + WSL2
-      (full always-on agent — OpenAlice + `claude` + IB Gateway), documented in
-      `docs/openalice-cloud-deploy.md` ("Windows Server + WSL2"); Docker/Linux
-      remains the lighter alternative in the same doc.
+      committing to any instance. **Chosen host: Railway (managed).** Two budget
+      VPS (one Windows Server 2025 / Xeon Gold 6152, one Linux) both **masked the
+      CPU** (`lscpu` → "Common KVM processor", no AVX flags) — a hypervisor config
+      the guest can't override, so WSL2/WSL1/native all dead-end there. Railway runs
+      on GCP and exposes AVX2 (**verified**: market-terminal `/health` →
+      `"cpu_avx2": true`), so the agent runtime runs. Deploy OpenAlice as a
+      **separate Railway project** (broker keys never in the research app), mapping
+      its docker-compose services to Railway services + a headless `ib-gateway-docker`
+      service on the private network; `claude` auths via the Claude **subscription**
+      (setup-token), not a paid API key. Documented in
+      `docs/openalice-cloud-deploy.md` ("Railway deploy"); Linux-VPS + Docker (verify
+      AVX2 first) and Windows + WSL2 remain alternatives in the same doc.
 - [~] **A10 — Multi-broker execution (forex + metals).** Alpaca paper covers US
       equities + limited crypto only — not spot FX or COMEX metals. **Operator doc
       shipped:** `docs/openalice-multi-broker.md` — OpenAlice broker catalog
