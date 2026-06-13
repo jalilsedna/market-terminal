@@ -5,7 +5,7 @@ trades, **scan** for new ideas, and **reconcile** at end of day. They encode the
 hard-won rules from [`openalice-daily-runbook.md`](openalice-daily-runbook.md) and
 [`openalice-multi-broker.md`](openalice-multi-broker.md):
 
-- **Source ids** — equities `alpaca-1c173aa4`, forex/metals `ibkr-tws-b3ca59a7`.
+- **Source ids** — equities `alpaca-61b238e3`, forex/metals `ibkr-tws-aa6a879b`.
   Route every order by asset; always pass `source` (multi-UTA `getPortfolio`
   without it returns the wrong account / "temporarily unavailable").
 - **GTC protective legs** — every held position's stop **and** take-profit must be
@@ -35,8 +35,8 @@ server is your research brain — it does not place orders, you do. This is a
 monitoring + reporting pass only: do NOT open, close, or modify anything.
 
 1. Pull open positions + working orders from BOTH books, passing source:
-   - getPortfolio + getAccount source: alpaca-1c173aa4    (US equities)
-   - getPortfolio + getAccount source: ibkr-tws-b3ca59a7  (forex + metals)
+   - getPortfolio + getAccount source: alpaca-61b238e3    (US equities)
+   - getPortfolio + getAccount source: ibkr-tws-aa6a879b  (forex + metals)
    For each: symbol, side, qty, avg entry, current price, unrealized P/L, %equity.
 
 2. Refresh the thesis for each position from the terminal:
@@ -106,7 +106,7 @@ Pipeline:
 
 5. Rank survivors by conviction × trigger cleanliness. For each, a TRADE CARD:
    • research symbol + IBKR/Alpaca contract (from `execution`) + source to route
-     (equity → alpaca-1c173aa4, forex/metals → ibkr-tws-b3ca59a7)
+     (equity → alpaca-61b238e3, forex/metals → ibkr-tws-aa6a879b)
    • direction, entry, STOP (≥1.5× daily σ), take-profit
    • size as %equity (≤1% account risk; respect the conflict sizing rule)
    • conflict class + conviction
@@ -128,7 +128,7 @@ Role: END-OF-DAY RECONCILE on the Alpaca + IBKR PAPER accounts. market-terminal 
 the research brain. Review + journaling only — do NOT open, close, or modify any
 position. Be honest; surface mistakes, don't rationalize them.
 
-1. Pull today's activity from BOTH sources (alpaca-1c173aa4, ibkr-tws-b3ca59a7):
+1. Pull today's activity from BOTH sources (alpaca-61b238e3, ibkr-tws-aa6a879b):
    all fills (entries + exits), open positions, realized + unrealized P/L.
 
 2. For EACH trade opened/closed today, reconstruct decision vs. outcome:

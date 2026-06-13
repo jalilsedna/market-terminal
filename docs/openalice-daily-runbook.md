@@ -12,7 +12,7 @@ Stack recap:
 | **IB Gateway** (forex/metals) | WSL · WSLg GUI | **Yes, every boot + login** |
 | **Alpaca / OKX UTAs** | OpenAlice config | Auto on `pnpm dev` |
 
-`source` ids: `alpaca-1c173aa4` (equities) · `ibkr-tws-b3ca59a7` (forex/metals).
+`source` ids: `alpaca-61b238e3` (equities) · `ibkr-tws-aa6a879b` (forex/metals).
 
 ---
 
@@ -35,14 +35,14 @@ Want **OPEN**. If CLOSED → Gateway isn't logged in yet (finish step 1).
 ```bash
 cd ~/OpenAlice && pnpm dev
 ```
-Watch for: `AlpacaBroker[alpaca-1c173aa4]: connected`, `IbkrBroker[ibkr-tws-…]: connected`, UI on `:5173`.
+Watch for: `AlpacaBroker[alpaca-61b238e3]: connected`, `IbkrBroker[ibkr-tws-…]: connected`, UI on `:5173`.
 
 ### 4. Open the UI + verify
 - Browser → **http://localhost:5173**, log in (admin token).
 - **Trading** page → Alpaca + IBKR both **healthy**.
 - Quick feed check in a workspace (no orders):
   ```
-  List trading accounts. analysis_regime. getPortfolio source alpaca-1c173aa4. No orders.
+  List trading accounts. analysis_regime. getPortfolio source alpaca-61b238e3. No orders.
   ```
 
 If all green, the stack is live.
@@ -55,7 +55,7 @@ If all green, the stack is live.
 2. **Discovery** — `daily_hitlist`, `brain_screen`, `market_screen` (crypto/forex), `forex_brain_screen`.
 3. **Deep dive** — `decision_brief` on top names (sequential, ~2s pause). Read `conflict` + `caution`; drop `fundamental_conflict`/high-caution.
 4. **Trade cards** — entry / stop (≥1.5× daily σ) / TP / size (≤1% risk). Route by asset:
-   equity → `alpaca-1c173aa4`, forex/metals → `ibkr-tws-b3ca59a7`.
+   equity → `alpaca-61b238e3`, forex/metals → `ibkr-tws-aa6a879b`.
 5. **Approve** — nothing executes without your explicit `APPROVE`.
 6. **Execute with a bracket** — entry + stop + TP. **Every protective leg `TIF=GTC`, never DAY** (DAY legs die at the close → naked overnight; see `openalice-multi-broker.md`).
 7. **Verify on the venue** — after fill, confirm the stop *and* TP are live with GTC (don't trust `getOrders` alone — it may show only the parent leg).

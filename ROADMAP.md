@@ -69,8 +69,20 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       (auth on, anon→401, Bearer→200, MCP handshake). Research-only — OpenAlice /
       broker keys never deployed. (Optional: point `DB_PATH` / `CUSTOM…` at a
       Railway volume for watchlist persistence — see C2.)
-- [ ] **A9 — Cloud-hosted OpenAlice (24/7 execution, browser from anywhere).**
-      **Ultimate ops goal:** research stays on Railway (A8); **execution +
+- [x] **A9 — Cloud-hosted OpenAlice (24/7 execution, browser from anywhere). ✅ DONE (2026-06-13).**
+      OpenAlice runs **24/7 on its own Railway project** (separate from the
+      research app — no broker keys cross over): the OpenAlice app service +
+      a headless `ib-gateway-docker` service on the private network, state on a
+      Railway Volume at `/data`. `claude` auths via the Claude **subscription**
+      (`CLAUDE_CODE_OAUTH_TOKEN`), pulls research from market-terminal over MCP,
+      and runs a **cron "Position monitor" (every 2h → Inbox)** — proven producing
+      real, conflict-gated analysis with the dev PC off. Live UTAs:
+      `alpaca-61b238e3` + `ibkr-tws-aa6a879b` (paper). Execution stays human-gated
+      (`placeOrder` not in the headless allow-list). Validated recipe + gotchas in
+      `docs/openalice-cloud-deploy.md`; live-state in `docs/handoff.md`. **Open
+      follow-ups:** add `AUTO_RESTART_TIME` to the ib-gateway service (IBKR daily
+      logout); rotate `AUTH_TOKEN` before any go-live.
+      **Ultimate ops goal (met):** research stays on Railway (A8); **execution +
       monitoring + inbox** run on an always-on host so the loop survives when the
       dev PC is off. OpenAlice ships an official **Docker Compose** server path
       (see upstream `README` → "Run on a server"); market-terminal documents the
@@ -118,15 +130,22 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       ibkr, alpaca, ccxt, longbridge, leverup, mock; wizard presets incl. OKX, Bybit,
       Bitget, Hyperliquid, Longbridge, LeverUp, ccxt-custom). **Recommended path:**
       `ibkr-tws` preset for forex + metals; keep `alpaca` optional for US stocks.
-      **IBKR paper CONNECTED** (`ibkr-tws-b3ca59a7`, $1M demo, healthy) via the
-      **Linux Gateway running inside WSL over WSLg** — the validated fix after the
-      Windows-Gateway path proved fragile (WSL Hyper-V firewall silently drops
-      WSL→Windows even with a Defender allow rule; `networkingMode=mirrored` breaks
-      browser→UI forwarding). Doc updated with the in-WSL Gateway method + reboot
-      routine. **Still open:** route FX/metal orders to `ibkr-…` in persona/workflow
-      prompts; first live IBKR paper trade (forex market opens Sun ~22:00 UTC);
-      A9 VPS layout with co-located Gateway; optional `decision_brief` forex
-      auto-register (like equities).
+      **IBKR paper CONNECTED** (`ibkr-tws-aa6a879b`, $1M demo, healthy). It now
+      runs as the **headless `ib-gateway-docker` service on the Railway deploy**
+      (A9), reached over the private network (IPv6 socat on `:4006`). *(First
+      validated locally via the Linux Gateway inside WSL over WSLg — that path is
+      documented as the desktop fallback in `docs/openalice-multi-broker.md`, after
+      the Windows-Gateway route proved fragile: the WSL Hyper-V firewall silently
+      drops WSL→Windows even with a Defender allow rule, and `networkingMode=mirrored`
+      breaks browser→UI forwarding.)* **Code shipped:** `obb_layer/ibkr_symbols.py`
+      (research↔IBKR contract map — `EURUSD`→`EUR.USD` CASH, `XAUUSD`→`XAU.USD` CMDTY,
+      `GC=F`→`GC` COMEX, futures-FX roots → IDEALPRO pairs), surfaced as an
+      `execution` block on `decision_brief` + an IBKR-contract pill in the web view;
+      `ensure_default_book()` + `POST /instruments/ensure-book` (add-only forex/metals
+      seeding); CI-tested (`tests/test_ibkr_symbols.py`). Operator prompts in
+      `docs/openalice-prompts.md` route FX/metal → `ibkr-…`, equities → `alpaca-…`.
+      **Still open:** first live IBKR paper trade (forex market opens Sun ~22:00 UTC);
+      optional `decision_brief` forex auto-register (like equities).
 
 ## B. Data / provider gaps (documented, still open)
 - [x] **B1 — Economic calendar.** `obb_layer.economic_calendar` already requests
@@ -432,16 +451,19 @@ output, last. Consumed via REST (`obb_layer/fmp.py`), not FMP's MCP. See
 
 ---
 
-**Status (current):** **31 MCP tools** (`mcp_server.py`). Deployed + authenticated
-on Railway (A8); research→reason→paper-execute loop proven locally (A1–A5c) with
-`decision_brief` as the Alice centerpiece (H10). Shipped: analysis (C3), vol
+**Status (current):** Deployed + authenticated on Railway (A8). The
+research→reason→paper-execute loop now runs **24/7 on a cloud-hosted OpenAlice**
+(A9 ✅, separate Railway project) with `decision_brief` as the Alice centerpiece
+(H10) and a 2-hourly position-monitor cron. Live paper UTAs: `alpaca-61b238e3`
+(equities) + `ibkr-tws-aa6a879b` (forex/metals). Shipped: analysis (C3), vol
 pillar (E1–E5), Focus (C4), unified **Registry** (multi-asset), FMP brain +
-signals (H0–H13), crypto/FX setup & brain (H11–H12), B6 FMP-only, B7 regime/news
-enrichments, persistence (C2), tests + CI (C1).
+signals (H0–H14), crypto/FX setup & brain (H11–H12), B6 FMP-only, B7 regime/news
+enrichments, IBKR contract map + `execution` block (A10), persistence (C2),
+tests + CI (C1).
 
-**Still open:** **A9** (cloud-hosted OpenAlice — `docs/openalice-cloud-deploy.md`) ·
-**A10** (IBKR forex/metals UTA wired on your host — doc in
-`docs/openalice-multi-broker.md`) · **B3** (commodity curves — VIX-only) ·
-**H3** remainder (ETF holdings, 13F, ESG) · **G4** provider depth · **A6**
-(Claude `/doctor` MCP warning) · **A5c parked:** inbox prompt vs proposal ·
-**C6** brief-threading · login/register token pass (G2 follow-up).
+**Still open:** **A10** tail — first live IBKR paper FX trade (forex opens
+Sun ~22:00 UTC); ib-gateway `AUTO_RESTART_TIME`; `AUTH_TOKEN` rotation before
+go-live · **B3** (commodity curves — VIX-only) · **H3** remainder (ETF holdings,
+13F, ESG) · **G4** provider depth · **A6** (Claude `/doctor` MCP warning) ·
+**A5c parked:** inbox prompt vs proposal · **C6** brief-threading ·
+login/register token pass (G2 follow-up).

@@ -389,7 +389,7 @@ workspaces, and the workspace `.mcp.json` (Railway MCP Bearer) onto the box; the
 - [ ] RDP **logged off** → reboot → confirm OpenAlice UI answers (Task Scheduler + pm2 worked)
 - [ ] Web UI login from a phone over HTTPS
 - [ ] Workspace MCP: `analysis_regime`, `decision_brief("forex:EURUSD")`
-- [ ] `getPortfolio source: ibkr-tws-…` and `source: alpaca-1c173aa4`
+- [ ] `getPortfolio source: ibkr-tws-…` and `source: alpaca-61b238e3`
 - [ ] One cron job fires with your laptop off → inbox entry
 - [ ] Gateway reconnects after a reboot (IBC) or after RDP login (WSLg)
 
