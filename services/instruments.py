@@ -3,7 +3,8 @@
 All forex, futures, crypto, equity, and ETF symbols the user adds live here
 (SQLite). Views iterate this list instead of a hardcoded futures map. Optional
 metadata (COT code, TradingView symbol, news proxy) enriches capability-aware
-panels. Starts empty — no bootstrap seeds.
+panels. On first boot (empty registry) it seeds a reference set — CME futures +
+spot forex/metals (the IBKR execution book) — see `seed_defaults`.
 """
 
 from __future__ import annotations
@@ -21,6 +22,23 @@ ASSET_CLASSES = custom_store.VALID_ASSETS
 # of them; the seed only runs when the registry is completely empty, so a
 # deliberate "remove all" survives a restart only until the registry empties.
 DEFAULT_SEED = ("6E", "6B", "GC", "NQ", "YM")
+
+# Spot forex + metals seeded alongside the reference futures (ROADMAP A10 —
+# OpenAlice executes this book on the IBKR UTA: IDEALPRO majors + spot metals).
+# These are SPOT symbols (EURUSD, XAUUSD), distinct from the CME futures above
+# (6E, GC); the forex brain / market_setup / decision_brief read them directly.
+# Metals route as `forex` (no `metal` asset class) — IBKR trades them on IDEALPRO
+# too, and the terminal's price/vol/momentum + USD backdrop apply cleanly.
+DEFAULT_FOREX_SEED: tuple[tuple[str, str], ...] = (
+    ("EURUSD", "Euro / US Dollar"),
+    ("GBPUSD", "British Pound / US Dollar"),
+    ("USDJPY", "US Dollar / Japanese Yen"),
+    ("USDCHF", "US Dollar / Swiss Franc"),
+    ("AUDUSD", "Australian Dollar / US Dollar"),
+    ("USDCAD", "US Dollar / Canadian Dollar"),
+    ("XAUUSD", "Gold (spot) / US Dollar"),
+    ("XAGUSD", "Silver (spot) / US Dollar"),
+)
 
 # Per-asset capabilities (panels degrade when data unavailable).
 _BASE_CAPS: dict[str, set[str]] = {
@@ -148,7 +166,8 @@ def remove(item_id: str) -> bool:
 
 
 def seed_defaults() -> int:
-    """Seed the reference futures iff the registry is empty. Returns count added.
+    """Seed the reference futures + spot forex/metals iff the registry is empty.
+    Returns count added.
 
     Idempotent and safe to call on every startup: it no-ops the moment there is
     at least one tracked instrument, so user-added/removed state is preserved.
@@ -161,6 +180,9 @@ def seed_defaults() -> int:
         if not tmpl:
             continue
         add("futures", tmpl.futures_symbol, tmpl.name)
+        added += 1
+    for symbol, label in DEFAULT_FOREX_SEED:
+        add("forex", symbol, label)
         added += 1
     return added
 

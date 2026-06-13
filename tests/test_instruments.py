@@ -79,9 +79,12 @@ def test_equity_no_cot(reg):
 
 def test_seed_defaults_on_empty_then_noop(reg):
     n = reg.seed_defaults()
-    assert n == len(reg.DEFAULT_SEED)
+    assert n == len(reg.DEFAULT_SEED) + len(reg.DEFAULT_FOREX_SEED)
     codes = {i.code for i in reg.list_all()}
     assert {"6E", "6B", "GC", "NQ", "YM"} <= codes
+    # Spot forex + metals (the IBKR book) are seeded as `forex` instruments.
+    forex_syms = {i.symbol for i in reg.list_all() if i.asset == "forex"}
+    assert {"EURUSD", "USDJPY", "XAUUSD", "XAGUSD"} <= forex_syms
     # Idempotent: a second call seeds nothing because the registry is non-empty.
     assert reg.seed_defaults() == 0
 
