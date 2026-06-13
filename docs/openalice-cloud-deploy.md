@@ -105,6 +105,146 @@ IBKR forex/metals — see `docs/openalice-workflow.md`, `docs/openalice-multi-br
 
 ---
 
+## Windows Server + WSL2 (full always-on agent) — chosen host
+
+The Docker/Linux path above is the lightest. This section is the **Windows Server**
+variant for a **full always-on agent** (OpenAlice + the `claude` CLI + IB Gateway
+all running 24/7, so Alice can scan *and* enter around the clock). Chosen for RDP
+comfort + native IB Gateway GUI. It's heavier and has two Windows-specific traps
+(headless WSL keep-alive, WSLg on Server SKUs) — both solved below.
+
+> **⚠️ CPU requirement is unchanged: the host MUST have AVX2.** Our earlier VPS
+> failed because its CPU lacked AVX — the `claude` CLI runtime (Node/Bun + native
+> binaries) crashes with `illegal instruction` without it. **Windows does not fix
+> this** — AVX2 is a processor feature, not an OS feature. A Windows VM on a
+> non-AVX2 host fails identically. **Verify before paying for a year.**
+
+### 0. Pick + verify the VM
+
+- 4 vCPU / 16 GB RAM minimum (Windows + WSL2 + Gateway + OpenAlice + `claude` is
+  hungry); 50 GB+ disk. US region is fine for Alpaca/IBKR paper.
+- **Windows Server 2022 or 2025** with the **Desktop Experience** (you need a
+  desktop session for RDP + WSLg). Server 2025 has the smoothest WSLg.
+- Providers with modern (AVX2) CPUs + Windows images: **Azure** (often cheapest
+  Windows licensing), **AWS EC2 Windows**, **GCP**, **Vultr**. Avoid bargain
+  "legacy"/OpenVZ tiers — that's where non-AVX2 CPUs hide.
+- **Verify AVX2 the moment you can RDP in**, before configuring anything:
+  - PowerShell (Sysinternals): `coreinfo64.exe -f | findstr AVX2` → want a `*`.
+  - or after WSL is installed: `grep -o avx2 /proc/cpuinfo | head -1` → `avx2`.
+  - No AVX2 → **stop, rebuild on a different instance type.** Do not proceed.
+
+### 1. Enable WSL2 + Ubuntu (PowerShell as admin)
+
+```powershell
+wsl --install -d Ubuntu        # installs WSL2 + Ubuntu; reboot if prompted
+wsl --update                    # ensures the latest WSL (WSLg / systemd support)
+wsl --set-default-version 2
+```
+
+Create the Ubuntu user when it launches. Cap WSL memory in `C:\Users\<you>\.wslconfig`:
+
+```ini
+[wsl2]
+memory=12GB
+processors=4
+# Leave networking default (NAT). Do NOT use networkingMode=mirrored — it breaks
+# the browser→UI localhost forwarding (see openalice-multi-broker.md).
+```
+
+### 2. Build OpenAlice + the agent inside WSL
+
+Follow [`openalice-wsl-setup.md`](openalice-wsl-setup.md) verbatim — it's the same
+Ubuntu inside WSL, just on a server. In short:
+
+```bash
+sudo apt update && sudo apt install -y build-essential make gcc git curl  # node-pty needs a compiler
+# Node 20 + pnpm (per wsl-setup doc), then:
+git clone https://github.com/TraderAlice/OpenAlice.git ~/OpenAlice
+cd ~/OpenAlice && pnpm install
+claude            # log the agent runtime in ONCE (interactive, over RDP) — verifies AVX2 works
+```
+
+If `claude` throws `Illegal instruction (core dumped)` → the CPU lacks AVX2 (step 0). Rebuild the VM.
+
+### 3. Make WSL services survive reboots — **enable systemd**
+
+`/etc/wsl.conf` inside Ubuntu:
+
+```ini
+[boot]
+systemd=true
+```
+
+Then `wsl --shutdown` (PowerShell) and relaunch Ubuntu. Run OpenAlice as a service
+(pm2 or a systemd unit) so it starts with the distro:
+
+```bash
+# simplest: pm2 keeps OpenAlice + restarts on crash
+sudo npm i -g pm2
+cd ~/OpenAlice && pm2 start "pnpm dev" --name openalice && pm2 save
+pm2 startup systemd   # follow the printed command so pm2 resurrects on boot
+```
+
+### 4. The Windows trap — keep WSL running with **no user logged in**
+
+A WSL2 distro shuts down when its last process exits / no console holds it open,
+so after an RDP logoff your "always-on" agent dies. Fix: a **Task Scheduler** task
+that boots the distro headlessly at machine start.
+
+- Task Scheduler → Create Task → **Run whether user is logged on or not**,
+  **Run with highest privileges**, Trigger: **At startup**.
+- Action: `Program: wsl.exe`  ·  `Arguments: -d Ubuntu -u root -e sh -c "tail -f /dev/null"`
+  (a tiny keep-alive that holds the distro up; systemd + pm2 then run OpenAlice).
+
+Now OpenAlice + Gateway run after a reboot even before anyone RDPs in.
+
+### 5. IB Gateway 24/7 (forex/metals)
+
+Two options — pick one:
+
+- **GUI in WSLg (familiar):** run the Linux Gateway inside WSL exactly as in
+  [`openalice-multi-broker.md`](openalice-multi-broker.md) (`~/Jts/ibgateway/*/ibgateway &`,
+  port 4002 paper, localhost). Needs an active desktop session (RDP) for WSLg to
+  render — fine if you RDP daily, fragile for true headless.
+- **Headless auto-login (recommended for a server):** drive Gateway with **IBC
+  (IBController)** so it logs in and auto-restarts without GUI clicks, as a systemd
+  service in WSL. Survives reboots and IB's daily server reset. Still `127.0.0.1:4002`.
+
+Either way: API on, Read-Only **off**, Trusted IP `127.0.0.1`. Confirm:
+`timeout 2 bash -c "</dev/tcp/127.0.0.1/4002" && echo OPEN`.
+
+### 6. HTTPS browser access from anywhere
+
+- Run **Caddy inside WSL** (auto-TLS) reverse-proxying `https://alice.<domain>` →
+  OpenAlice web port `47331`. Point DNS at the VM's public IP; open 80/443 in the
+  cloud firewall + Windows Defender.
+- **Do not** expose MCP `47332` — keep it localhost/container only.
+- If you proxy from the Windows side instead, bridge to WSL with
+  `netsh interface portproxy add v4tov4 ...` (NAT mode). Prefer Caddy-in-WSL to
+  avoid the port-proxy dance.
+
+### 7. Migrate state + smoke test
+
+Same as the Docker checklist above (§3/§4): copy `accounts.json`, `persona.md`,
+workspaces, and the workspace `.mcp.json` (Railway MCP Bearer) onto the box; then:
+
+- [ ] RDP **logged off** → reboot → confirm OpenAlice UI answers (Task Scheduler + pm2 worked)
+- [ ] Web UI login from a phone over HTTPS
+- [ ] Workspace MCP: `analysis_regime`, `decision_brief("forex:EURUSD")`
+- [ ] `getPortfolio source: ibkr-tws-…` and `source: alpaca-1c173aa4`
+- [ ] One cron job fires with your laptop off → inbox entry
+- [ ] Gateway reconnects after a reboot (IBC) or after RDP login (WSLg)
+
+### Honest tradeoff note
+
+This works, but it's the heavier path: Windows licensing cost, ~2× the RAM
+footprint, the headless-WSL keep-alive, and WSLg's desktop-session dependency for
+the Gateway GUI (use IBC to dodge it). A small **Ubuntu VM + Docker Compose** (top
+of this doc) avoids all of that for the same agent. Revisit if the Windows overhead
+bites — the migration is just copying the `data/` volume.
+
+---
+
 ## When implementing A9
 
 Expand this doc with provider-specific steps (Caddyfile, volume paths, migration

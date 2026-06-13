@@ -92,6 +92,15 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
          migration checklist). **Out of scope for A9:** packaging OpenAlice on
          Railway (possible later); live (non-paper) brokers; fixing inbox prompt
          vs proposal display (parked).
+      **Hard prerequisite (learned the hard way):** the host CPU **must have
+      AVX2** — the `claude` agent runtime (Node/Bun + native bins) crashes with
+      `illegal instruction` without it. This is a CPU feature, **not** an OS one;
+      a Windows host on a non-AVX2 CPU fails identically. The first parked attempt
+      died on an AVX-less budget VPS. Verify (`grep avx2 /proc/cpuinfo`) before
+      committing to any instance. **Chosen host:** Windows Server 2022/2025 + WSL2
+      (full always-on agent — OpenAlice + `claude` + IB Gateway), documented in
+      `docs/openalice-cloud-deploy.md` ("Windows Server + WSL2"); Docker/Linux
+      remains the lighter alternative in the same doc.
 - [~] **A10 — Multi-broker execution (forex + metals).** Alpaca paper covers US
       equities + limited crypto only — not spot FX or COMEX metals. **Operator doc
       shipped:** `docs/openalice-multi-broker.md` — OpenAlice broker catalog
