@@ -55,7 +55,47 @@ the UI); on Railway they persist on the `/data` volume. No market-terminal chang
 
 ---
 
-## Cursor as a *manual* interactive fallback (optional)
+## Cloud 24/7 is the primary mode → make the monitor cap-proof
+
+Since OpenAlice has **no auto-failover** and the cron runs unattended, don't let
+the autonomous loop *depend on the subscription* in the first place. Run the
+**Position-monitor cron on its own dedicated `agent-sdk` profile** so a Claude
+subscription cap never blocks it:
+
+- **Recommended cron profile:** **Claude (API Key)** on **Sonnet** — same brain
+  and MCP behavior, and the 2-hourly monitor is light enough that pay-per-token
+  cost is small. (Reserve the **subscription + Opus** for heavier *interactive*
+  analysis you drive by hand.)
+- **Budget alternative:** **DeepSeek** (`deepseek-v4-pro`/`-flash`) — Anthropic-
+  compatible (`agent-sdk`), much cheaper, still MCP-capable headless.
+
+Setup on the Railway deploy:
+
+1. Get a key — Anthropic (`console.anthropic.com`) or DeepSeek
+   (`platform.deepseek.com`).
+2. OpenAlice **Web UI → AI providers → Add** → *Claude (API Key)* (or *DeepSeek*)
+   → paste key → pick model (Sonnet for the monitor).
+3. **Assign that profile to the cron task / monitor workspace** (not the
+   subscription) so the unattended loop runs on it.
+4. Verify one cron pass completes on the new profile (Inbox entry appears).
+5. Keep **Claude (Subscription)** as the default for interactive sessions.
+
+Result: the 24/7 monitor + market-terminal MCP keep running regardless of the
+Claude subscription's cap; the subscription is spent only where you actively
+want Opus-grade reasoning.
+
+---
+
+## Cursor / local interactive fallback (legacy — not for the cloud loop)
+
+> The sections below are the **earlier local-WSL** approach (Cursor `agent` CLI +
+> `scripts/openalice-claude-or-cursor.sh`). They work only when you run OpenAlice
+> **locally and drive it by hand** — Cursor is not an OpenAlice adapter and the
+> `shell` workspace is not headless, so this **cannot run the cloud cron**. Kept
+> for the interactive/desktop case; for the 24/7 cloud loop use the dedicated
+> `agent-sdk` profile above.
+
+### Cursor as a *manual* interactive fallback (optional)
 
 Cursor's `agent` CLI is **not** an OpenAlice adapter or provider — it can only be
 driven by hand inside a **`shell`** workspace (the `shell` adapter is not
