@@ -73,6 +73,11 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
    setup session). Update it in market-terminal's Railway vars **and** OpenAlice's
    `/data/home/.claude.json` + workspace `.mcp.json` **and** Vibe-Trading's
    `~/.vibe-trading/agent.json`.
+7. **News Pulse analyst (Anthropic) — pending operator billing.** `ANTHROPIC_API_KEY`
+   is set and **valid**, but the Anthropic account has **no credits**, so the analyst
+   pass 402s and News Pulse silently falls back to **rule-based** (still works). Live
+   status is in `GET /doctor` → `"llm"` block. Operator will top up credits; no code
+   fix needed. (`NEWS_PULSE_MODEL=claude-haiku-4-5` keeps it cheap.)
 
 ## Hard rules (do not violate)
 
