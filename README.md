@@ -125,13 +125,15 @@ trade triggers:
 See [`docs/fmp.md`](./docs/fmp.md) for the fundamentals brain and
 [`docs/tradingview.md`](./docs/tradingview.md) for webhook signals.
 
-**Feeding an execution agent (e.g. OpenAlice):** market-terminal stays
-research-only and acts as an MCP data source the agent *pulls from*. Start with
-**`decision_brief(symbol)`**. See [`docs/openalice.md`](./docs/openalice.md),
+**Feeding execution agents:** market-terminal stays research-only and acts as an
+MCP data source agents *pull from* (multiple can share it). Start with
+**`decision_brief(symbol)`**. **OpenAlice** — [`docs/openalice.md`](./docs/openalice.md),
 [`docs/openalice-workflow.md`](./docs/openalice-workflow.md) (validated paper loop),
 [`docs/openalice-wsl-setup.md`](./docs/openalice-wsl-setup.md),
-[`docs/openalice-cursor-fallback.md`](./docs/openalice-cursor-fallback.md), and
-[`docs/openalice-cloud-deploy.md`](./docs/openalice-cloud-deploy.md) (ROADMAP A9).
+[`docs/openalice-cursor-fallback.md`](./docs/openalice-cursor-fallback.md),
+[`docs/openalice-cloud-deploy.md`](./docs/openalice-cloud-deploy.md) (A9). **Second
+bot** — [`docs/vibe-trading.md`](./docs/vibe-trading.md) (Vibe-Trading, separate
+Alpaca paper account; A11).
 
 ## Tests
 

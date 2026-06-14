@@ -146,6 +146,20 @@ deferred, worked around, or flagged. See `SPEC.md` for the product spec and
       `docs/openalice-prompts.md` route FX/metal → `ibkr-…`, equities → `alpaca-…`.
       **Still open:** first live IBKR paper trade (forex market opens Sun ~22:00 UTC);
       optional `decision_brief` forex auto-register (like equities).
+- [~] **A11 — Second autonomous bot (Vibe-Trading).** Run [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading)
+      (HKUDS — multi-agent swarms, cross-market backtesting, 452-factor Alpha Zoo,
+      connector brokers) as a **second executor** alongside OpenAlice, both pulling
+      market-terminal research over MCP (read-only — shared is fine). **Boundary
+      held:** Vibe-Trading runs on its own cloud deploy with its own broker + LLM
+      keys; market-terminal stays research-only. **Lane:** a **separate Alpaca
+      paper account** (distinct login/keys + mandate) so it never shares a book
+      with OpenAlice's `alpaca-61b238e3` / `ibkr-tws-aa6a879b`. Pure-Python + API
+      LLMs ⇒ **no AVX2 gate** (unlike OpenAlice), so any Docker host works. Feed
+      wired via `~/.vibe-trading/agent.json` `mcpServers` (streamableHttp + Bearer
+      `AUTH_TOKEN`). **Operator doc shipped:** `docs/vibe-trading.md` (role,
+      coordination rules, cloud deploy, MCP wiring, Alpaca-#2 connector, mandate,
+      smoke tests). **Still open:** create the second Alpaca paper account; cloud
+      deploy + `API_AUTH_KEY`; commit its mandate; first paper run.
 
 ## B. Data / provider gaps (documented, still open)
 - [x] **B1 — Economic calendar.** `obb_layer.economic_calendar` already requests
