@@ -1,5 +1,16 @@
 # market-terminal
 
+> Private, single-user **multi-asset research terminal** — the research brain that
+> AI execution agents pull from over MCP. Research only; orders never flow back in.
+
+[![CI](https://github.com/jalilsedna/market-terminal/actions/workflows/ci.yml/badge.svg)](https://github.com/jalilsedna/market-terminal/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Built on OpenBB](https://img.shields.io/badge/built%20on-OpenBB-1a1a2e.svg)](https://openbb.co)
+[![MCP](https://img.shields.io/badge/MCP-server-6E56CF.svg)](https://modelcontextprotocol.io/)
+[![Lint: Ruff](https://img.shields.io/badge/lint-ruff-261230.svg?logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
+[![Status: research-only](https://img.shields.io/badge/scope-research--only-success.svg)](#)
+
 A **multi-asset research terminal** built on [OpenBB](https://openbb.co)
 (consumed as a library — never forked): macro, market data, positioning (COT),
 term structure, sector rotation, news, plus an **interpreted analysis layer**
@@ -9,10 +20,26 @@ research directly.
 
 **Research and analytics only — execution is delegated, not duplicated.** No
 order entry, position management, or broker connectivity lives here; no
-trade/transfer/withdrawal keys ever do. Execution belongs to a *separate* app
-([OpenAlice](https://github.com/TraderAlice/OpenAlice)) that **pulls** research
-over MCP and decides/executes on its own side. Research flows out; orders never
+trade/transfer/withdrawal keys ever do. Execution belongs to *separate* apps
+([OpenAlice](https://github.com/TraderAlice/OpenAlice),
+[Vibe-Trading](https://github.com/HKUDS/Vibe-Trading)) that **pull** research
+over MCP and decide/execute on their own side. Research flows out; orders never
 flow back in. See [`docs/openalice.md`](./docs/openalice.md).
+
+```mermaid
+flowchart LR
+  subgraph mt["market-terminal · this repo"]
+    direction TB
+    DATA["macro · COT · term structure<br/>vol · fundamentals · news"]
+    BRAIN["interpreted analysis<br/>regime · briefs · decision_brief"]
+    SURF["web · REST · MCP"]
+    DATA --> BRAIN --> SURF
+  end
+  OBB["OpenBB Platform<br/>(library)"] --> DATA
+  SURF -->|"research over MCP<br/>(read-only)"| OA["OpenAlice<br/>execution + brokers"]
+  SURF -->|"research over MCP<br/>(read-only)"| VT["Vibe-Trading<br/>execution + brokers"]
+  OA -. "orders never flow back" .-> mt
+```
 
 - **Stack:** Python 3.12 · FastAPI · OpenBB Platform · MCP
 - **Deploys to:** Railway, as one authenticated service (web + REST + MCP). See
@@ -42,7 +69,7 @@ Requires Python 3.12. On Windows use the `py -3.12` launcher; on macOS/Linux use
 `python3.12`.
 
 ```bash
-git clone <your-private-repo-url> market-terminal
+git clone https://github.com/jalilsedna/market-terminal.git
 cd market-terminal
 
 python3.12 -m venv .venv
@@ -154,3 +181,24 @@ read-only data-provider keys belong here). **FMP** is the primary market-data ke
 (`FMP_API_KEY`). Free macro/COT (FRED, CFTC) need no key. Add Tiingo/Polygon/
 Benzinga keys only when you want extra resilience or features. Do not depend on OpenBB Hub. On Railway, the same variables are
 set in the service's environment, never in the repo.
+
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [`SPEC.md`](./SPEC.md) | Product specification & non-goals |
+| [`CLAUDE.md`](./CLAUDE.md) | Engineering rules & conventions (canonical) |
+| [`ROADMAP.md`](./ROADMAP.md) | Backlog + shipped ledger |
+| [`docs/handoff.md`](./docs/handoff.md) | Live-state summary (read first for a new session) |
+| [`docs/openalice.md`](./docs/openalice.md) | Execution-agent integration boundary |
+| [`docs/openalice-cloud-deploy.md`](./docs/openalice-cloud-deploy.md) | 24/7 cloud (Railway) deploy recipe |
+| [`docs/openalice-multi-broker.md`](./docs/openalice-multi-broker.md) | Brokers / UTAs / symbol map |
+| [`docs/vibe-trading.md`](./docs/vibe-trading.md) | Second execution bot integration |
+| [`docs/operator-guide.md`](./docs/operator-guide.md) | Day-2 ops (data, backups, tokens) |
+
+## License
+
+**Private & proprietary — all rights reserved.** This is a single-user research
+project, not an open-source release; it is not licensed for redistribution or
+reuse. [OpenBB](https://openbb.co) and other dependencies are consumed under their
+own licenses (OpenBB is **not** forked — it is installed as a library).
