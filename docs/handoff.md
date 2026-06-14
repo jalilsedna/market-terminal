@@ -57,8 +57,23 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
 1. ~~**Set `ALICE_URL`** on market-terminal's Railway service~~ ✅ **DONE
    (2026-06-14)** — operator set the variable in Railway; the Execution tab now
    points at the live cloud OpenAlice.
-2. **First IBKR paper FX trade** — forex opens **Sun ~22:00 UTC**. Alice proposes a
-   EURUSD/USDCHF/XAUUSD card → human approves `placeOrder` (GTC bracket).
+2. **First IBKR paper FX trade — ⛔ BLOCKED (2026-06-14) by an OpenAlice bug.**
+   Forex opened Sun 22:00 UTC; Alice ran the Opportunity scan and surfaced a clean
+   **USDCHF long** (CONSTRUCTIVE +2, ADX 27.7, conflict aligned; entry ~0.79397,
+   stop ~0.78680 = 1.5×ATR, TP ~0.80473 = 1.5:1 R, ~0.5% risk). On APPROVE,
+   `placeOrder` **rejected** every variant with `IBKR error 200: No security
+   definition found`. Root cause is **OpenAlice-side, not here**: `placeOrder`
+   builds IDEALPRO **CASH** (FX) contracts as `currency:USD / exchange:SMART` (the
+   equity default) instead of reusing the correct `currency:CHF /
+   exchange:IDEALPRO / secType:CASH` that `getQuote`/`getContractDetails` already
+   resolve from the same `aliceId`. **Account stayed flat — net liq $1,000,000,
+   no live order, nothing naked.** Second, separate OpenAlice gap exposed: IBKR
+   **bracket-attach is not implemented** — the FX flow must be *entry first, then
+   standalone GTC stop + TP*, not an attached bracket. **Both fixes live in the
+   OpenAlice repo** (this research terminal can't and must not patch execution).
+   Full repro is in Alice's report `bug-ibkr-fx-placeorder-contract-resolution.md`.
+   FX milestone parked until OpenAlice fixes contract resolution. The equity
+   (Alpaca/SMART) and crypto (Vibe-Trading) lanes are **unaffected**.
 3. **Deploy Vibe-Trading (second bot) — ✅ LIVE (2026-06-14).** Own Railway project
    (`vibe-trading`), fork of `HKUDS/Vibe-Trading` (Dockerfile, `python:3.11-slim`,
    binds `0.0.0.0:8899`; no VOLUME/AVX2 issues). One volume `vibe-trading-volume` at
@@ -106,6 +121,7 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
    profile for now.
 5. Add `AUTO_RESTART_TIME` (e.g. `02:00 AM`) to the `ib-gateway` service so it
    re-auths through IBKR's daily logout unattended.
+   _(Also removes the daily reason to redeploy OpenAlice — see #8.)_
 6. **Rotate `AUTH_TOKEN`** before any non-paper/go-live (it was exposed during a
    setup session). Update it in market-terminal's Railway vars **and** OpenAlice's
    `/data/home/.claude.json` + workspace `.mcp.json` **and** Vibe-Trading's
@@ -115,6 +131,25 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
    pass 402s and News Pulse silently falls back to **rule-based** (still works). Live
    status is in `GET /doctor` → `"llm"` block. Operator will top up credits; no code
    fix needed. (`NEWS_PULSE_MODEL=claude-haiku-4-5` keeps it cheap.)
+8. **OpenAlice cron stalled ~17h — diagnosed & re-armed (2026-06-14).** Operator
+   noticed the "Position monitor" automation produced no run log. Diagnosis (via
+   the Railway boot logs + the Web UI **Automation → Runs/Cron Jobs** tabs):
+   - The engine is healthy — boot log shows `cron: engine started`, both jobs are
+     present and **enabled** ("Position monitor" every 2H `d1097c9f`, "Opportunity
+     scan (paper)" every 3H `f4a72052`), and past runs completed `done` (1–4 min,
+     no errors) in workspace `4f39eb03`.
+   - **Root cause = the repeated redeploys.** The last *scheduled* run was ~17h
+     before, despite the every-2H cadence. Each OpenAlice **redeploy** (today's
+     several VOLUME-instruction edits) restarts the in-memory scheduler, and on the
+     last one the 2H timer **never re-armed** — engine up, jobs enabled, but not
+     ticking. Not a gate, not a dead worker.
+   - **Re-armed** by a fresh redeploy + a **manual ▶ fire** of the monitor (ran
+     clean, landed in the Inbox). **Watch-item:** confirm the *next automatic* run
+     fires ~2h after the last manual one — if it stalls again, it's a reproducible
+     OpenAlice "fires-on-boot-but-doesn't-re-arm" scheduler bug to file on that
+     repo. **Operational rule: don't redeploy OpenAlice unless shipping a change** —
+     each redeploy knocks the schedule out (and setting `AUTO_RESTART_TIME` on
+     `ib-gateway` (#5) removes the daily reason to redeploy at all).
 
 ## Hard rules (do not violate)
 
