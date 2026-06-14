@@ -70,7 +70,10 @@ class Settings(BaseSettings):
 
     # --- Execution app (OpenAlice) ---
     # URL of the SEPARATE execution app, framed in the terminal's Execution tab.
-    # Default is OpenAlice's dev UI. Execution lives there, never in this repo.
+    # Execution lives there, never in this repo. Set ALICE_URL to your running
+    # OpenAlice instance: the cloud deploy's HTTPS URL (ROADMAP A9 — embeds in the
+    # Execution tab) or `http://localhost:5173` for local dev. The default below is
+    # the local dev UI; override via ALICE_URL on any deploy.
     alice_url: str = "http://localhost:5173"
 
     # --- TradingView webhooks (ROADMAP G3) ---

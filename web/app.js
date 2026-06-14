@@ -271,30 +271,45 @@ async function loadExecution() {
   let url = "http://localhost:5173";
   try { url = (await fetchJSON("/health")).alice_url || url; } catch (e) { /* keep default */ }
 
+  const isDefault = url === "http://localhost:5173";
   const bar = `<div class="exec-bar">
-      <span>Execution runs in <b>OpenAlice</b> — a separate app on your machine. Research flows out via MCP; orders stay there.</span>
+      <span>Execution runs in <b>OpenAlice</b> — a separate execution app (cloud or local). Research flows out via MCP; orders + broker keys stay there.</span>
       <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open Alice ↗</a>
     </div>`;
 
-  // A browser won't embed an http:// (localhost) app inside an https:// page —
-  // "mixed content". On the deployed terminal that just yields a blank box, so
-  // show a clean explanation + launch button instead of a broken iframe. The
-  // embedded view works when you run the terminal locally (http → http).
+  // The terminal only links to OpenAlice — it never embeds order logic. We try to
+  // iframe the Alice UI for a side-by-side view, but two cases can't embed:
+  //   1. mixed content — an http:// (local) Alice inside this https:// page; and
+  //   2. the default URL is still set (ALICE_URL not configured on this deploy).
+  // OpenAlice may also send X-Frame-Options/CSP that blocks embedding even over
+  // https; the "Open Alice ↗" button always works regardless.
   const mixed = window.location.protocol === "https:" && url.startsWith("http://");
+
+  if (isDefault) {
+    sec.innerHTML = bar + `<div class="exec-card">
+      <h3>Set <code>ALICE_URL</code> to your OpenAlice instance</h3>
+      <p class="dim">This is still the default (<code>${esc(url)}</code>). Point the Execution tab at your running OpenAlice — set the <code>ALICE_URL</code> environment variable to its address:</p>
+      <p class="dim">• Cloud (A9): your OpenAlice Railway URL, e.g. <code>https://openalice-&lt;id&gt;.up.railway.app</code><br>• Local dev: <code>http://localhost:5173</code> (run the terminal locally to embed it).</p>
+      <p><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open Alice ↗</a></p>
+      <p class="dim">Alice pulls this terminal's research over MCP regardless of this setting — see <code>docs/openalice-cloud-deploy.md</code>.</p>
+    </div>`;
+    return;
+  }
+
   if (mixed) {
     sec.innerHTML = bar + `<div class="exec-card">
-      <h3>Alice runs locally — by design</h3>
-      <p class="dim">OpenAlice is your <b>execution</b> app; it holds broker keys, so it stays on your machine and is never deployed. This online terminal can't embed your local <code>${esc(url)}</code> (browsers block http content inside an https page).</p>
-      <p><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open Alice ↗</a> &nbsp;launches your local Alice in a new tab.</p>
-      <p class="dim">Already connected the other way: Alice <b>pulls this terminal's research over MCP</b>. For the embedded side-by-side view, run the terminal locally (<code>uvicorn app.main:app</code>) and open <code>http://localhost:8000</code>.</p>
+      <h3>Alice is at an http:// address — can't embed here</h3>
+      <p class="dim">Browsers block embedding an <code>http://</code> app (e.g. local dev <code>${esc(url)}</code>) inside this <code>https://</code> page. Use the launch button, or host OpenAlice over HTTPS (the cloud A9 deploy) to embed it.</p>
+      <p><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open Alice ↗</a></p>
+      <p class="dim">For the embedded side-by-side view locally, run the terminal at <code>http://localhost:8000</code> too.</p>
     </div>`;
     return;
   }
 
   sec.innerHTML = bar +
     `<iframe class="exec-frame" src="${esc(url)}" title="OpenAlice"></iframe>
-    <div class="exec-help dim">Not loading? Make sure OpenAlice is running (<code>pnpm dev</code>) and reachable at
-      <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>. Some apps block embedding — use the "Open Alice ↗" button.</div>`;
+    <div class="exec-help dim">Not loading? Confirm OpenAlice is up at
+      <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>. Some hosts block embedding (X-Frame-Options/CSP) — use the "Open Alice ↗" button.</div>`;
 }
 
 // Analysis tab: interpreted signals (regime + COT positioning). Fetches both
