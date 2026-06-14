@@ -12,6 +12,25 @@ market-terminal is unchanged: the same `market-terminal` MCP feed works from
 
 ---
 
+## Switch to Cursor **now** (Claude already capped)
+
+OpenAlice's sidebar still spawns **Claude Code** by default — it will not auto-switch.
+Use the **workspace terminal** (or any WSL shell) and run Cursor there for research.
+
+**One command** (syncs `market-terminal` MCP from your OpenAlice workspace →
+`~/.cursor/mcp.json`, fixes the Railway `/mcp/` trailing slash, prints next steps):
+
+```bash
+bash ~/market-terminal/scripts/openalice-use-cursor.sh
+cd ~/.openalice/workspaces/workspaces/<your-ws-id>   # if not already there
+agent -f    # -f = trust workspace; approve market-terminal MCP on first run
+```
+
+Then paste your Alice test prompts into that `agent` session. Orders still go
+through OpenAlice UTA — only the **research CLI** changes.
+
+---
+
 ## Quick fix (when you are already rate-limited)
 
 In the **same OpenAlice workspace** terminal:
@@ -114,12 +133,12 @@ You should see OpenAlice's servers plus `market-terminal` (if seeded per
 re-add it to OpenAlice's workspace seed or hand-fix `.mcp.json` once, then
 `agent mcp enable market-terminal` if needed.
 
-Railway-hosted feed (production):
+Railway-hosted feed (production) — **trailing slash required** for Cursor (`/mcp/`):
 
 ```json
 "market-terminal": {
   "type": "streamable-http",
-  "url": "https://YOUR-RAILWAY-APP.up.railway.app/mcp",
+  "url": "https://YOUR-RAILWAY-APP.up.railway.app/mcp/",
   "headers": { "Authorization": "Bearer YOUR_AUTH_TOKEN" }
 }
 ```
