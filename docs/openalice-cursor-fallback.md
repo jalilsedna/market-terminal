@@ -1,14 +1,106 @@
-# OpenAlice → Cursor when Claude Code limits out
+# OpenAlice — fallback agent when Claude limits out
 
-OpenAlice workspaces run a **native agent CLI** (default: **Claude Code** /
-`claude`). Anthropic Pro/Max caps show up as HTTP 429, *"rate limit"*, or
-*"usage limit reached"* mid-session. **OpenAlice does not auto-switch providers**
-today — you wire the fallback once on the execution side (OpenAlice host), not in
-market-terminal.
+OpenAlice runs a **native agent CLI** per workspace/cron (default: **Claude Code**
+/ `claude`). Anthropic Pro/Max caps show up as HTTP 429, *"rate limit"*, or
+*"usage limit reached"*. **OpenAlice does not auto-switch on a rate limit** — you
+configure a fallback once on the execution side and switch to it manually.
+market-terminal is unchanged either way (research-only MCP).
 
-market-terminal is unchanged: the same `market-terminal` MCP feed works from
-**both** Claude Code and **Cursor Agent** (`agent` CLI) as long as
-`.mcp.json` is present in the workspace.
+> **Which fallback?** It depends on whether you need the **24/7 headless cron**
+> (e.g. the Position-monitor that calls market-terminal `decision_brief` over
+> MCP) to keep running, or just an interactive session while you're at the
+> keyboard. **They are not the same** — see the matrix.
+
+## TL;DR — pick by what must survive
+
+| Fallback | Headless cron keeps **MCP** (`decision_brief`)? | Cost | When to use |
+|----------|------------------------------------------------|------|-------------|
+| **Claude API-key profile** | ✅ yes (same `agent-sdk` adapter) | pay-per-token | **Best drop-in** when the subscription caps |
+| **DeepSeek / GLM / Kimi / MiniMax** (Anthropic-compatible) | ✅ yes (`agent-sdk`) | cheap per-token | budget headless fallback |
+| **OpenAI Codex** (subscription/API) | ⚠️ **no** — headless codex is CLI-mode, MCP disabled; uses the `alice` CLI instead | subscription / per-token | OpenAlice-native tasks, not MCP-heavy research |
+| **Cursor (`agent` CLI)** | ❌ not an adapter — interactive `shell` only | sub | manual, at-the-keyboard only |
+
+### Why the agent-sdk profiles are the clean answer
+
+OpenAlice's `agent-sdk` backend (used by Claude **and** the Anthropic-compatible
+third-parties: DeepSeek, GLM, Kimi, MiniMax) runs through the **same `claude`
+adapter** — which keeps **MCP available in headless mode**. So a second
+`agent-sdk` profile is a true drop-in: the cron monitor, the persona, and the
+market-terminal MCP feed all behave identically; you only swap the active profile
+when Claude's subscription is exhausted.
+
+By contrast, **headless `codex` runs in CLI mode with MCP disabled** (`codex exec`
+cancels MCP tool calls when no human can approve), so a Codex cron loses
+market-terminal `decision_brief` (it would fall back to the `alice` CLI for
+OpenAlice's own tools). Fine for OpenAlice-native automation, weaker for the
+research-driven monitor.
+
+---
+
+## Recommended: add a fallback `agent-sdk` profile (cloud deploy)
+
+On the Railway deploy (OpenAlice 24/7), in the **Web UI → AI providers / profiles**:
+
+1. Add a second profile:
+   - **Claude (API Key)** — same models, pay-per-token, zero behavior change; or
+   - **DeepSeek** (`deepseek-v4-pro`/`-flash`) / **GLM** / **Kimi** — cheaper,
+     Anthropic-compatible (`agent-sdk`), still MCP-capable headless.
+2. Keep **Claude (Subscription)** as the primary.
+3. When the subscription caps: **switch the active profile** (or point the cron
+   task) to the fallback. The `claude` adapter, MCP wiring, and persona are
+   unchanged — only the credential/endpoint differ.
+
+Provider credentials live in OpenAlice's `ai-provider.json` vault (managed via
+the UI); on Railway they persist on the `/data` volume. No market-terminal change.
+
+---
+
+## Cloud 24/7 is the primary mode → make the monitor cap-proof
+
+Since OpenAlice has **no auto-failover** and the cron runs unattended, don't let
+the autonomous loop *depend on the subscription* in the first place. Run the
+**Position-monitor cron on its own dedicated `agent-sdk` profile** so a Claude
+subscription cap never blocks it:
+
+- **Recommended cron profile:** **Claude (API Key)** on **Sonnet** — same brain
+  and MCP behavior, and the 2-hourly monitor is light enough that pay-per-token
+  cost is small. (Reserve the **subscription + Opus** for heavier *interactive*
+  analysis you drive by hand.)
+- **Budget alternative:** **DeepSeek** (`deepseek-v4-pro`/`-flash`) — Anthropic-
+  compatible (`agent-sdk`), much cheaper, still MCP-capable headless.
+
+Setup on the Railway deploy:
+
+1. Get a key — Anthropic (`console.anthropic.com`) or DeepSeek
+   (`platform.deepseek.com`).
+2. OpenAlice **Web UI → AI providers → Add** → *Claude (API Key)* (or *DeepSeek*)
+   → paste key → pick model (Sonnet for the monitor).
+3. **Assign that profile to the cron task / monitor workspace** (not the
+   subscription) so the unattended loop runs on it.
+4. Verify one cron pass completes on the new profile (Inbox entry appears).
+5. Keep **Claude (Subscription)** as the default for interactive sessions.
+
+Result: the 24/7 monitor + market-terminal MCP keep running regardless of the
+Claude subscription's cap; the subscription is spent only where you actively
+want Opus-grade reasoning.
+
+---
+
+## Cursor / local interactive fallback (legacy — not for the cloud loop)
+
+> The sections below are the **earlier local-WSL** approach (Cursor `agent` CLI +
+> `scripts/openalice-claude-or-cursor.sh`). They work only when you run OpenAlice
+> **locally and drive it by hand** — Cursor is not an OpenAlice adapter and the
+> `shell` workspace is not headless, so this **cannot run the cloud cron**. Kept
+> for the interactive/desktop case; for the 24/7 cloud loop use the dedicated
+> `agent-sdk` profile above.
+
+### Cursor as a *manual* interactive fallback (optional)
+
+Cursor's `agent` CLI is **not** an OpenAlice adapter or provider — it can only be
+driven by hand inside a **`shell`** workspace (the `shell` adapter is not
+headless, so the cron monitor can't use it). Use this only when you're actively
+at the keyboard and both Claude and your agent-sdk fallback are unavailable.
 
 ---
 
