@@ -88,6 +88,16 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
    - **Gotcha recap:** Railway Console = **root** (`HOME=/root`); server = **vibe**
      (`HOME=/home/vibe`). Run connector/config commands with `export HOME=/home/vibe`
      + `chown vibe:vibe`, or they land in `/root` and the server won't see them.
+   - **Web UI gotchas (both resolved):** (a) the remote Web UI needs the **`API_AUTH_KEY`**
+     value pasted into **Settings → Server API key** — it's a self-chosen secret; set the
+     *same* value as the Railway env var (an empty var = nothing for the browser to match).
+     (b) Running the CLI **as root** created root-owned `sessions.db` + `memory/` on the
+     volume → the `vibe` Web-UI server hit `sqlite3 ... attempt to write a readonly
+     database` on `POST /sessions` ("Failed to send message"). Fix: `chown -R vibe:vibe
+     /home/vibe/.vibe-trading` + restart. Web UI Agent verified (created a session, ran
+     `analysis_regime`). "Connector runtime: no connector connected" in the UI = idle
+     live-runner status, **not** an error. A-share symbols (e.g. `000001.SZ`) need
+     `TUSHARE_TOKEN` (unset) — expected; use US/crypto/market-terminal-covered names.
 4. **Fallback agent (PR #93) — DEFERRED (2026-06-14, operator decision).** A
    subscription cap only degrades **monitoring/new analysis**, not **protection**
    (GTC stops live on the broker's servers). The cron is modest (~12 runs/day), so
