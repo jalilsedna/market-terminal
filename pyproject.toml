@@ -5,7 +5,9 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["web"]
+# `.claude` holds vendored third-party skills (UI/UX Pro Max) — their Python
+# isn't ours to lint; exclude it so `ruff check .` (and CI) stay green.
+extend-exclude = ["web", ".claude"]
 
 [tool.ruff.lint]
 # High-signal rules: pyflakes (F), pycodestyle (E/W), import sorting (I),
