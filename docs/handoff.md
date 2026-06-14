@@ -78,10 +78,13 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
      - **Persistence:** ✅ DONE — `alpaca-py>=0.40` added to the fork's
        `agent/requirements.txt` and rebuilt; verified `alpaca-py 0.43.4` in the image
        and the agent still reads the account after a fresh redeploy.
-     - **Mandate:** the `alpaca-paper-trade` profile is plain `orders.place` (no
-       `requires_mandate` — that's live-only), so paper orders don't need a mandate.
-       Still set a **distinct symbol universe/caps** so the two bots don't double the
-       same names (coordination, per `docs/vibe-trading.md`).
+     - **Mandate:** ✅ DONE (2026-06-14) — crypto-only coordination mandate written
+       to `/home/vibe/.vibe-trading/live/alpaca/mandate.json` (on the volume): universe
+       `[crypto]`, caps $100/order · $800 exposure · 5 trades/day · 1.0 leverage,
+       account_ref `PA3RT2L7JKF7`, 1yr expiry. `load_mandate('alpaca')` verified.
+       Clean split: **OpenAlice = equities + forex/metals, Vibe-Trading = crypto**
+       (the fail-closed gate denies VT any non-crypto order). To change the lane,
+       rewrite that file (operator-only path; the agent can't write it).
    - **Gotcha recap:** Railway Console = **root** (`HOME=/root`); server = **vibe**
      (`HOME=/home/vibe`). Run connector/config commands with `export HOME=/home/vibe`
      + `chown vibe:vibe`, or they land in `/root` and the server won't see them.
