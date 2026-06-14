@@ -114,8 +114,13 @@ are candidates to **merge-doc-only or close**.
    **not merged** (`openalice-cursor-fallback.md` on `main` is still the older
    WSL/interactive version). Revisit only if caps actually bite — then merge #93's
    doc (or close it). Do **not** add the paid-API `agent-sdk` profile for now.
-5. Add `AUTO_RESTART_TIME` (e.g. `02:00 AM`) to the `ib-gateway` service so it
-   re-auths through IBKR's daily logout unattended.
+5. **ib-gateway daily logout — settings documented (operator to apply on Railway).**
+   On the OpenAlice project's `ib-gateway` service set: `AUTO_RESTART_TIME` (e.g.
+   `11:59 PM`, `hh:mm AM/PM`), `TWOFA_TIMEOUT_ACTION=restart`,
+   `RELOGIN_AFTER_2FA_TIMEOUT=yes`, `TIME_ZONE` (e.g. `America/New_York`), and the
+   service restart policy `always`. IBC then soft-restarts daily without re-auth;
+   `restart: always` covers the weekly token reset (light on a paper account — no
+   real 2FA). Full table + rationale in `docs/openalice-cloud-deploy.md` step 10.
 6. **Rotate `AUTH_TOKEN`** before any non-paper/go-live (it was exposed during a
    setup session). Update it in market-terminal's Railway vars **and** OpenAlice's
    `/data/home/.claude.json` + workspace `.mcp.json` **and** Vibe-Trading's

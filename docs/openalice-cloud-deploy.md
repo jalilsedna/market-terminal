@@ -160,6 +160,21 @@ The exact sequence that worked, with the traps that cost time:
     `TWS_PASSWORD`, `TRADING_MODE=paper`, `READ_ONLY_API=no`. **Do not** expose it
     publicly (the IB API socket has no auth).
 
+    **Unattended daily restart (IBKR's daily logout).** IB Gateway is force-logged-out
+    once a day; without IBC auto-restart the cloud session dies until someone
+    re-logs in. Add these env vars so IBC soft-restarts and re-auths itself, no
+    human needed:
+    | Env | Value | Why |
+    |-----|-------|-----|
+    | `AUTO_RESTART_TIME` | e.g. `11:59 PM` (`hh:mm AM/PM`) | IBC restarts Gateway daily **without** re-auth/2FA |
+    | `TWOFA_TIMEOUT_ACTION` | `restart` | required companion when `AUTO_RESTART_TIME` is set (don't leave the default `exit`) |
+    | `RELOGIN_AFTER_2FA_TIMEOUT` | `yes` | auto-relogin if a 2FA prompt times out |
+    | `TIME_ZONE` | e.g. `America/New_York` | `AUTO_RESTART_TIME` is in **this** tz — pick a quiet, post-close time and avoid IBKR's ~23:50–00:00 maintenance window |
+    Set the Railway service **restart policy to `always`** so the container also
+    recovers from the **weekly** token reset (IBKR invalidates tokens ~Sun 01:00 ET).
+    For a **paper** account this is light — no real 2FA — so `restart: always` +
+    `AUTO_RESTART_TIME` keeps it up unattended through both the daily and weekly resets.
+
 11. **IPv6 gotcha (the big one).** Railway's private network is **IPv6**, but the
     image's socat binds IPv4 (`0.0.0.0:4004`) → OpenAlice can't reach it. Fix with a
     Railway **Custom Start Command** that adds an IPv6 listener, then connect
