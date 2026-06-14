@@ -74,9 +74,10 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
      configure` (that CLI is TWS-only). The CLI `connector check`/`account` shows
      "(none)" cosmetically; the **agent path works** (`vibe-trading run -p "…"` read
      the account + `analysis_regime`, SUCCESS, no orders).
-   - **Two small follow-ups (non-blocking):**
-     - **Persistence:** confirm `alpaca-py` is in the fork's `agent/requirements.txt`
-       (so it survives redeploys, not just a runtime `pip install`). If missing, add it.
+   - **Two small follow-ups:**
+     - **Persistence:** ✅ DONE — `alpaca-py>=0.40` added to the fork's
+       `agent/requirements.txt` and rebuilt; verified `alpaca-py 0.43.4` in the image
+       and the agent still reads the account after a fresh redeploy.
      - **Mandate:** the `alpaca-paper-trade` profile is plain `orders.place` (no
        `requires_mandate` — that's live-only), so paper orders don't need a mandate.
        Still set a **distinct symbol universe/caps** so the two bots don't double the
