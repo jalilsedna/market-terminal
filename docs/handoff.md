@@ -63,10 +63,12 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
    Docker deploy + `API_AUTH_KEY`, wire `~/.vibe-trading/agent.json` MCP, connect
    Alpaca #2, commit its mandate. Steps in `docs/vibe-trading.md`. **Keep its
    broker account separate from `alpaca-61b238e3`.**
-4. **Fallback agent (PR #93, parked).** For the 24/7 cron to survive a Claude
-   subscription cap **with MCP intact**, run the monitor on a dedicated **`agent-sdk`
-   profile** (Claude API key on Sonnet, or DeepSeek) — NOT Cursor (shell-only, not
-   headless) and NOT Codex headless (MCP disabled). Decide → merge/close #93.
+4. **Fallback agent (PR #93) — DEFERRED (2026-06-14, operator decision).** A
+   subscription cap only degrades **monitoring/new analysis**, not **protection**
+   (GTC stops live on the broker's servers). The cron is modest (~12 runs/day), so
+   caps are unlikely from it alone. Kept documented in `openalice-cursor-fallback.md`;
+   revisit only if caps actually bite. Do **not** add the paid-API `agent-sdk`
+   profile for now.
 5. Add `AUTO_RESTART_TIME` (e.g. `02:00 AM`) to the `ib-gateway` service so it
    re-auths through IBKR's daily logout unattended.
 6. **Rotate `AUTH_TOKEN`** before any non-paper/go-live (it was exposed during a
