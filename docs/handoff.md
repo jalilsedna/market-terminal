@@ -28,7 +28,7 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
 | **IBKR paper (OpenAlice)** | UTA `ibkr-tws-aa6a879b` via headless `ib-gateway-docker`, reached at `ib-gateway.railway.internal:4006` (IPv6 socat) |
 | **Persona** | `/data/data/brain/persona.md` — routing by `source`, GTC brackets, conflict gate, human-APPROVE |
 | **Autonomy** | cron **"Position monitor"** (every 2h) → Inbox. Conflict-gated. |
-| **Vibe-Trading** | **Not deployed yet** — documented in `docs/vibe-trading.md`. Will run on its **own** cloud Docker host, **separate Alpaca paper account** (new login/keys), its own LLM key, pulling market-terminal MCP via `~/.vibe-trading/agent.json`. |
+| **Vibe-Trading** | **Deploying — Online on its own Railway project** (fork of `HKUDS/Vibe-Trading`, port 8899, volume at `/home/vibe/.vibe-trading`). Brain **live** (DeepSeek), market-terminal MCP wired via `agent.json`. **Broker connector NOT finished** — needs `alpaca-py` installed + Alpaca #2 keys configured. See open item 3 for the exact resume steps. |
 
 ## Current trading state (paper, OpenAlice / `alpaca-61b238e3`)
 
@@ -59,10 +59,36 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
    points at the live cloud OpenAlice.
 2. **First IBKR paper FX trade** — forex opens **Sun ~22:00 UTC**. Alice proposes a
    EURUSD/USDCHF/XAUUSD card → human approves `placeOrder` (GTC bracket).
-3. **Deploy Vibe-Trading** (second bot): create the 2nd Alpaca paper account, cloud
-   Docker deploy + `API_AUTH_KEY`, wire `~/.vibe-trading/agent.json` MCP, connect
-   Alpaca #2, commit its mandate. Steps in `docs/vibe-trading.md`. **Keep its
-   broker account separate from `alpaca-61b238e3`.**
+3. **Deploy Vibe-Trading (second bot) — IN PROGRESS (resume mid-Phase-8, 2026-06-14).**
+   Live state on its **own Railway project** (`vibe-trading`):
+   - ✅ Built from a fork of `HKUDS/Vibe-Trading` (Dockerfile, `python:3.11-slim`,
+     binds `0.0.0.0:8899`; no VOLUME/AVX2 issues). Service **Online**, domain on
+     port `8899`. One Railway **volume `vibe-trading-volume` at `/home/vibe/.vibe-trading`**
+     (Railway allowed only one; sessions/runs not persisted — acceptable).
+   - ✅ Env set: `LANGCHAIN_PROVIDER=deepseek`, `DEEPSEEK_API_KEY`,
+     `LANGCHAIN_MODEL_NAME=deepseek-v4-pro`, `DEEPSEEK_BASE_URL=https://api.deepseek.com/v1`,
+     `API_AUTH_KEY`, `VIBE_TRADING_TRUST_DOCKER_LOOPBACK=1`. **Preflight: LLM (deepseek) OK**, 5/6 ready.
+   - ✅ `agent.json` written at `/home/vibe/.vibe-trading/agent.json` → market-terminal
+     MCP (`streamableHttp`, Bearer `AUTH_TOKEN`), verified `Bearer d9d13af8…`.
+   - ✅ Connector selected: `alpaca-paper-trade` (paper, `orders.place`).
+   - ⛔ **REMAINING (do these to finish):**
+     1. **`alpaca-py` is not in the image** → connector errors `alpaca-py is not installed`.
+        Quick: `pip install alpaca-py` in the Console (ephemeral). **Durable: add
+        `alpaca-py` to the fork's `agent/requirements.txt` and rebuild.**
+     2. **Configure keys** (run **alone**, interactive — batching ate the prompt last time;
+        Console is **root**, so `export HOME=/home/vibe` first so config lands on the
+        volume): `vibe-trading connector configure alpaca-paper-trade` → paste the
+        **2nd** Alpaca paper key+secret. Then `chown -R vibe:vibe /home/vibe/.vibe-trading`.
+     3. `vibe-trading connector check` + `connector account` → **must show the 2nd
+        Alpaca paper account, NOT `alpaca-61b238e3`.**
+     4. **Restart** the service (reload `agent.json` + connector).
+     5. Smoke: `vibe-trading run "use market-terminal to call analysis_regime + decision_brief for BTC-USD; no orders."`
+     6. Commit a **mandate** (own symbol universe + caps) before any real order.
+   - **Gotcha recap:** Railway Console runs as **root** (`HOME=/root`); the server runs
+     as **vibe** (`HOME=/home/vibe`, config in `/home/vibe/.vibe-trading`). Always run
+     connector CLI with `export HOME=/home/vibe` and `chown vibe:vibe` after, or config
+     lands in `/root` and the server won't see it. **Keep broker account separate from
+     `alpaca-61b238e3`.** Full guide: `docs/vibe-trading.md`.
 4. **Fallback agent (PR #93) — DEFERRED (2026-06-14, operator decision).** A
    subscription cap only degrades **monitoring/new analysis**, not **protection**
    (GTC stops live on the broker's servers). The cron is modest (~12 runs/day), so
