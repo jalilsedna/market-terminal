@@ -111,3 +111,15 @@ def test_ensure_default_book_adds_missing_without_removing(reg):
     # Idempotent: a second call adds nothing.
     again = reg.ensure_default_book()
     assert again["added_count"] == 0
+
+
+def test_prune_removes_only_named(reg):
+    reg.add("equity", "AAPL")
+    reg.add("equity", "DSY")     # junk to prune
+    reg.add("equity", "SMCX")    # junk to prune
+    result = reg.prune(["DSY", "SMCX", "NOPE"])
+    assert result["removed_count"] == 2
+    assert "NOPE" in result["not_found"]
+    ids = {i.id for i in reg.list_all()}
+    assert "equity:AAPL" in ids               # untouched
+    assert "equity:DSY" not in ids and "equity:SMCX" not in ids

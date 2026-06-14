@@ -219,6 +219,31 @@ def ensure_default_book() -> dict:
     return {"added": added, "already_present": present, "added_count": len(added)}
 
 
+def prune(refs: list[str]) -> dict:
+    """Bulk-remove a caller-supplied list of instruments (by id, code, or symbol).
+
+    Explicit and safe — only removes what is named (never a blanket wipe). Useful
+    for clearing transient/junk tickers (e.g. momentum movers) from the registry
+    in one call instead of many UI clicks. Returns removed ids + any not found.
+    """
+    removed: list[str] = []
+    not_found: list[str] = []
+    for ref in refs:
+        ref = (ref or "").strip()
+        if not ref:
+            continue
+        try:
+            inst = resolve(ref)
+        except ValueError:
+            not_found.append(ref)
+            continue
+        if remove(inst.id):
+            removed.append(inst.id)
+        else:
+            not_found.append(ref)
+    return {"removed": removed, "not_found": not_found, "removed_count": len(removed)}
+
+
 def news_wire_targets() -> dict[str, TrackedInstrument]:
     """Instruments that can supply per-symbol news (proxy or direct)."""
     out: dict[str, TrackedInstrument] = {}

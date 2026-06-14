@@ -76,6 +76,23 @@ def ensure_default_book() -> Envelope:
     )
 
 
+class PruneInstruments(BaseModel):
+    refs: list[str] = Field(description="instrument ids / codes / symbols to remove")
+
+
+@router.post("/prune", response_model=Envelope)
+def prune_instruments(req: PruneInstruments) -> Envelope:
+    """Bulk-remove named instruments (clear transient/junk tickers in one call).
+    Only removes what's listed — never a blanket wipe."""
+    result = reg.prune(req.refs)
+    items = [i.to_dict() for i in reg.list_all()]
+    return Envelope(
+        data={**result, "instruments": items, "count": len(items)},
+        provider="registry",
+        freshness=_FRESHNESS,
+    )
+
+
 @router.get("/search", response_model=Envelope)
 def search_instruments(
     query: str = Query("", min_length=0),

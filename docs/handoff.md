@@ -54,9 +54,9 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
 
 ## Open items / next
 
-1. **Set `ALICE_URL`** on market-terminal's Railway service to the OpenAlice URL so
-   the Execution tab links/embeds the live instance. *(Operator never gave the
-   OpenAlice public URL to put in docs — fill it in when known.)*
+1. ~~**Set `ALICE_URL`** on market-terminal's Railway service~~ ✅ **DONE
+   (2026-06-14)** — operator set the variable in Railway; the Execution tab now
+   points at the live cloud OpenAlice.
 2. **First IBKR paper FX trade** — forex opens **Sun ~22:00 UTC**. Alice proposes a
    EURUSD/USDCHF/XAUUSD card → human approves `placeOrder` (GTC bracket).
 3. **Deploy Vibe-Trading** (second bot): create the 2nd Alpaca paper account, cloud
