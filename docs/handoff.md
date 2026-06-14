@@ -12,8 +12,9 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
 - **Execution agents pull research from it over MCP and trade on their own side.**
   Two are in play:
   - **OpenAlice** — 24/7 on its own Railway project; **Alpaca + IBKR paper**.
-  - **Vibe-Trading** (HKUDS) — a **second** bot, documented and planned on a
-    **separate Alpaca paper account** (deploy pending). See `docs/vibe-trading.md`.
+  - **Vibe-Trading** (HKUDS) — a **second** bot, **LIVE** on its own Railway
+    project (crypto-only), on a **separate Alpaca paper account** (`PA3RT2L7JKF7`).
+    See `docs/vibe-trading.md`.
 - A human approves every order. The research/execution split is deliberate
   (different risk profiles) — don't merge them, and no broker keys in this repo.
 
@@ -40,17 +41,23 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
   positions MUST use GTC legs**, and you must **verify on the venue after the close**
   (`getOrders` may show only the parent). See `docs/openalice-multi-broker.md`.
 
-## Recent changes since the last handoff (merged to `main`)
+## Recent changes (latest first, on `main`)
 
-- **UTA ids synced** to the Railway deploy across all docs + ROADMAP; **A9 marked
-  DONE** (cloud-hosted OpenAlice). (PR #92)
-- **Execution · Alice tab** made host-agnostic for the cloud OpenAlice — embeds an
-  HTTPS Alice, or shows a "set `ALICE_URL`" card. (PR #94)
-- **A10 code** (earlier): `obb_layer/ibkr_symbols.py` research↔IBKR contract map,
-  `decision_brief.execution` block + web pill, `ensure_default_book()` +
-  `POST /instruments/ensure-book`, `/health cpu_avx2`.
-- **A11 — Vibe-Trading second bot** documented (`docs/vibe-trading.md`, ROADMAP A11). (PR #95)
-- **Parked (draft, NOT merged):** PR #93 — fallback-agent doc. See "Open items".
+- **Vibe-Trading LIVE (A11)** — second bot deployed on its own Railway project:
+  DeepSeek brain, market-terminal MCP wired (`agent.json`), Alpaca **#2 paper**
+  `PA3RT2L7JKF7`, **crypto-only mandate** set + verified, `alpaca-py` persistence
+  baked into the fork image, Web-UI auth/`chown` fixes. End-to-end agent run **SUCCESS**.
+- **`ALICE_URL` set** — Execution tab now points at the live cloud OpenAlice.
+- **Instruments bulk-prune** endpoint added (`app/routers/instruments.py` + tests).
+- **Fallback agent DEFERRED** (operator decision) — see Open item #4.
+- **News Pulse analyst** pending Anthropic credits (key valid; rule-based fallback live).
+- Earlier: UTA id sync + **A9 DONE** (PR #92), Execution-tab host-agnostic (PR #94),
+  Vibe-Trading doc + **A10** contract-map / `decision_brief.execution` / `cpu_avx2` (PR #95).
+
+**Open draft PRs (not merged):** **#93** fallback-agent doc (deferred — see #4);
+**#82** old `openalice-use-cursor.sh` Cursor-switch helper (likely obsolete now
+that the fallback is deferred + cloud-headless supersedes the Cursor path). Both
+are candidates to **merge-doc-only or close**.
 
 ## Open items / next
 
@@ -101,9 +108,12 @@ this project. Canonical guidance is still `CLAUDE.md`; this is the live-state su
 4. **Fallback agent (PR #93) — DEFERRED (2026-06-14, operator decision).** A
    subscription cap only degrades **monitoring/new analysis**, not **protection**
    (GTC stops live on the broker's servers). The cron is modest (~12 runs/day), so
-   caps are unlikely from it alone. Kept documented in `openalice-cursor-fallback.md`;
-   revisit only if caps actually bite. Do **not** add the paid-API `agent-sdk`
-   profile for now.
+   caps are unlikely from it alone. The cloud-first reasoning (why **not** Cursor —
+   shell-only, not headless — nor Codex headless — MCP disabled — and to use a
+   dedicated **`agent-sdk`** profile instead) lives in **draft PR #93**, which is
+   **not merged** (`openalice-cursor-fallback.md` on `main` is still the older
+   WSL/interactive version). Revisit only if caps actually bite — then merge #93's
+   doc (or close it). Do **not** add the paid-API `agent-sdk` profile for now.
 5. Add `AUTO_RESTART_TIME` (e.g. `02:00 AM`) to the `ib-gateway` service so it
    re-auths through IBKR's daily logout unattended.
 6. **Rotate `AUTH_TOKEN`** before any non-paper/go-live (it was exposed during a
